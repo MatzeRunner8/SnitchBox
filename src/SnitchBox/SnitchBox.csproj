@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>SnitchBox</AssemblyName>
+    <RootNamespace>SnitchBox</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>SnitchBox.Program</StartupObject>
+    <Product>SnitchBox</Product>
+    <Company>justbox</Company>
+    <NoWarn>$(NoWarn);WPF0001;CA1416</NoWarn>
+    <SatelliteResourceLanguages>de;en</SatelliteResourceLanguages>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- SnitchBox läuft mit Administratorrechten, der Autostart sogar ohne Rückfrage, aber mit der Umgebung des Benutzers
+         (HKCU\Environment darf jedes seiner Programme setzen). Deshalb: keine Startup-Hooks (DOTNET_STARTUP_HOOKS) und
+         die .NET-Laufzeit nur aus dem systemweiten Ort (nicht über DOTNET_ROOT). -->
+    <StartupHookSupport>false</StartupHookSupport>
+    <AppHostDotNetSearch>Global</AppHostDotNetSearch>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SnitchBox.Core/SnitchBox.Core.csproj" />
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
+    <!-- Offizieller Ko-fi-Knopf (storage.ko-fi.com/cdn/kofi6.png, 580×146), eingebettet: die Einstellungen laden nichts aus dem Netz. -->
+    <Resource Include="kofi.png" />
+    <!-- Treiber WinDivert 2.2.2 (basil00, LGPLv3), unverändert aus dem offiziellen Release; wird beim Start nach
+         %ProgramData%\SnitchBox\driver entpackt, weil Windows einen Treiber nur als Datei laden kann. -->
+    <EmbeddedResource Include="../../third_party/windivert/WinDivert.dll" LogicalName="WinDivert.dll" Link="driver/WinDivert.dll" />
+    <EmbeddedResource Include="../../third_party/windivert/WinDivert64.sys" LogicalName="WinDivert64.sys" Link="driver/WinDivert64.sys" />
+  </ItemGroup>
+</Project>

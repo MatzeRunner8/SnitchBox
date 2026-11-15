@@ -1,0 +1,69 @@
+<Window x:Class="SnitchBox.RuleEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:SnitchBox"
+        Width="640" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="22,18,22,20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="130"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{l:L de='Aktion', en='Action'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+            <RadioButton x:Name="AllowRadio" GroupName="action" Content="{l:L de='Erlauben', en='Allow'}" Margin="0,0,20,0" Foreground="{StaticResource AllowBrush}" FontWeight="SemiBold"/>
+            <RadioButton x:Name="DenyRadio" GroupName="action" Content="{l:L de='Verbieten', en='Deny'}" Foreground="{StaticResource DenyBrush}" FontWeight="SemiBold"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="{l:L de='Programm', en='Program'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,4">
+            <Button DockPanel.Dock="Right" Content="{l:L de='Wählen …', en='Choose…'}" Padding="12,5" Margin="8,0,0,0" Click="Browse_Click"/>
+            <TextBox x:Name="ProcessBox" ToolTip="{l:L de='Voller Pfad der .exe, nur ein Dateiname wie chrome.exe, oder leer für jedes Programm', en='Full path of the .exe, just a file name like chrome.exe, or empty for any program'}"/>
+        </DockPanel>
+
+        <TextBlock Grid.Row="2" Text="{l:L de='Richtung', en='Direction'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <ComboBox x:Name="DirectionBox" Grid.Row="2" Grid.Column="1" Margin="0,4" HorizontalAlignment="Left" Width="260"/>
+
+        <TextBlock Grid.Row="3" Text="{l:L de='Gegenstelle', en='Remote'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <ComboBox x:Name="RemoteBox" Grid.Row="3" Grid.Column="1" Margin="0,4" HorizontalAlignment="Left" Width="260" SelectionChanged="RemoteBox_SelectionChanged"/>
+
+        <TextBlock x:Name="TargetsLabel" Grid.Row="4" VerticalAlignment="Center" Opacity="0.65"/>
+        <TextBox x:Name="TargetsBox" Grid.Row="4" Grid.Column="1" Margin="0,4" TextWrapping="Wrap" MaxHeight="90" VerticalScrollBarVisibility="Auto"
+                 ToolTip="{l:L de='Mehrere Einträge durch Komma trennen', en='Separate several entries with commas'}"/>
+
+        <TextBlock Grid.Row="5" Text="{l:L de='Port', en='Port'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+            <TextBox x:Name="PortsBox" Width="200" ToolTip="{l:L de='Leer = jeder Port. Beispiele: 443 · 80, 443 · 8000-8100', en='Empty = any port. Examples: 443 · 80, 443 · 8000-8100'}"/>
+            <ComboBox x:Name="ProtocolBox" Width="150" Margin="8,0,0,0"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="6" Text="{l:L de='Gültigkeit', en='Lifetime'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <ComboBox x:Name="LifetimeBox" Grid.Row="6" Grid.Column="1" Margin="0,4" HorizontalAlignment="Left" Width="260"/>
+
+        <TextBlock Grid.Row="7" Text="{l:L de='Profil', en='Profile'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <ComboBox x:Name="ProfileBox" Grid.Row="7" Grid.Column="1" Margin="0,4" HorizontalAlignment="Left" Width="260"/>
+
+        <CheckBox x:Name="PriorityBox" Grid.Row="8" Grid.Column="1" Margin="0,6"
+                  Content="{l:L de='Hohe Priorität (geht allen anderen Regeln vor)', en='High priority (overrides all other rules)'}"/>
+
+        <TextBlock Grid.Row="9" Text="{l:L de='Notiz', en='Notes'}" VerticalAlignment="Center" Opacity="0.65"/>
+        <TextBox x:Name="NotesBox" Grid.Row="9" Grid.Column="1" Margin="0,4"/>
+
+        <StackPanel Grid.Row="10" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="{l:L de='Abbrechen', en='Cancel'}" IsCancel="True" MinWidth="110" Padding="12,6" Margin="0,0,10,0"/>
+            <Button Content="{l:L de='Sichern', en='Save'}" IsDefault="True" MinWidth="110" Padding="12,6" Click="Save_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

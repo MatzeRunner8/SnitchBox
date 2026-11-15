@@ -1,0 +1,66 @@
+<Window x:Class="SnitchBox.AlertWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:SnitchBox"
+        Width="560" SizeToContent="Height" ResizeMode="NoResize" Topmost="True" ShowActivated="False"
+        WindowStartupLocation="Manual">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <StackPanel Margin="24,20,24,22">
+        <!-- Wer will wohin -->
+        <DockPanel>
+            <Image x:Name="IconImage" Width="56" Height="56" DockPanel.Dock="Left" Margin="0,2,16,0" VerticalAlignment="Top"/>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="NameText" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock x:Name="SummaryText" TextWrapping="Wrap" Margin="0,5,0,0" FontSize="14.5" LineHeight="21"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Einzelheiten -->
+        <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="{l:L de='Adresse', en='Address'}" Style="{StaticResource Dim}" Margin="0,2,16,2"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AddressText" Margin="0,2" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="1" Text="{l:L de='Programm', en='Program'}" Style="{StaticResource Dim}" Margin="0,2,16,2"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="PathText" Margin="0,2" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Row="2" Text="{l:L de='Herausgeber', en='Publisher'}" Style="{StaticResource Dim}" Margin="0,2,16,2"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="PublisherText" Margin="0,2" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Row="3" x:Name="NamesLabel" Text="{l:L de='Weitere Namen', en='Other names'}" Style="{StaticResource Dim}" Margin="0,2,16,2"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="NamesText" Margin="0,2" TextWrapping="Wrap"/>
+            </Grid>
+        </Border>
+
+        <!-- Reichweite und Dauer der Entscheidung -->
+        <TextBlock Text="{l:L de='Die Entscheidung gilt für', en='The decision applies to'}" Margin="0,16,0,6" FontWeight="SemiBold"/>
+        <StackPanel x:Name="ScopePanel"/>
+        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <TextBlock Text="{l:L de='Gültigkeit', en='Lifetime'}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"/>
+            <ComboBox x:Name="LifetimeBox" Width="230"/>
+        </StackPanel>
+        <TextBlock x:Name="UnknownHint" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,10,0,0" Style="{StaticResource Dim}"/>
+
+        <!-- Rot verbietet, Grün erlaubt -->
+        <Grid Margin="0,22,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="DenyButton" Style="{StaticResource DenyButton}" FontSize="15" Padding="14,10" Content="{l:L de='_Verbieten', en='_Deny'}" Click="Deny_Click"/>
+            <Button x:Name="AllowButton" Grid.Column="2" Style="{StaticResource AllowButton}" FontSize="15" Padding="14,10" Content="{l:L de='_Erlauben', en='_Allow'}" Click="Allow_Click"/>
+        </Grid>
+        <TextBlock x:Name="WaitingText" Margin="0,12,0,0" Style="{StaticResource Dim}" HorizontalAlignment="Center"/>
+    </StackPanel>
+</Window>

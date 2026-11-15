@@ -1,0 +1,294 @@
+<Window x:Class="SnitchBox.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:SnitchBox"
+        Width="1280" Height="780" MinWidth="900" MinHeight="540" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <DockPanel Margin="14,10,14,14">
+        <!-- Kopfzeile: Filter, Betriebsart, Profil, Zustand -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+        <DockPanel LastChildFill="True">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <CheckBox x:Name="FilterSwitch" Content="{l:L de='Netzwerkfilter', en='Network Filter'}" VerticalAlignment="Center" Click="FilterSwitch_Click"/>
+                <TextBlock Text="{l:L de='Modus', en='Mode'}" VerticalAlignment="Center" Margin="22,0,8,0" Style="{StaticResource Dim}"/>
+                <ComboBox x:Name="ModeBox" Width="270" VerticalAlignment="Center" SelectionChanged="ModeBox_SelectionChanged">
+                    <!-- Orange fragt nach, Grün erlaubt alles, Rot verbietet alles. -->
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="11" Height="11" Fill="{Binding Brush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding Title}" Foreground="{Binding Brush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{l:L de='Profil', en='Profile'}" VerticalAlignment="Center" Margin="22,0,8,0" Style="{StaticResource Dim}"/>
+                <ComboBox x:Name="ProfileBox" Width="170" VerticalAlignment="Center" SelectionChanged="ProfileBox_SelectionChanged"/>
+            </StackPanel>
+            <Border x:Name="StatusPill" Style="{StaticResource Badge}" HorizontalAlignment="Right" Padding="12,4,12,5" CornerRadius="13" Margin="16,0,0,0">
+                <TextBlock x:Name="StatusText" Style="{StaticResource BadgeText}" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
+            </Border>
+        </DockPanel>
+        </Border>
+
+        <!-- Die vier Bereiche als Schaltflächen; die Reiter des TabControl selbst sind ausgeblendet. -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+            <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="0" Checked="Nav_Checked" IsChecked="True">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource NavIcon}" Text="&#xE8FD;"/>
+                    <TextBlock Text="{l:L de='Regeln', en='Rules'}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="1" Checked="Nav_Checked">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource NavIcon}" Text="&#xE774;"/>
+                    <TextBlock Text="{l:L de='Netzwerkmonitor', en='Network Monitor'}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="2" Checked="Nav_Checked">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource NavIcon}" Text="&#xEA18;"/>
+                    <TextBlock Text="{l:L de='Blocklisten', en='Blocklists'}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="3" Checked="Nav_Checked">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource NavIcon}" Text="&#xE713;"/>
+                    <TextBlock Text="{l:L de='Einstellungen', en='Settings'}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </RadioButton>
+        </StackPanel>
+
+        <TabControl x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged" Padding="0" BorderThickness="0">
+            <!-- Regeln -->
+            <TabItem Visibility="Collapsed">
+                <DockPanel Margin="0,10,0,0">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Neue Regel …', en='New Rule…'}" Click="NewRule_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Bearbeiten …', en='Edit…'}" Click="EditRule_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Löschen', en='Delete'}" Click="DeleteRule_Click"/>
+                            <Button Padding="12,5" Content="{l:L de='Importieren …', en='Import…'}" Click="ImportRules_Click" Margin="12,0,6,0"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Exportieren …', en='Export…'}" Click="ExportRules_Click"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ComboBox x:Name="RuleFilterBox" Width="190" Margin="0,0,8,0" SelectionChanged="RuleFilter_Changed"/>
+                            <TextBox x:Name="RuleSearchBox" Width="210" TextChanged="RuleFilter_Changed" ToolTip="{l:L de='Regeln durchsuchen', en='Search rules'}"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock x:Name="RulesInfo" DockPanel.Dock="Bottom" Margin="2,8,0,0" Style="{StaticResource Dim}"/>
+                    <ListView x:Name="RulesList" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionMode="Extended" MouseDoubleClick="RulesList_MouseDoubleClick" KeyDown="RulesList_KeyDown">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="{l:L de='Aktiv', en='On'}" Width="60">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="0"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Aktion', en='Action'}" Width="130">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource Badge}" Background="{Binding ActionBrush}">
+                                                <TextBlock Style="{StaticResource BadgeText}" Text="{Binding ActionText}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Prozess', en='Process'}" Width="220">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" ToolTip="{Binding ProcessPath}">
+                                                <Image Source="{Binding Icon}" Width="18" Height="18" Margin="0,0,7,0"/>
+                                                <TextBlock Text="{Binding ProcessName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Regel', en='Rule'}" Width="430">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Description}" ToolTip="{Binding Notes}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Gültigkeit', en='Lifetime'}" Width="150" DisplayMemberBinding="{Binding Lifetime}"/>
+                                <GridViewColumn Header="{l:L de='Profil', en='Profile'}" Width="110" DisplayMemberBinding="{Binding Profile}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Netzwerkmonitor -->
+            <TabItem Visibility="Collapsed">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="310" MinWidth="200"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Gesamter Datenverkehr des Rechners -->
+                    <Border Grid.ColumnSpan="3" Height="82" Margin="0,0,0,10" Style="{StaticResource Card}" Padding="12,7">
+                        <Grid>
+                            <Grid x:Name="ChartArea" Margin="0,18,0,0" ClipToBounds="True">
+                                <Polyline x:Name="DownLine" Stroke="#2E8BE6" StrokeThickness="1.6" StrokeLineJoin="Round"/>
+                                <Polyline x:Name="UpLine" Stroke="#E08A2E" StrokeThickness="1.6" StrokeLineJoin="Round"/>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                                <TextBlock Text="{l:L de='Datenverkehr gesamt', en='Total traffic'}" Style="{StaticResource Dim}" Margin="0,0,18,0"/>
+                                <TextBlock x:Name="DownText" Foreground="#2E8BE6" Margin="0,0,14,0"/>
+                                <TextBlock x:Name="UpText" Foreground="#E08A2E"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <ListView x:Name="ProcessList" Grid.Row="1" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="ProcessList_SelectionChanged">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,4" ToolTip="{Binding Path}">
+                                    <Image Source="{Binding Icon}" Width="28" Height="28" Margin="0,0,10,0" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="190"/>
+                                            <Ellipse Width="8" Height="8" Fill="{Binding StateBrush}" Margin="7,1,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                            <TextBlock Text="{Binding DownText}" Foreground="#2E8BE6" FontSize="12" MinWidth="92" Margin="0,0,14,0"/>
+                                            <TextBlock Text="{Binding UpText}" Foreground="#E08A2E" FontSize="12"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Summary}" Opacity="0.6" FontSize="11.5"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <GridSplitter Grid.Row="1" Grid.Column="1" Width="8" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
+                    <ListView x:Name="ConnectionList" Grid.Row="1" Grid.Column="2" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="{l:L de='Zustand', en='State'}" Width="112">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource Badge}" Background="{Binding StateBrush}" ToolTip="{Binding Reason}">
+                                                <TextBlock Style="{StaticResource BadgeText}" Text="{Binding StateText}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Prozess', en='Process'}" Width="165" DisplayMemberBinding="{Binding Process}"/>
+                                <GridViewColumn Header="{l:L de='Gegenstelle', en='Remote'}" Width="270">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Host}" ToolTip="{Binding Details}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Port', en='Port'}" Width="92" DisplayMemberBinding="{Binding PortText}"/>
+                                <GridViewColumn Header="{l:L de='Richtung', en='Direction'}" Width="122" DisplayMemberBinding="{Binding DirectionText}"/>
+                                <GridViewColumn Header="{l:L de='Anzahl', en='Count'}" Width="80" DisplayMemberBinding="{Binding Count}"/>
+                                <GridViewColumn Header="{l:L de='Zuletzt', en='Last'}" Width="95" DisplayMemberBinding="{Binding Last}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                    <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0">
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                            <Button Style="{StaticResource AllowButton}" Margin="0,0,6,0" Content="{l:L de='Erlauben …', en='Allow…'}" Click="MonitorAllow_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung erlaubt', en='Create a rule that allows the selected connection'}"/>
+                            <Button Style="{StaticResource DenyButton}" Margin="0,0,6,0" Content="{l:L de='Verbieten …', en='Deny…'}" Click="MonitorDeny_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung verbietet', en='Create a rule that denies the selected connection'}"/>
+                            <Button Padding="12,5" Content="{l:L de='Verlauf leeren', en='Clear History'}" Click="MonitorClear_Click" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Dim}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="{l:L de='Verbindungen und Datenmengen seit dem Start von SnitchBox. ↓ empfangen, ↑ gesendet; in Klammern die aktuelle Rate.', en='Connections and data volumes since SnitchBox started. ↓ received, ↑ sent; current rate in parentheses.'}"/>
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Blocklisten -->
+            <TabItem Visibility="Collapsed">
+                <DockPanel Margin="0,10,0,0">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                            <Button Padding="12,5" Content="{l:L de='Abonnieren', en='Subscribe'}" Click="BlocklistAdd_Click" Margin="8,0,18,0"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Jetzt aktualisieren', en='Update Now'}" Click="BlocklistUpdate_Click"/>
+                            <Button Padding="12,5" Content="{l:L de='Entfernen', en='Remove'}" Click="BlocklistRemove_Click" Margin="0"/>
+                        </StackPanel>
+                        <ComboBox x:Name="BlocklistUrlBox" IsEditable="True" ToolTip="{l:L de='Adresse einer Liste (.lsrules, hosts-Datei oder eine Domain je Zeile) eingeben oder einen Vorschlag wählen', en='Enter the address of a list (.lsrules, hosts file or one domain per line) or pick a suggestion'}"/>
+                    </DockPanel>
+                    <TextBlock x:Name="BlocklistInfo" DockPanel.Dock="Bottom" Margin="2,8,0,0" Style="{StaticResource Dim}" TextWrapping="Wrap"
+                               Text="{l:L de='Eine Blockliste verbietet allen Programmen Verbindungen zu den aufgeführten Domains samt Subdomains. Eigene Erlauben-Regeln für ein Programm gehen vor.', en='A blocklist denies all programs connections to the listed domains including subdomains. Your own allow rules for a program take precedence.'}"/>
+                    <ListView x:Name="BlocklistList" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="{l:L de='Aktiv', en='On'}" Width="60">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="0"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Name', en='Name'}" Width="300" DisplayMemberBinding="{Binding Name}"/>
+                                <GridViewColumn Header="{l:L de='Einträge', en='Entries'}" Width="100" DisplayMemberBinding="{Binding Count}"/>
+                                <GridViewColumn Header="{l:L de='Aktualisiert', en='Updated'}" Width="150" DisplayMemberBinding="{Binding Updated}"/>
+                                <GridViewColumn Header="{l:L de='Adresse', en='Address'}" Width="430" DisplayMemberBinding="{Binding Url}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Einstellungen -->
+            <TabItem Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="6,0,6,10" MaxWidth="760" HorizontalAlignment="Left">
+                        <TextBlock Style="{StaticResource Section}" Text="{l:L de='Allgemein', en='General'}"/>
+                        <CheckBox x:Name="AutostartBox" Click="Autostart_Click" Content="{l:L de='Beim Anmelden starten (ohne Rückfrage der Benutzerkontensteuerung)', en='Start at sign-in (without a User Account Control prompt)'}"/>
+                        <TextBlock x:Name="AutostartHint" Visibility="Collapsed" TextWrapping="Wrap" Margin="22,4,0,2" Foreground="#E0383E"/>
+                        <CheckBox x:Name="IncomingBox" Click="Incoming_Click" Margin="0,6,0,0" Content="{l:L de='Auch eingehende Verbindungen überwachen', en='Also monitor incoming connections'}"/>
+                        <CheckBox x:Name="AutoUpdateBox" Click="AutoUpdate_Click" Margin="0,6,0,0" Content="{l:L de='Blocklisten täglich aktualisieren', en='Update blocklists daily'}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Text="{l:L de='Sprache', en='Language'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="LanguageBox" MinWidth="220" SelectionChanged="LanguageBox_SelectionChanged"/>
+                            <!-- Ko-fi: Das Bild ist eingebettet; erst der Klick öffnet die Seite, im Browser mit den Rechten des Benutzers (DesktopShell). -->
+                            <Button Style="{StaticResource ImageButton}" Click="Kofi_Click" Margin="18,0,0,0" VerticalAlignment="Center"
+                                    AutomationProperties.Name="Buy me a coffee (Ko-fi)"
+                                    ToolTip="{l:L de='SnitchBox ist kostenlos. Wenn es dir gefällt, kannst du mir über Ko-fi einen Kaffee spendieren – der Knopf öffnet die Seite im Browser.', en='SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.'}">
+                                <Image Source="kofi.png" Height="30" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                            </Button>
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource Section}" Text="{l:L de='Profile', en='Profiles'}"/>
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource Dim}" Margin="0,0,0,8"
+                                   Text="{l:L de='Regeln können nur in einem bestimmten Profil gelten, etwa strengere unterwegs. Das aktive Profil wählst du oben oder im Menü des Symbols im Infobereich.', en='Rules can apply only in a certain profile, for example stricter ones on the road. Pick the active profile above or in the tray icon menu.'}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox x:Name="ProfileNameBox" Width="220" Margin="0,0,8,0"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Profil anlegen', en='Add Profile'}" Click="ProfileAdd_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Aktives Profil löschen', en='Delete Active Profile'}" Click="ProfileDelete_Click"/>
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource Section}" Text="{l:L de='Netzwerkfilter', en='Network Filter'}"/>
+                        <TextBlock x:Name="DriverText" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Filter neu starten', en='Restart Filter'}" Click="RestartFilter_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Protokoll öffnen', en='Open Log'}" Click="OpenLog_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Werksregeln wiederherstellen', en='Restore Factory Rules'}" Click="RestoreFactory_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Über SnitchBox', en='About SnitchBox'}" Click="About_Click"/>
+                        </StackPanel>
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource Dim}" Margin="0,14,0,0"
+                                   Text="{l:L de='Der Filter wirkt, solange SnitchBox läuft; nach dem Beenden läuft der Verkehr ungefiltert. Überwacht werden TCP und UDP. Hostnamen stammen aus den DNS-Antworten des Rechners – nutzt ein Programm verschlüsseltes DNS (DoH), zeigt SnitchBox die IP-Adresse.', en='The filter is active while SnitchBox runs; after quitting, traffic is unfiltered. TCP and UDP are monitored. Hostnames come from the DNS answers of this PC – if a program uses encrypted DNS (DoH), SnitchBox shows the IP address.'}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
