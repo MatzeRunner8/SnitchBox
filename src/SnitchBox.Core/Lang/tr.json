@@ -300,5 +300,7 @@
  "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: yeni virüs imzaları ve bulut koruması (MsMpEng, MpCmdRun, NisSrv…)",
  "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Windows güncelleştirmeleri (SIHClient, MoUsoCoreWorker, WaaSMedicAgent…); svchost.exe içindeki hizmetlere ayrı bir varsayılan kural izin verir",
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows'un parçası: Bunu engellersen Windows artık güncelleştirme almaz.",
- "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows'un parçası: Bunu engellersen virüs koruması artık yeni imzalar ve bulut koruması almaz."
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows'un parçası: Bunu engellersen virüs koruması artık yeni imzalar ve bulut koruması almaz.",
+ "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Ağ filtresi kapatılsın mı?\n\nSnitchBox bundan sonra her bağlantıyı sormadan geçirir – kurallarının ve engelleme listelerinin yasakladıkları dahil. İstediğin zaman “Ağ filtresi” ile yeniden açabilirsin.",
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "SnitchBox kapatılsın mı?\n\nSnitchBox olmadan hiçbir şey filtrelenmez: SnitchBox yeniden başlatılana kadar her bağlantı sormadan geçer."
 }

@@ -183,5 +183,11 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
   rules of single programs, with the icon of Settings or Windows Security; the same in the Network Monitor; the alert window names the
   component and says what denying it does.
 
+## Build 24
+- Warning before protection ends (user request): turning off the network filter (switch in the main window, tray menu) and
+  “Quit (Filter Off)” in the tray menu now ask first – afterwards every connection passes without asking. The default button is “No”,
+  so an accidental Enter changes nothing. Quitting only asks while SnitchBox is actually filtering; turning the filter on never asks.
+  App.SetFilterEnabled / App.QuitAsked; if cancelled, the switch returns to the actual state.
+
 ## Open
 - Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

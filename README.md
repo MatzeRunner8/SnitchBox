@@ -16,7 +16,7 @@ or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both nee
 ## Features
 
 - Alert window for every new connection: program, host name, port; lifetime (Once … Forever) and scope (any connection, port, domain, host)
-- Modes: Alert Mode, Silent Mode “allow all” / “deny all”; network filter on/off
+- Modes: Alert Mode, Silent Mode “allow all” / “deny all”; network filter on/off (with a warning before turning it off or quitting)
 - Per-program rules: allow/deny, outgoing/incoming, hosts, domains, address ranges, local network, system DNS servers, ports, TCP/UDP, priority, lifetime, profiles
 - Network Monitor: every connection attempt per program and remote, data volume and current rate per program, total data rate, create a rule straight from a row
 - Subscribe to blocklists (.lsrules, hosts files, domain lists) with daily updates; import/export of .lsrules

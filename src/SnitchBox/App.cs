@@ -165,7 +165,7 @@ public sealed class App : Application
                                 + "\n\n" + Loc.T("Details stehen in ", "Details are in ") + Log.FilePath, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        _tray = new Tray(ShowMain, ShowAlert, Quit);
+        _tray = new Tray(ShowMain, ShowAlert, QuitAsked);
         Engine.AlertsChanged += () => Dispatcher.BeginInvoke(UpdateAlert);
         Engine.RulesChanged += () => Dispatcher.BeginInvoke(() => _tray?.Refresh());
 
@@ -274,6 +274,40 @@ public sealed class App : Application
                                   "The alert window could not be opened. SnitchBox therefore switched to silent mode “allow all”.\n\n") + ErrorText(e),
                 Title, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    /// <summary>Rückfrage, bevor der Schutz endet. Vorauswahl ist „Nein“, damit ein versehentliches Enter nichts ausschaltet.</summary>
+    private static bool ConfirmUnprotected(string text)
+    {
+        var owner = Current.Windows.OfType<SnitchBox.MainWindow>().FirstOrDefault(w => w.IsVisible);
+        var result = owner != null
+            ? MessageBox.Show(owner, text, Title, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(text, Title, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        return result == MessageBoxResult.Yes;
+    }
+
+    /// <summary>Netzwerkfilter ein- oder ausschalten (Hauptfenster und Infobereich). Vor dem Ausschalten warnt SnitchBox: danach geht
+    /// jede Verbindung ungefragt durch. Liefert false, wenn der Nutzer abbricht.</summary>
+    internal static bool SetFilterEnabled(bool on)
+    {
+        var current = Engine.Read(s => s.Settings.FilterEnabled);
+        if (on == current) return true;
+        if (!on && !ConfirmUnprotected(Loc.T(
+                "Netzwerkfilter ausschalten?\n\nDanach lässt SnitchBox jede Verbindung ungefragt durch – auch solche, die deine Regeln und Blocklisten verbieten. Einschalten geht jederzeit wieder über „Netzwerkfilter“.",
+                "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.")))
+            return false;
+        Engine.Mutate(s => s.Settings.FilterEnabled = on);
+        return true;
+    }
+
+    /// <summary>„Beenden“ im Infobereich: Ohne laufendes SnitchBox wird nicht gefiltert – solange gerade gefiltert wird, erst nachfragen.</summary>
+    private void QuitAsked()
+    {
+        if (Filtering(Engine.Read(s => s.Settings.FilterEnabled)) && !ConfirmUnprotected(Loc.T(
+                "SnitchBox beenden?\n\nOhne SnitchBox wird nicht gefiltert: Jede Verbindung geht ungefragt durch, bis SnitchBox wieder gestartet wird.",
+                "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.")))
+            return;
+        Quit();
     }
 
     private void Quit()
@@ -532,7 +566,7 @@ internal sealed class Tray : IDisposable
         var waiting = App.Engine.Alerts.Count;
         if (waiting > 0) Item(menu, Loc.F("Offene Nachfragen zeigen ({0})", "Show Pending Alerts ({0})", waiting), _alerts);
         menu.Items.Add(new Separator());
-        Item(menu, Loc.T("Netzwerkfilter", "Network Filter"), () => App.Engine.Mutate(s => s.Settings.FilterEnabled = !s.Settings.FilterEnabled), settings.FilterEnabled);
+        Item(menu, Loc.T("Netzwerkfilter", "Network Filter"), () => App.SetFilterEnabled(!settings.FilterEnabled), settings.FilterEnabled);
         foreach (var m in Enum.GetValues<OperationMode>())
         {
             var item = Item(menu, ModeTitle(m), () => App.Engine.Mutate(s => s.Settings.Mode = m), settings.Mode == m);

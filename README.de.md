@@ -16,7 +16,7 @@ oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide br
 ## Funktionen
 
 - Warnfenster je neuer Verbindung: Programm, Hostname, Port; Gültigkeit (Einmal … Für immer) und Reichweite (jede Verbindung, Port, Domain, Host)
-- Betriebsarten: Warnmodus, Stiller Modus „alles erlauben“ / „alles verbieten“; Netzwerkfilter ein/aus
+- Betriebsarten: Warnmodus, Stiller Modus „alles erlauben“ / „alles verbieten“; Netzwerkfilter ein/aus (mit Warnung vor dem Ausschalten und Beenden)
 - Regeln je Programm: Erlauben/Verbieten, aus-/eingehend, Hosts, Domains, Adressbereiche, lokales Netz, DNS-Server des Systems, Ports, TCP/UDP, Priorität, Gültigkeit, Profile
 - Netzwerkmonitor: jeder Verbindungsaufbau je Programm und Gegenstelle, Datenmengen und aktuelle Rate je Programm, Gesamtdatenrate, Regel direkt aus einer Zeile
 - Blocklisten abonnieren (.lsrules, hosts-Dateien, Domainlisten), tägliche Aktualisierung; Import/Export von .lsrules

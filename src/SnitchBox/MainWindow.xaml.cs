@@ -321,7 +321,8 @@ public partial class MainWindow : Window
     private void FilterSwitch_Click(object sender, RoutedEventArgs e)
     {
         var on = FilterSwitch.IsChecked == true;
-        App.Engine.Mutate(s => s.Settings.FilterEnabled = on);
+        // Abgebrochen (Rückfrage vor dem Ausschalten): Schalter wieder auf den tatsächlichen Stand.
+        if (!App.SetFilterEnabled(on)) FilterSwitch.IsChecked = App.Engine.Read(s => s.Settings.FilterEnabled);
     }
 
     private void ModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

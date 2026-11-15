@@ -300,5 +300,7 @@
  "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: nuove firme dei virus e protezione cloud (MsMpEng, MpCmdRun, NisSrv…)",
  "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Aggiornamenti di Windows (SIHClient, MoUsoCoreWorker, WaaSMedicAgent…); i servizi in svchost.exe sono consentiti da una regola predefinita a parte",
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Componente di Windows: se lo blocchi, Windows non riceve più aggiornamenti.",
- "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Componente di Windows: se lo blocchi, la protezione antivirus non riceve più nuove firme né la protezione cloud."
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Componente di Windows: se lo blocchi, la protezione antivirus non riceve più nuove firme né la protezione cloud.",
+ "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Disattivare il filtro di rete?\n\nSnitchBox lascerà passare ogni connessione senza chiedere, anche quelle vietate dalle tue regole e blocklist. Puoi riattivarlo in qualsiasi momento con «Filtro di rete».",
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Uscire da SnitchBox?\n\nSenza SnitchBox nulla viene filtrato: ogni connessione passa senza chiedere finché SnitchBox non viene riavviato."
 }

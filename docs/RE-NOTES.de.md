@@ -184,5 +184,11 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
   für einzelne Programme, mit dem Symbol der Einstellungen bzw. der Windows-Sicherheit; ebenso im Netzwerkmonitor; das Warnfenster nennt
   den Bestandteil und sagt, was ein Verbot bewirkt.
 
+## Build 24
+- Warnung, bevor der Schutz endet (Wunsch des Nutzers): Ausschalten des Netzwerkfilters (Schalter im Hauptfenster, Menü im Infobereich)
+  und „Beenden (Filter aus)“ im Infobereich fragen jetzt erst nach – danach geht jede Verbindung ungefragt durch. Vorauswahl ist „Nein“,
+  ein versehentliches Enter ändert also nichts. Beenden fragt nur, solange SnitchBox wirklich filtert; Einschalten fragt nie.
+  App.SetFilterEnabled / App.QuitAsked; bei Abbruch springt der Schalter auf den tatsächlichen Stand zurück.
+
 ## Offen
 - Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.

@@ -300,5 +300,7 @@
  "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: 새 바이러스 서명 및 클라우드 보호(MsMpEng, MpCmdRun, NisSrv 등)",
  "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Windows 업데이트(SIHClient, MoUsoCoreWorker, WaaSMedicAgent 등). svchost.exe의 서비스는 별도의 기본 규칙으로 허용됩니다",
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows의 일부: 이를 차단하면 Windows가 더 이상 업데이트를 받지 못합니다.",
- "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows의 일부: 이를 차단하면 바이러스 보호가 더 이상 새 서명과 클라우드 보호를 받지 못합니다."
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows의 일부: 이를 차단하면 바이러스 보호가 더 이상 새 서명과 클라우드 보호를 받지 못합니다.",
+ "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "네트워크 필터를 끌까요?\n\n끄면 SnitchBox가 모든 연결을 묻지 않고 통과시킵니다. 규칙과 차단 목록으로 금지한 연결도 포함됩니다. 언제든지 “네트워크 필터”에서 다시 켤 수 있습니다.",
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "SnitchBox를 종료할까요?\n\nSnitchBox가 없으면 아무것도 필터링되지 않습니다. SnitchBox를 다시 시작할 때까지 모든 연결이 묻지 않고 통과합니다."
 }
