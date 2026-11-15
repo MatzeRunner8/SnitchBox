@@ -1,139 +1,153 @@
-# Befunde am Original und Technik-Entscheidungen
+# Findings on the original and technical decisions
 
-Vorlage: Little Snitch 6.5 (Build 7303), /Applications/Little Snitch.app. Untersucht mit REA (statisch) und den mitgelieferten Textdateien.
-Es wurde kein Code und keine Grafik übernommen; übernommen sind Bedienkonzept und das offene .lsrules-Format.
+**English** · [Deutsch](RE-NOTES.de.md)
 
-## Aufbau des Originals (beobachtet)
-- Hauptprogramm (Regeln/Einstellungen), dazu Components/: „Little Snitch Agent.app“ (Warnfenster, Menüleiste),
-  „Little Snitch Network Monitor.app“, „Software Update.app“, Kommandozeile `littlesnitch`.
-- Filter: Systemerweiterungen at.obdev.littlesnitch.networkextension und …endpointsecurity; Daemon in /Library/Application Support.
-- Warnfenster (Agent, ConnectionAlert.strings): „… wants to connect to %host on %port“, Reichweiten „Any Connection“, „Only port“,
-  „Only %host“, „Only %host and %port“, „domain %@“, „Only local network“; ein-/ausgehend getrennt.
-- Gültigkeit (RuleLifetimeOption.strings): Once, Until Quit, Until Logout, Until Restart, 1 Minute, 10 Minutes, 2 Hours, 1 Day, 7 Days, 30 Days, Forever.
-- Betriebsarten: Alert Mode, Silent Mode (allow/deny); Profile; Regelgruppen und Blocklisten mit Abo.
-- Regel-Rangfolge laut Texten: hohe Priorität, genauere Regeln überdecken allgemeinere („redundant/overridden“).
+Model: Little Snitch 6.5 (build 7303), /Applications/Little Snitch.app. Examined with REA (static analysis) and the bundled text files.
+No code and no graphics were taken over; adopted are the user interface concept and the open .lsrules format.
 
-## .lsrules (REA search_strings im Hauptprogramm, Evidence ev_abb2d20a…)
-Schlüssel im Programm vorhanden: name, description, rules, action (allow/deny/ask), process, via, direction (incoming/outgoing),
+## Structure of the original (observed)
+- Main app (rules/settings), plus Components/: “Little Snitch Agent.app” (alert window, menu bar),
+  “Little Snitch Network Monitor.app”, “Software Update.app”, command line tool `littlesnitch`.
+- Filter: system extensions at.obdev.littlesnitch.networkextension and …endpointsecurity; daemon in /Library/Application Support.
+- Alert window (Agent, ConnectionAlert.strings): “… wants to connect to %host on %port”, scopes “Any Connection”, “Only port”,
+  “Only %host”, “Only %host and %port”, “domain %@”, “Only local network”; incoming and outgoing handled separately.
+- Lifetime (RuleLifetimeOption.strings): Once, Until Quit, Until Logout, Until Restart, 1 Minute, 10 Minutes, 2 Hours, 1 Day, 7 Days, 30 Days, Forever.
+- Modes: Alert Mode, Silent Mode (allow/deny); profiles; rule groups and blocklists with subscriptions.
+- Rule precedence according to the texts: high priority; more specific rules override more general ones (“redundant/overridden”).
+
+## .lsrules (REA search_strings in the main app, evidence ev_abb2d20a…)
+Keys present in the app: name, description, rules, action (allow/deny/ask), process, via, direction (incoming/outgoing),
 priority, disabled, ports, protocol, remote (any, local-net, multicast, broadcast, bonjour, bpf), remote-hosts, remote-domains,
 remote-addresses, notes, lifetime, creationDate/modificationDate, owner, denied-remote-domains/-hosts/-addresses/-notes.
-SnitchBox liest und schreibt davon: action, process, direction, priority, disabled, ports, protocol, remote* (any, local-net, dns-servers;
-multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-domains/-hosts.
+SnitchBox reads and writes: action, process, direction, priority, disabled, ports, protocol, remote* (any, local-net, dns-servers;
+multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains/-hosts.
 
-## Umsetzung unter Windows
-- Abfangen: WinDivert-Handle auf der Netzwerk-Schicht mit Filter
+## Implementation on Windows
+- Interception: a WinDivert handle on the network layer with the filter
   `!loopback and ((outbound and ((tcp.Syn and !tcp.Ack) or udp)) or (inbound and ((tcp.Syn and !tcp.Ack) or udp.SrcPort == 53)))`.
-  Nur diese Pakete laufen durch das Programm; bestehende TCP-Verbindungen bleiben im Kernel.
-- Prozess zum Paket: zweites Handle auf der Socket-Schicht (nur mitlesen) liefert PID je lokalem Port; Rückfall GetExtendedTcpTable/UdpTable.
-- Anhalten: unentschiedene Pakete werden zurückgehalten und nach der Antwort wieder eingespeist. TCP wiederholt das SYN selbst rund 20 s lang.
-- Verbieten: SYN verwerfen und dem Programm ein RST+ACK zustellen (schlägt sofort fehl statt nach Zeitüberschreitung). Eingehend: still verwerfen.
-- Datenmengen: drittes Handle (nur mitlesen, Priorität −1, Filter `!loopback and (tcp or udp)`) holt Pakete stapelweise per WinDivertRecvEx;
-  gezählt wird je lokalem Port, einmal je Sekunde dem Programm zugeordnet (TrafficStats im Kern). Bei Überlast fehlen nur Zahlen.
-- Hostnamen: DNS-Antworten (UDP von Port 53) werden mitgelesen, aber nur von den DNS-Servern des Systems und passend zu einer
-  beobachteten Anfrage; beim Start wird der DNS-Zwischenspeicher geleert.
-- Fehlersicher: Fehler in der Auswertung lassen das Paket durch; öffnet das Warnfenster nicht, wechselt SnitchBox in „alles erlauben“.
-- Geprüft per REA inspect_pe_resources: dist/SnitchBox.exe enthält Manifest (RT_MANIFEST, requireAdministrator), Icon-Gruppe mit 9 Größen, Versionsangabe.
-- WinDivert-Prüfsummen (build-windows.sh prüft sie): Release-Zip 63cb4176…3f15, WinDivert.dll c1e060ee…d9a2, WinDivert64.sys 8da08533…ddc2.
+  Only these packets pass through the program; established TCP connections stay in the kernel.
+- Process per packet: a second handle on the socket layer (sniff only) provides the PID per local port; fallback GetExtendedTcpTable/UdpTable.
+- Holding: undecided packets are held back and re-injected after the answer. TCP retransmits the SYN on its own for about 20 s.
+- Deny: drop the SYN and deliver an RST+ACK to the program (it fails immediately instead of after a timeout). Incoming: drop silently.
+- Data volume: a third handle (sniff only, priority −1, filter `!loopback and (tcp or udp)`) fetches packets in batches via WinDivertRecvEx;
+  counted per local port and assigned to the program once per second (TrafficStats in the core). Under overload only numbers go missing.
+- Host names: DNS answers (UDP from port 53) are read along, but only from the system’s DNS servers and only when they match an
+  observed query; the DNS cache is flushed at startup.
+- Fail-safe: errors during evaluation let the packet pass; if the alert window does not open, SnitchBox switches to “allow all”.
+- Checked with REA inspect_pe_resources: dist/SnitchBox.exe contains a manifest (RT_MANIFEST, requireAdministrator), an icon group with 9 sizes and version info.
+- WinDivert checksums (build-windows.sh verifies them): release zip 63cb4176…3f15, WinDivert.dll c1e060ee…d9a2, WinDivert64.sys 8da08533…ddc2.
 
-## Review und Korrekturen (1.0.1, Build 13)
-- Unbekannter Prozess: Antworten werden nicht mehr als Regel gemerkt (leeres Programmfeld hieße „jeder Prozess“).
-- Prozess zum Port: Socket-Ereignis „geschlossen“ entfernt die Zuordnung, sonst konnte nach Wiedervergabe eines Ports das alte Programm entscheiden.
-- Wartende Verbindungen: jede wird je Nachfrage vermerkt (nicht nur die mit aufgehobenem Paket); vorher hingen Verbindungen über
-  der 64-Paket-Grenze für immer.
-- Eingehend ohne lauschendes Programm: durchlassen statt nachfragen, ohne 15-ms-Wartezeit (Portscans erzeugten bis zu 100 Warnfenster).- DNS: Antworten zählen nur, wenn sie von einem DNS-Server des Systems kommen und eine beobachtete Anfrage (Server, Port, Kennung)
-  beantworten. Werksregel DNS nur noch zu diesen Servern (neue Gegenstelle „dns-servers“), DHCP nur ins lokale Netz; Werksregel-Stand 2
-  passt bestehende Regeln beim Start an.
-- Speichern: Stand unter der Sperre aufnehmen, außerhalb schreiben, nacheinander und nie älter über neuer; Blocklisten-Dateien außerhalb der Sperre.
-- Blocklisten gelten auch gegen allgemeine Erlauben-Regeln (siehe README).
-- Rechte: %ProgramData%\SnitchBox nur für Administratoren beschreibbar (fremde Einträge übernommen, Verknüpfungen entfernt); Treiberdateien
-  per SHA-256 mit dem eingebetteten Original verglichen; ipconfig/schtasks/notepad mit vollem Pfad; Aufgaben-XML im Datenordner;
-  Warnung beim Autostart aus einem für alle beschreibbaren Ordner; Build ohne Auspacken nach %TEMP%\.net.
-- Loopback-Pakete werden auch beim Ausweichfilter (ohne „!loopback“) sofort durchgelassen.
-- Zweite Runde nach adversarialer Prüfung (6 Blickwinkel, Gegenprüfung je Fund, 19 bestätigte Funde):
-  - Datenordner: Verknüpfung oder fremder Eigentümer → beiseiteschieben und mit fertiger DACL neu anlegen; fremde Einträge löschen statt
-    übernehmen (geöffnete Handles behielten sonst ihre Rechte); jeder Fehlschlag bricht den Start ab; vorher kein Protokoll (Log.Enabled).
-  - Treiberdateien bleiben nach der Hash-Prüfung bis nach WinDivertOpen geöffnet (nur Lesen freigegeben).
-  - „System“ (Rule.KernelProcess) wird nie als Dateiname verglichen, nur genau so (PID 4).
-  - csproj: StartupHookSupport=false, AppHostDotNetSearch=Global (keine Hooks, kein DOTNET_ROOT aus der Benutzerumgebung).
-  - DNS: leere Serverliste behält den letzten Stand; lokaler Resolver auch unter eigener Adresse erkannt, Werksregel dann nur zu ihm;
-    Anfragen nur nach erlaubendem Urteil gemerkt; bei Flut die ältesten verdrängt; unbekannter DNS-Server löst gedrosseltes Neulesen aus;
-    nach Adressänderung nach 3 s erneut lesen; Einlesen nacheinander. Blocklisten: DnsServers zählt nur bei bekannter Liste als Ausnahme.
-  - Prozess zum Port: Ereigniszeit (QPC, wie WinDivert-Timestamp) gespeichert; älter als 2 s → Gegenprobe mit der Port-Tabelle;
-    geschlossene Sockets bleiben 5 s (Pakete) bzw. 10 s (Datenmengen) als Rückfall; eingehend zählen nur lauschende TCP-Ports
-    (Lauscher-Tabelle, ergänzt um LISTEN-Ereignisse; Einzelheiten unten in Runde 4).
-  - Autostart: bestehende Aufgabe wird geprüft (Befehl aus schtasks /XML), Warnung einmal je Build und als Hinweis in den Einstellungen;
-    Prüfung als Erlaubt-Liste (nur Administratoren, SYSTEM, TrustedInstaller) inkl. DLLs daneben und übergeordneter Ordner.
-  - Demo-Modus nutzt %ProgramData%\SnitchBox\demo (gehärtet) statt %TEMP%.
-  - Vor Werksregel-Stand 2 Sicherung config.json.vor-werksregeln-2; „.defekt“-Sicherungen mit Zeitstempel.
-  - build-windows.ps1 bricht bei jedem Fehler ab; EditRule verwirft abgelaufene „bis zum Beenden“-Regeln mit ehrlichem Hinweis.
-- Dritte Runde nach zweiter Prüfung (5 Blickwinkel, 11 bestätigte Funde, alle niedrig):
-  - Datenordner: Datei an Stelle des Ordners und unlesbarer Eigentümer gelten als fremd (beiseiteschieben); fremde Einträge zuerst ohne
-    Übernahme löschen, sonst nach Übernahme – scheitert das Löschen, bekommen sie wieder einen fremden Eigentümer; Fehlermeldung nennt den Eintrag.
-  - Zwischendateien (config.json.tmp, Blocklisten) werden gelöscht und neu angelegt, nie überschrieben.
-  - Prozess zum Port: Rückstand der Socket-Ereignisse gemessen; über 100 ms gilt nur die Port-Tabelle. Ausgehendes TCP nur über die Zeile
-    mit genau dieser Gegenstelle (Adresse und Port), Zeilen ohne Besitzer ausgelassen. Lauscher je Adressfamilie, Loopback-Lauscher zählen
-    nicht, Neulesen nach 25 ms bei unbekanntem Port.
-  - DNS-Server zusätzlich aus der NRPT (Split-DNS); Neulesen bei unbekanntem Server höchstens alle 3 s.
-  - Autostart: Befehl aus %SystemRoot%\System32\Tasks\SnitchBox (UTF-16) statt aus der schtasks-Ausgabe; Warnung auch bei fehlender Zieldatei.
-  - Bewusst offen: Laufzeit-Variablen der Benutzerumgebung (CORECLR_*, DOTNET_DiagnosticPorts, DOTNET_ADDITIONAL_DEPS) – bräuchte einen
-    nativen Starter mit bereinigter Umgebung; eine Flut erlaubter DNS-Anfragen zwischen Anfrage und Antwort kann einen Namen verdrängen.
-- Vierte Runde nach gezielter Prüfung der dritten (3 Blickwinkel, 5 bestätigte Funde):
-  - Lauscher: GetExtendedTcpTable mit TCP_TABLE_OWNER_PID_LISTENER (3) statt Zustandsfeld = 2. Auf Windows 26300 (Rechner des Nutzers,
-    gemessen) steht bei Lauschern meist 0, 1 oder 6 im Zustandsfeld, auch netstat zeigt sie falsch – die Prüfung übersah fast alle
-    Lauscher und hätte eingehende Verbindungen ungefragt durchgelassen.
-  - LISTEN-Ereignisse tragen nur Wildcard-Lauscher (0.0.0.0/::) direkt ein, sonst Tabelle neu lesen (WinDivertAddress.LocalAddr*).
-  - Fremde Einträge im Datenordner: nicht mehr rekursiv löschen (Junction-Tausch während des Löschens hätte Löschungen umgelenkt),
-    sondern ohne Rekursion nach %ProgramData%\SnitchBox.unsicher-… verschieben; Verknüpfungen selbst löschen; alles über „\\?\“-Pfade,
-    Namen mit Punkt/Leerzeichen am Ende gelten als fremd; danach prüfen, dass der Name frei ist. Eigentumsübernahme entfällt.
-  - NRPT: auch DirectAccessDNSServers.
+## Review and fixes (1.0.1, build 13)
+- Unknown process: answers are no longer remembered as a rule (an empty program field would mean “any process”).
+- Process per port: the socket event “closed” removes the mapping; otherwise, after a port was reassigned, the old program could decide.
+- Waiting connections: each one is recorded per alert (not only those with a held packet); before, connections beyond
+  the 64-packet limit hung forever.
+- Incoming without a listening program: let through instead of asking, without the 15 ms wait (port scans produced up to 100 alert windows).
+- DNS: answers only count if they come from a system DNS server and answer an observed query (server, port, ID).
+  Factory rule DNS only to these servers (new remote kind “dns-servers”), DHCP only into the local network; factory rule revision 2
+  adapts existing rules at startup.
+- Saving: the state is captured under the lock and written outside it, sequentially and never older over newer; blocklist files outside the lock.
+- Blocklists also apply against general allow rules (see README).
+- Permissions: %ProgramData%\SnitchBox writable by administrators only (foreign entries taken over, links removed); driver files
+  compared by SHA-256 with the embedded original; ipconfig/schtasks/notepad called with full path; task XML in the data folder;
+  warning for autostart from a world-writable folder; build without extraction to %TEMP%\.net.
+- Loopback packets are let through immediately even with the fallback filter (without “!loopback”).
+- Second round after an adversarial review (6 perspectives, cross-check per finding, 19 confirmed findings):
+  - Data folder: link or foreign owner → move aside and recreate with a finished DACL; delete foreign entries instead of
+    taking them over (open handles would otherwise keep their rights); every failure aborts the start; no logging before that (Log.Enabled).
+  - Driver files stay open after the hash check until after WinDivertOpen (read sharing only).
+  - “System” (Rule.KernelProcess) is never compared as a file name, only literally (PID 4).
+  - csproj: StartupHookSupport=false, AppHostDotNetSearch=Global (no hooks, no DOTNET_ROOT from the user environment).
+  - DNS: an empty server list keeps the last known state; a local resolver is also recognized under one of the machine’s own addresses,
+    the factory rule then allows only it; queries are remembered only after an allowing verdict; under flooding the oldest are evicted;
+    an unknown DNS server triggers a throttled re-read; re-read 3 s after an address change; reads run sequentially.
+    Blocklists: DnsServers only counts as an exception when the server list is known.
+  - Process per port: event time stored (QPC, like the WinDivert timestamp); older than 2 s → cross-check with the port table;
+    closed sockets remain as a fallback for 5 s (packets) or 10 s (data volume); for incoming connections only listening TCP ports
+    count (listener table, supplemented by LISTEN events; details in round 4 below).
+  - Autostart: an existing task is checked (command from schtasks /XML), warning once per build and as a hint in the settings;
+    the check works as an allow list (only Administrators, SYSTEM, TrustedInstaller) including DLLs next to the file and parent folders.
+  - Demo mode uses %ProgramData%\SnitchBox\demo (hardened) instead of %TEMP%.
+  - Before factory rule revision 2, a backup config.json.vor-werksregeln-2 is written; “.defekt” backups get a timestamp.
+  - build-windows.ps1 aborts on any error; EditRule discards expired “until quit” rules with an honest notice.
+- Third round after the second review (5 perspectives, 11 confirmed findings, all low):
+  - Data folder: a file in place of the folder and an unreadable owner count as foreign (moved aside); foreign entries are first
+    deleted without taking ownership, otherwise after taking it – if deletion fails, they get a foreign owner again; the error message names the entry.
+  - Temporary files (config.json.tmp, blocklists) are deleted and recreated, never overwritten.
+  - Process per port: the backlog of socket events is measured; above 100 ms only the port table counts. Outgoing TCP only via the row
+    with exactly this remote (address and port), rows without an owner are skipped. Listeners per address family, loopback listeners
+    don’t count, re-read after 25 ms for an unknown port.
+  - DNS servers additionally from the NRPT (split DNS); re-read for an unknown server at most every 3 s.
+  - Autostart: command read from %SystemRoot%\System32\Tasks\SnitchBox (UTF-16) instead of from the schtasks output; warning also when the target file is missing.
+  - Deliberately open: runtime variables from the user environment (CORECLR_*, DOTNET_DiagnosticPorts, DOTNET_ADDITIONAL_DEPS) – would need a
+    native launcher with a sanitized environment; a flood of allowed DNS queries between query and answer can evict a name.
+- Fourth round after a targeted review of the third (3 perspectives, 5 confirmed findings):
+  - Listeners: GetExtendedTcpTable with TCP_TABLE_OWNER_PID_LISTENER (3) instead of checking the state field for 2. On Windows build 26300
+    (measured on the test machine) the state field of listeners mostly contains 0, 1 or 6, and netstat shows them wrongly too – the check missed
+    almost all listeners and would have let incoming connections through without asking.
+  - LISTEN events enter only wildcard listeners (0.0.0.0/::) directly, otherwise the table is re-read (WinDivertAddress.LocalAddr*).
+  - Foreign entries in the data folder: no longer deleted recursively (swapping in a junction during deletion would have redirected deletions),
+    but moved without recursion to %ProgramData%\SnitchBox.unsicher-…; links themselves are deleted; everything via “\\?\” paths,
+    names with a trailing dot or space count as foreign; afterwards it is checked that the name is free. Taking ownership is no longer needed.
+  - NRPT: DirectAccessDNSServers as well.
 
 ## Build 14
-- Rotes Schild (ShieldIcon.cs, zur Laufzeit gezeichnet: Schildform aus make_win_icon.swift, rot, weißes Kreuz) im Infobereich und als
-  Fenstersymbol, solange App.Filtering() falsch ist (Netzwerkfilter aus oder Treiber läuft nicht); Tooltip nennt den Grund.
+- Red shield (ShieldIcon.cs, drawn at runtime: shield shape from make_win_icon.swift, red, white cross) in the tray and as the
+  window icon as long as App.Filtering() is false (network filter off or driver not running); the tooltip names the reason.
 
 ## Build 15
-- Installer installer/Setup.cs → dist/SnitchBox-Setup.exe (~0,95 MB): .NET Framework 4.x, C# 5, übersetzt mit dem Windows-eigenen
-  csc.exe (läuft auf jedem Windows 10/11 ohne Vorbereitung); enthält dist/SnitchBox.exe; Runtime-Download per aka.ms-Kanal-Link mit
-  WinVerifyTrust + Herausgeber „Microsoft Corporation“; Datei und Aufgaben-XML nur im Programmordner (Admin-only); /quiet, /uninstall.
-  Bauteile ohne Adminrechte per Reflection getestet; die eigentliche Installation braucht UAC.
+- Installer installer/Setup.cs → dist/SnitchBox-Setup.exe (~0.95 MB): .NET Framework 4.x, C# 5, compiled with Windows’ own
+  csc.exe (runs on any Windows 10/11 without preparation); contains dist/SnitchBox.exe; runtime download via the aka.ms channel link with
+  WinVerifyTrust + publisher “Microsoft Corporation”; file and task XML only in the program folder (admin-only); /quiet, /uninstall.
+  Components tested without admin rights via reflection; the actual installation needs UAC.
 
 ## Build 16
-- 12 Sprachen (de, en, fr, es, it, pt-BR, pl, tr, ru, ja, zh-Hans, ko): Loc.T/Loc.F im Code (de/en), übrige Sprachen in
-  src/SnitchBox.Core/Lang/<code>.json (englischer Text → Übersetzung, eingebettet); Texte mit Werten über Platzhalter (Loc.F);
-  Auswahl unter Einstellungen → Sprache (Settings.Language, sofort wirksam) oder --lang; Installer mit denselben Tabellen
-  (nur seine Texte, DataContractJsonSerializer). scripts/extract_strings.py erzeugt Lang/_source.json und prüft Vollständigkeit,
-  Platzhalter, Zeilenumbrüche und Zugriffstasten; Build-Skripte und Kern-Tests brechen bei Lücken ab. Übersetzt von KI-Agenten
-  (je zwei Sprachen), von Muttersprachlern nicht gegengelesen.
+- 12 languages (de, en, fr, es, it, pt-BR, pl, tr, ru, ja, zh-Hans, ko): Loc.T/Loc.F in the code (de/en), other languages in
+  src/SnitchBox.Core/Lang/<code>.json (English text → translation, embedded); texts with values use placeholders (Loc.F);
+  selection under Settings → Language (Settings.Language, effective immediately) or --lang; the installer uses the same tables
+  (only its own texts, DataContractJsonSerializer). scripts/extract_strings.py generates Lang/_source.json and checks completeness,
+  placeholders, line breaks and access keys; build scripts and core tests abort on gaps. Translated by AI agents
+  (two languages each), not proofread by native speakers.
 
 ## Build 17
-- Installer-Fenster: fließendes Layout (TableLayoutPanel/AutoSize, Segoe UI 9 pt, umbrechende Texte, mitwachsende Knöpfe) statt fester
-  Koordinaten mit SystemFonts.MessageBoxFont – bei 175 % lief der Untertitel aus dem Fenster; dazu erzwungenes Neuzeichnen nach dem
-  Erscheinen (beim Nutzer fehlten nach der UAC-Rückfrage Teile des Fensters). Geprüft bei 100 % und 175 % in de/fr/ru/ja;
-  echter Installationslauf beim Nutzer bestätigt (Installer funktioniert, Anzeige korrekt).
+- Installer window: fluid layout (TableLayoutPanel/AutoSize, Segoe UI 9 pt, wrapping texts, growing buttons) instead of fixed
+  coordinates with SystemFonts.MessageBoxFont – at 175 % the subtitle ran out of the window; plus a forced repaint after it
+  appears (parts of the window were missing after the UAC prompt). Checked at 100 % and 175 % in de/fr/ru/ja;
+  a real installation run was confirmed (installer works, display correct).
 
 ## Build 18
-- Bereichs-Schaltflächen (Regeln, Netzwerkmonitor, Blocklisten, Einstellungen) im Dunkelmodus lesbar: der eigene Stil NavButton
-  ersetzt den Fluent-Stil, ohne Textfarbe galt die klassische dunkle Systemfarbe (schwarz auf dunkelgrau). Jetzt Textfarbe des
-  Fensters (Bindung an Window.Foreground: dunkel weiß, hell #E4000000); gewählter Bereich weiter weiß auf Blau. Geprüft per
-  Render-Test mit dem echten Styles.xaml in beiden Themes.
+- Section buttons (Rules, Network Monitor, Blocklists, Settings) readable in dark mode: the custom NavButton style replaces
+  the Fluent style, and without a text color the classic dark system color applied (black on dark gray). Now they use the window’s
+  text color (binding to Window.Foreground: white in dark mode, #E4000000 in light mode); the selected section stays white on blue.
+  Checked with a render test using the real Styles.xaml in both themes.
 
 ## Build 19
-- Netzwerkmonitor „Erlauben …“/„Verbieten …“ schienen wirkungslos (Nutzer-Meldung): die Regel wurde angelegt (stand in
-  config.json), die Zeile zeigte aber den alten Zustand, bis das Programm erneut verbindet – bei SystemSettings.exe womöglich nie.
-  Jetzt passt die Engine nach jeder Regeländerung (Mutate, Warnfenster mit Regel, abgelaufene Regeln, DNS-Server) alle Zeilen an
-  die geltenden Regeln an (ConnectionLog.Reevaluate). Ohne passende Regel: Zustand „Ohne Regel“ (grau, „der nächste Versuch
-  fragt nach“) statt „Fragt …“; „Fragt …“ nur noch bei offenem Warnfenster (ConnectionRecord.Pending).
-- Gleicher Geltungsbereich (Rule.SameScope: Prozess, Richtung, Gegenstelle, Ports, Protokoll, Profil): beim Speichern im
-  Regel-Editor ersetzt die neue Regel eine eigene Regel mit gleichem Bereich – bei Gleichstand gewänne sonst „Verbieten“,
-  ein „Erlauben“ für eine verbotene Verbindung bliebe wirkungslos. Werksregeln bleiben.
-- Nach „Erlauben …“/„Verbieten …“ im Monitor prüft SnitchBox, ob die Regel bei dieser Verbindung greift, und nennt sonst die
-  vorrangige Regel bzw. Blockliste.
-- Bestehende IPv4-TCP-Verbindungen, die erst eine Regeländerung verbietet, werden getrennt (SetTcpEntry mit DELETE_TCB,
-  FilterService.OnRulesApplied; Engine.RulesApplied liefert Regeln davor/danach). Der Filter sieht nur den Verbindungsaufbau,
-  ohne das liefe z. B. eine offene Browserverbindung weiter. IPv6-TCP lässt sich so nicht trennen (keine Windows-Schnittstelle):
-  dort wirkt die Regel ab dem nächsten Verbindungsaufbau. UDP ist sofort betroffen (Flusszwischenspeicher je Regelstand).
-  Trennen im echten Lauf noch ungetestet (braucht Adminrechte).
+- Network Monitor “Allow…”/“Deny…” seemed to have no effect (user report): the rule was created (it was in
+  config.json), but the row kept showing the old state until the program connected again – for SystemSettings.exe possibly never.
+  Now the engine updates all rows to the current rules after every rule change (Mutate, alert with rule, expired rules, DNS servers)
+  (ConnectionLog.Reevaluate). Without a matching rule the state is “No rule” (gray, “the next attempt will ask”)
+  instead of “Asking…”; “Asking…” only while an alert window is open (ConnectionRecord.Pending).
+- Same scope (Rule.SameScope: process, direction, remote, ports, protocol, profile): when saving in the
+  rule editor, the new rule replaces an own rule with the same scope – on a tie “Deny” would win,
+  so an “Allow” for a denied connection would have no effect. Factory rules stay.
+- After “Allow…”/“Deny…” in the monitor, SnitchBox checks whether the rule takes effect for this connection and otherwise names
+  the rule or blocklist that takes precedence.
+- Established IPv4 TCP connections that a rule change newly denies are cut (SetTcpEntry with DELETE_TCB,
+  FilterService.OnRulesApplied; Engine.RulesApplied provides the rules before and after). The filter only sees connection setup;
+  without this, an open browser connection, for example, would keep running. IPv6 TCP cannot be cut this way (no Windows API):
+  there the rule takes effect from the next connection setup. UDP is affected immediately (flow cache per rule revision).
+  Cutting is not yet tested in a real run (needs admin rights).
 
-## Offen
-- Build 13 läuft beim Nutzer aus C:\Program Files\SnitchBox (Start und Härtung des Datenordners ok).
-- Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.
+## Build 20
+- Settings: section “Support SnitchBox” with a Ko-fi button (link ko-fi.com/C5H12AP4UV; the official Ko-fi button image is
+  embedded as a WPF resource src/SnitchBox/kofi.png, style ImageButton – the settings load nothing from the network).
+  Because SnitchBox always runs as administrator, DesktopShell.cs opens web addresses via the desktop shell
+  (ShellWindows → IShellDispatch2.ShellExecute, Raymond Chen’s method), so the browser runs with the user’s normal rights instead of
+  elevated; tested: the started process has explorer.exe as its parent.
+
+## Build 21
+- Ko-fi button moved next to the language selection (at the bottom of the settings it was only visible after scrolling); the hint
+  text is now a tooltip, the separate section is gone.
+
+## Open
+- Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

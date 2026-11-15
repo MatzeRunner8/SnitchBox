@@ -5,6 +5,8 @@
 Firewall nach dem Vorbild von Little Snitch (macOS) für Windows 11 x64 – WPF/.NET 10, ohne Installation.
 Sie zeigt, welches Programm sich wohin verbinden will, hält die Verbindung an und lässt dich erlauben oder verbieten.
 
+![SnitchBox-Netzwerkmonitor: Verbindungen je Programm mit Zustand, Gegenstelle, Port und Datenmengen](docs/screenshot-network-monitor.png)
+
 **Download:** unter [Releases](../../releases) – `SnitchBox-Setup.exe` (Installer, richtet bei Bedarf die .NET Desktop Runtime 10 ein)
 oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide brauchen Administratorrechte und sind nicht signiert
 (Windows SmartScreen: „Weitere Informationen“ → „Trotzdem ausführen“).
@@ -95,7 +97,7 @@ Zurück zu Build 12: Build 13 stellt die Werksregeln um, was Build 12 nicht lese
   Vollständig schlösse das erst ein Start mit bereinigter Umgebung (kleiner nativer Starter oder Dienst) – noch nicht umgesetzt.
 - Die Herausgeber-Angabe im Warnfenster wird ausgelesen, nicht kryptografisch geprüft.
 
-Details zum Original und zur Technik: docs/RE-NOTES.md.
+Details zum Original, zur Technik und zu den Änderungen je Build: [docs/RE-NOTES.de.md](docs/RE-NOTES.de.md).
 
 ## Lizenz
 

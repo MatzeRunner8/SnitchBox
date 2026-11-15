@@ -5,6 +5,8 @@
 An application firewall for Windows 11 x64 in the spirit of Little Snitch (macOS) – WPF/.NET 10, no installation required.
 It shows which program wants to connect where, holds the connection and lets you allow or deny it.
 
+![SnitchBox Network Monitor: connections per program with state, remote, port and data volume](docs/screenshot-network-monitor.png)
+
 **Download:** see [Releases](../../releases) – `SnitchBox-Setup.exe` (installer, sets up the .NET Desktop Runtime 10 if needed)
 or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both need administrator rights and are not signed
 (Windows SmartScreen: “More info” → “Run anyway”).
@@ -95,7 +97,7 @@ Going back to Build 12: Build 13 converts the factory rules into a form Build 12
   Closing this completely would require starting with a sanitized environment (a small native launcher or a service) – not implemented yet.
 - The publisher shown in the alert window is read from the file, not cryptographically verified.
 
-Details on the original and the technology (in German): docs/RE-NOTES.md.
+Details on the original, the technology and the changes per build: [docs/RE-NOTES.md](docs/RE-NOTES.md).
 
 ## License
 
