@@ -1,101 +1,105 @@
-# SnitchBox für Windows
+# SnitchBox for Windows
 
-Firewall nach dem Vorbild von Little Snitch (macOS) für Windows 11 x64 – WPF/.NET 10, ohne Installation.
-Sie zeigt, welches Programm sich wohin verbinden will, hält die Verbindung an und lässt dich erlauben oder verbieten.
+**English** · [Deutsch](README.de.md)
 
-*An application firewall for Windows 11 x64 in the spirit of Little Snitch: it shows which program wants to connect where,
-holds the connection and lets you allow or deny it. The user interface is available in 12 languages, including English.*
+An application firewall for Windows 11 x64 in the spirit of Little Snitch (macOS) – WPF/.NET 10, no installation required.
+It shows which program wants to connect where, holds the connection and lets you allow or deny it.
 
-**Download:** unter [Releases](../../releases) – `SnitchBox-Setup.exe` (Installer, richtet bei Bedarf die .NET Desktop Runtime 10 ein)
-oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide brauchen Administratorrechte und sind nicht signiert
-(Windows SmartScreen: „Weitere Informationen“ → „Trotzdem ausführen“).
+**Download:** see [Releases](../../releases) – `SnitchBox-Setup.exe` (installer, sets up the .NET Desktop Runtime 10 if needed)
+or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both need administrator rights and are not signed
+(Windows SmartScreen: “More info” → “Run anyway”).
 
 <a href="https://ko-fi.com/C5H12AP4UV"><img src="src/SnitchBox/kofi.png" alt="Buy me a coffee (Ko-fi)" width="200"></a>
 
-- Warnfenster je neuer Verbindung: Programm, Hostname, Port; Gültigkeit (Einmal … Für immer) und Reichweite (jede Verbindung, Port, Domain, Host)
-- Betriebsarten: Warnmodus, Stiller Modus „alles erlauben“ / „alles verbieten“; Netzwerkfilter ein/aus
-- Regeln je Programm: Erlauben/Verbieten, aus-/eingehend, Hosts, Domains, Adressbereiche, lokales Netz, DNS-Server des Systems, Ports, TCP/UDP, Priorität, Gültigkeit, Profile
-- Netzwerkmonitor: jeder Verbindungsaufbau je Programm und Gegenstelle, Datenmengen und aktuelle Rate je Programm, Gesamtdatenrate, Regel direkt aus einer Zeile
-- Blocklisten abonnieren (.lsrules, hosts-Dateien, Domainlisten), tägliche Aktualisierung; Import/Export von .lsrules
-- Symbol im Infobereich, Start beim Anmelden über die Aufgabenplanung (ohne UAC-Rückfrage)
-- Solange nicht gefiltert wird (Netzwerkfilter aus oder Treiber läuft nicht), zeigen Infobereich und Taskleiste ein rotes Schild mit weißem Kreuz
+## Features
 
-Technik: Der Treiber WinDivert 2.2.2 (third_party/windivert, unverändert aus dem offiziellen Release, LGPLv3) leitet TCP-Verbindungsaufbau
-und UDP durch das Programm. Die Entscheidung trifft der plattformunabhängige Kern (src/SnitchBox.Core).
-Der Filter wirkt nur, solange SnitchBox läuft; endet das Programm, läuft der Verkehr ungefiltert weiter.
+- Alert window for every new connection: program, host name, port; lifetime (Once … Forever) and scope (any connection, port, domain, host)
+- Modes: Alert Mode, Silent Mode “allow all” / “deny all”; network filter on/off
+- Per-program rules: allow/deny, outgoing/incoming, hosts, domains, address ranges, local network, system DNS servers, ports, TCP/UDP, priority, lifetime, profiles
+- Network Monitor: every connection attempt per program and remote, data volume and current rate per program, total data rate, create a rule straight from a row
+- Subscribe to blocklists (.lsrules, hosts files, domain lists) with daily updates; import/export of .lsrules
+- Tray icon; starts at sign-in via Task Scheduler (no UAC prompt)
+- While nothing is being filtered (network filter off or driver not running), the tray and the taskbar show a red shield with a white cross
+- User interface in 12 languages
 
-## Bauen und ablegen
+How it works: the WinDivert 2.2.2 driver (third_party/windivert, unmodified from the official release, LGPLv3) routes TCP connection setup
+and UDP through the program. Decisions are made by the platform-independent core (src/SnitchBox.Core).
+The filter only works while SnitchBox is running; when the program exits, traffic flows unfiltered.
 
-- Windows: `powershell -ExecutionPolicy Bypass -File build-windows.ps1` · Mac: `./build-windows.sh` (zeichnet zusätzlich das Symbol neu).
-  Beide zählen BUILD_NUMBER hoch und führen vorher die Kern-Tests aus (`dotnet run --project tests/SnitchBox.Tests`).
-- `dist/SnitchBox.exe` – eine Datei, braucht die „.NET Desktop Runtime“ 10 oder neuer (fehlt sie, bietet Windows den Download an). Empfohlen.
-- `dist/SnitchBox-Standalone/` – läuft ohne .NET-Installation; die WPF-Bibliotheken liegen neben der .exe.
-- `dist/SnitchBox-Setup.exe` – kleiner Installer (unter 1 MB, nur von build-windows.ps1 gebaut) für andere PCs, siehe unten.
+## Building and placement
 
-## Installer für andere PCs
+- Windows: `powershell -ExecutionPolicy Bypass -File build-windows.ps1` · Mac: `./build-windows.sh` (also redraws the icon).
+  Both increment BUILD_NUMBER and run the core tests first (`dotnet run --project tests/SnitchBox.Tests`).
+- `dist/SnitchBox.exe` – a single file, requires the “.NET Desktop Runtime” 10 or later (if it is missing, Windows offers the download). Recommended.
+- `dist/SnitchBox-Standalone/` – runs without a .NET installation; the WPF libraries sit next to the .exe.
+- `dist/SnitchBox-Setup.exe` – small installer (about 1 MB, built by build-windows.ps1 only) for other PCs, see below.
 
-`SnitchBox-Setup.exe` läuft auf jedem Windows 10/11 x64 ohne Vorbereitung (.NET Framework 4.x ist dort eingebaut) und fragt nach
-Administratorrechten. Er
-- legt SnitchBox nach `C:\Program Files\SnitchBox` (nur für Administratoren beschreibbar),
-- lädt bei Bedarf die .NET Desktop Runtime 10 von Microsoft (`aka.ms/dotnet/10.0/…`, neuester Patch) und installiert sie still – nur wenn
-  die Datei gültig von Microsoft signiert ist; ohne Internet bietet er die Download-Seite an,
-- legt wahlweise Verknüpfungen im Startmenü und auf dem Desktop an, richtet den Autostart ein und startet SnitchBox,
-- beendet ein laufendes SnitchBox für die Aktualisierung und startet es danach wieder,
-- trägt sich in „Apps“ ein; dort (oder mit dem Knopf „Deinstallieren“) wird SnitchBox wieder entfernt, auf Wunsch samt Regeln.
+## Installer for other PCs
 
-Ohne Fenster (z. B. Softwareverteilung): `SnitchBox-Setup.exe /quiet` installiert mit Startmenü-Verknüpfung und Autostart,
-`SnitchBox-Setup.exe /uninstall /quiet` entfernt SnitchBox (Regeln bleiben); Protokoll in `%TEMP%\SnitchBox-Setup.log`, Rückgabe 0 = Erfolg.
-Läuft der Installer als SYSTEM, gilt der Autostart für jedes Administratorkonto.
-Der Installer ist nicht signiert: aus dem Internet geladen, warnt Windows SmartScreen beim ersten Start („Weitere Informationen“ → „Trotzdem ausführen“).
-- Beide entpacken beim Start nichts nach %TEMP%. (Bis Build 12 tat die eigenständige Fassung das; was dort unter `%TEMP%\.net\SnitchBox` liegt, kann weg.)
-- Ablage: am besten `C:\Program Files\SnitchBox`. SnitchBox läuft mit Administratorrechten; liegt die .exe in einem Ordner, in den auch
-  gewöhnliche Programme schreiben dürfen (z. B. Dokumente, Downloads, `C:\Tools`), könnten diese sie austauschen. SnitchBox warnt davor beim
-  Einrichten des Autostarts, einmal je Build beim Start (wenn ein bestehender Autostart so eine Datei startet) und in den Einstellungen.
-  Nach dem Umzug den Autostart aus- und wieder einschalten, damit er die neue Datei startet.
+`SnitchBox-Setup.exe` runs on any Windows 10/11 x64 without preparation (.NET Framework 4.x is built in) and asks for
+administrator rights. It
+- installs SnitchBox to `C:\Program Files\SnitchBox` (writable by administrators only),
+- downloads the .NET Desktop Runtime 10 from Microsoft if needed (`aka.ms/dotnet/10.0/…`, latest patch) and installs it silently – only if
+  the file carries a valid Microsoft signature; without internet access it offers the download page,
+- optionally creates shortcuts in the Start menu and on the desktop, sets up autostart and starts SnitchBox,
+- closes a running SnitchBox for the update and starts it again afterwards,
+- registers itself under “Apps”; from there (or with the “Uninstall” button) SnitchBox is removed again, optionally including its rules.
 
-Sprachen: Deutsch, Englisch, Französisch, Spanisch, Italienisch, Portugiesisch (Brasilien), Polnisch, Türkisch, Russisch, Japanisch,
-Chinesisch (vereinfacht), Koreanisch – Standard ist die Windows-Sprache, umstellbar unter Einstellungen → Sprache (wirkt sofort).
-Deutsch und Englisch stehen im Code (`Loc.T`/`Loc.F`), die übrigen in `src/SnitchBox.Core/Lang/<code>.json` (englischer Text → Übersetzung).
-Neue oder geänderte Texte: `python scripts/extract_strings.py` erneuert die Vorlage `Lang/_source.json` und listet fehlende Übersetzungen;
-die Build-Skripte brechen ab, solange eine Sprache unvollständig ist.
+Unattended (e.g. software distribution): `SnitchBox-Setup.exe /quiet` installs with a Start menu shortcut and autostart,
+`SnitchBox-Setup.exe /uninstall /quiet` removes SnitchBox (rules are kept); log in `%TEMP%\SnitchBox-Setup.log`, exit code 0 = success.
+If the installer runs as SYSTEM, autostart applies to every administrator account.
+The installer is not signed: when downloaded from the internet, Windows SmartScreen warns on first start (“More info” → “Run anyway”).
+- Neither version extracts anything to %TEMP% on startup. (Up to Build 12 the standalone version did; anything under `%TEMP%\.net\SnitchBox` can be deleted.)
+- Location: preferably `C:\Program Files\SnitchBox`. SnitchBox runs with administrator rights; if the .exe sits in a folder that
+  ordinary programs can write to as well (e.g. Documents, Downloads, `C:\Tools`), they could replace it. SnitchBox warns about this when
+  setting up autostart, once per build at startup (if an existing autostart launches such a file) and in the settings.
+  After moving it, turn autostart off and on again so that it starts the new file.
 
-Start-Parameter: `--appearance light|dark`, `--lang de|en|fr|es|it|pt|pl|tr|ru|ja|zh|ko`, `--tray`, `--demo` (erfundene Verbindungen ohne Treiber, Daten getrennt in `%ProgramData%\SnitchBox\demo`).
-Daten und Protokoll: `%ProgramData%\SnitchBox\` (config.json, log.txt, blocklists\, driver\). Der Ordner ist nur für Administratoren beschreibbar;
-SnitchBox stellt das bei jedem Start sicher: Fremde Einträge (von anderen Programmen angelegt) werden als `%ProgramData%\SnitchBox.unsicher-…`
-beiseitegeschoben, Verknüpfungen entfernt. Lässt sich der Ordner nicht absichern (z. B. weil ein anderes Programm Dateien darin offen hält),
-startet SnitchBox nicht und nennt den betroffenen Eintrag.
-Zurück zu Build 12: Build 13 stellt die Werksregeln um, was Build 12 nicht lesen kann; der vorherige Stand liegt in `config.json.vor-werksregeln-2`.
+## Languages, start parameters and data
 
-## Verhalten, das man kennen sollte
+Languages: German, English, French, Spanish, Italian, Portuguese (Brazil), Polish, Turkish, Russian, Japanese,
+Chinese (Simplified), Korean – the default is the Windows display language, changeable under Settings → Language (takes effect immediately).
+German and English live in the code (`Loc.T`/`Loc.F`), the others in `src/SnitchBox.Core/Lang/<code>.json` (English text → translation).
+New or changed texts: `python scripts/extract_strings.py` regenerates the template `Lang/_source.json` and lists missing translations;
+the build scripts abort as long as any language is incomplete.
 
-- Lässt sich das Programm einer Verbindung nicht ermitteln, gilt die Antwort im Warnfenster nur für diesen Versuch: eine Regel ohne Programm gälte für alle Programme.
-- Werksregeln: DNS darf jedes Programm nur zu den DNS-Servern des Systems (aus den Netzwerkeinstellungen), DHCP nur ins lokale Netz.
-  Die Regel für den Windows-Kern („System“) gilt nur für ihn selbst, nicht für Dateien, die zufällig System heißen.
-  Alle Windows-Dienste laufen als svchost.exe und sind über eine Werksregel gemeinsam erlaubt.
-- Lokaler DNS-Resolver (als DNS-Server ist 127.0.0.1, ::1 oder eine eigene Adresse eingetragen, z. B. dnscrypt-proxy, AdGuard):
-  Seine Anfragen nach draußen fragt SnitchBox einmal nach (die Werksregel öffnet Port 53 dann nicht für jeden Server).
-- Blocklisten sperren auch Programme, denen „jede Verbindung“ erlaubt ist. Vorrang haben nur Erlauben-Regeln mit hoher Priorität
-  oder für genau diesen Host, diese Domain oder Adresse.
-- Hostnamen stammen nur aus DNS-Antworten auf erlaubte, beobachtete Anfragen – und, ohne lokalen Resolver, nur von den DNS-Servern
-  des Systems –, damit kein Programm einer Adresse einen falschen Namen geben kann. Bei verschlüsseltem DNS (DoH) erscheint die IP-Adresse.
+Start parameters: `--appearance light|dark`, `--lang de|en|fr|es|it|pt|pl|tr|ru|ja|zh|ko`, `--tray`, `--demo` (made-up connections without the driver, data kept separately in `%ProgramData%\SnitchBox\demo`).
+Data and log: `%ProgramData%\SnitchBox\` (config.json, log.txt, blocklists\, driver\). The folder is writable by administrators only;
+SnitchBox makes sure of this at every start: foreign entries (created by other programs) are moved aside as `%ProgramData%\SnitchBox.unsicher-…`,
+links are removed. If the folder cannot be secured (e.g. because another program keeps files in it open),
+SnitchBox does not start and names the affected entry.
+Going back to Build 12: Build 13 converts the factory rules into a form Build 12 cannot read; the previous state is kept in `config.json.vor-werksregeln-2`.
 
-## Grenzen
+## Behavior worth knowing
 
-- Nicht gefiltert: ICMP, Verkehr am eigenen Rechner (Loopback), eingehendes UDP sowie eingehende Verbindungen auf Ports, auf denen kein
-  Programm lauscht (Portscans, Weiterleitungen an virtuelle Maschinen) – darüber entscheidet die Windows-Firewall.
-- Das Programm zu einer Verbindung ermittelt SnitchBox über den lokalen Port (Socket-Ereignisse, Port-Tabellen von Windows). Gegen
-  Schadsoftware, die schon als derselbe Benutzer läuft und Ports gezielt neu belegt, ist das kein vollständiger Schutz.
-- Der Autostart läuft mit der Umgebung des Benutzers. Startup-Hooks und `DOTNET_ROOT` sind abgeschaltet, andere Laufzeit-Variablen
-  aus der Benutzerumgebung beachtet die .NET-Laufzeit aber noch und könnten darüber Code mit Administratorrechten ausführen: Profiler
-  (`CORECLR_*`), Diagnose-Ports (`DOTNET_DiagnosticPorts`) und bei `SnitchBox.exe` (framework-abhängig) `DOTNET_ADDITIONAL_DEPS`/`DOTNET_SHARED_STORE`.
-  Vollständig schlösse das erst ein Start mit bereinigter Umgebung (kleiner nativer Starter oder Dienst) – noch nicht umgesetzt.
-- Die Herausgeber-Angabe im Warnfenster wird ausgelesen, nicht kryptografisch geprüft.
+- If the program behind a connection cannot be determined, the answer in the alert window applies to that attempt only: a rule without a program would apply to all programs.
+- Factory rules: every program may send DNS only to the system’s DNS servers (from the network settings), DHCP only into the local network.
+  The rule for the Windows kernel (“System”) applies only to the kernel itself, not to files that happen to be called System.
+  All Windows services run as svchost.exe and are allowed together by one factory rule.
+- Local DNS resolver (127.0.0.1, ::1 or one of your own addresses is set as DNS server, e.g. dnscrypt-proxy, AdGuard):
+  SnitchBox asks once about its outgoing queries (the factory rule then does not open port 53 to every server).
+- Blocklists also block programs that are allowed “any connection”. Only allow rules with high priority
+  or for exactly this host, domain or address take precedence.
+- Host names come only from DNS answers to allowed, observed queries – and, without a local resolver, only from the system’s
+  DNS servers – so that no program can give an address a false name. With encrypted DNS (DoH) the IP address is shown.
 
-Details zum Original und zur Technik: docs/RE-NOTES.md.
+## Limitations
 
-## Lizenz
+- Not filtered: ICMP, traffic on the local machine (loopback), incoming UDP, and incoming connections to ports no program
+  listens on (port scans, forwarding to virtual machines) – the Windows Firewall decides about those.
+- SnitchBox determines the program behind a connection via the local port (socket events, Windows port tables). Against
+  malware that already runs as the same user and deliberately re-binds ports, this is not complete protection.
+- Autostart runs with the user’s environment. Startup hooks and `DOTNET_ROOT` are disabled, but the .NET runtime still honors other
+  runtime variables from the user environment, which could be used to run code with administrator rights: profilers
+  (`CORECLR_*`), diagnostic ports (`DOTNET_DiagnosticPorts`) and, for `SnitchBox.exe` (framework-dependent), `DOTNET_ADDITIONAL_DEPS`/`DOTNET_SHARED_STORE`.
+  Closing this completely would require starting with a sanitized environment (a small native launcher or a service) – not implemented yet.
+- The publisher shown in the alert window is read from the file, not cryptographically verified.
 
-Eigener Code: MIT-Lizenz (siehe [LICENSE](LICENSE)). WinDivert 2.2.2 in `third_party/windivert` behält seine eigene Lizenz
-(LGPLv3 oder GPLv2, siehe [third_party/windivert/LICENSE](third_party/windivert/LICENSE)).
-Little Snitch ist eine Marke der Objective Development Software GmbH. SnitchBox ist ein unabhängiges Projekt; übernommen sind nur
-das Bedienkonzept und das offene `.lsrules`-Format, kein Code und keine Grafik.
+Details on the original and the technology (in German): docs/RE-NOTES.md.
+
+## License
+
+Own code: MIT License (see [LICENSE](LICENSE)). WinDivert 2.2.2 in `third_party/windivert` keeps its own license
+(LGPLv3 or GPLv2, see [third_party/windivert/LICENSE](third_party/windivert/LICENSE)).
+Little Snitch is a trademark of Objective Development Software GmbH. SnitchBox is an independent project; only the user interface
+concept and the open `.lsrules` format were adopted, no code and no graphics.
