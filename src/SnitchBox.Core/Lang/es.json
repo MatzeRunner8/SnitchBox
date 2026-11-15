@@ -294,5 +294,11 @@
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": "Ruta completa del .exe, solo un nombre de archivo como chrome.exe, o vacío para cualquier programa. * representa cualquier parte de un nombre de carpeta o archivo, p. ej. C:\\Temp\\*\\setup.exe",
  "Remove duplicate and superfluous rules, combine rules of the same kind": "Eliminar reglas duplicadas y superfluas, combinar reglas del mismo tipo",
  "The rules are already tidy.": "Las reglas ya están ordenadas.",
- "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} reglas se aplicarán a cada copia y versión de su programa (los nombres de carpeta cambiantes, como carpetas temporales aleatorias o números de versión, pasan a ser *)."
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} reglas se aplicarán a cada copia y versión de su programa (los nombres de carpeta cambiantes, como carpetas temporales aleatorias o números de versión, pasan a ser *).",
+ "Virus & threat protection": "Protección antivirus y contra amenazas",
+ "All programs of this Windows component at their protected Windows location": "Todos los programas de este componente de Windows en su ubicación protegida de Windows",
+ "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: nuevas firmas de virus y protección en la nube (MsMpEng, MpCmdRun, NisSrv…)",
+ "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Actualizaciones de Windows (SIHClient, MoUsoCoreWorker, WaaSMedicAgent…); los servicios en svchost.exe se permiten con una regla predeterminada propia",
+ "Part of Windows: if you deny this, Windows no longer gets updates.": "Parte de Windows: si lo bloqueas, Windows deja de recibir actualizaciones.",
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Parte de Windows: si lo bloqueas, la protección antivirus deja de recibir nuevas firmas y protección en la nube."
 }

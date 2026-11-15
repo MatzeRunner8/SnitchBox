@@ -294,5 +294,11 @@
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe のフル パス、chrome.exe のようなファイル名のみ、またはすべてのプログラムを対象にする場合は空欄。* はフォルダー名やファイル名の任意の部分を表します (例: C:\\Temp\\*\\setup.exe)",
  "Remove duplicate and superfluous rules, combine rules of the same kind": "重複・不要なルールを削除し、同じ種類のルールをまとめます",
  "The rules are already tidy.": "ルールはすでに整理されています。",
- "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "ルール {0} 個を、そのプログラムのすべてのコピーとバージョンに適用します (一時フォルダーのランダムな名前やバージョン番号など、変化するフォルダー名は * になります)。"
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "ルール {0} 個を、そのプログラムのすべてのコピーとバージョンに適用します (一時フォルダーのランダムな名前やバージョン番号など、変化するフォルダー名は * になります)。",
+ "Virus & threat protection": "ウイルスと脅威の防止",
+ "All programs of this Windows component at their protected Windows location": "この Windows コンポーネントの、保護された Windows の場所にあるすべてのプログラム",
+ "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: 新しいウイルス定義とクラウド保護 (MsMpEng、MpCmdRun、NisSrv など)",
+ "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Windows の更新 (SIHClient、MoUsoCoreWorker、WaaSMedicAgent など)。svchost.exe 内のサービスは別の既定のルールで許可されます",
+ "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows の一部: これを禁止すると、Windows は更新を受け取れなくなります。",
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows の一部: これを禁止すると、ウイルス対策は新しい定義とクラウド保護を受け取れなくなります。"
 }

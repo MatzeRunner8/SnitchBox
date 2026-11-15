@@ -71,11 +71,23 @@ internal static class Ui
         (Blue, Box(2, 4, 28, 19, 3.5)), (Brushes.White, Box(5, 7, 22, 13, 1.5)), (Blue, Box(8, 10, 16, 2.4, 1.2)), (Blue, Box(8, 14.4, 10, 2.4, 1.2)),
         (Gray, Box(14, 23, 4, 4, 0)), (Gray, Box(9, 26.5, 14, 2.5, 1.2)));
 
-    /// <summary>Programmsymbol mit Ersatz, wo es keine Datei gibt: leerer Pfad = jeder bzw. unbekannter Prozess.</summary>
-    public static ImageSource IconFor(string path, bool emptyMeansAll) =>
-        path.Length == 0 ? (emptyMeansAll ? AllProgramsIcon : UnknownIcon)
-        : path == "System" ? SystemIcon
-        : Native.IconOf(path) ?? UnknownIcon;
+    /// <summary>Programmsymbol mit Ersatz, wo es keine Datei gibt: leerer Pfad = jeder bzw. unbekannter Prozess. Windows Update und
+    /// Viren- &amp; Bedrohungsschutz (auch ihre einzelnen Programme) zeigen das Symbol aus den Einstellungen bzw. der Windows-Sicherheit.</summary>
+    public static ImageSource IconFor(string path, bool emptyMeansAll)
+    {
+        if (path.Length == 0) return emptyMeansAll ? AllProgramsIcon : UnknownIcon;
+        if (path == "System") return SystemIcon;
+        var component = WindowsComponents.IsComponent(path) ? path : WindowsComponents.Of(path);
+        if (component != null)
+        {
+            var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var sample = component == WindowsComponents.Update
+                ? Path.Combine(windows, "ImmersiveControlPanel", "SystemSettings.exe")
+                : Path.Combine(windows, "System32", "SecurityHealthSystray.exe");
+            if (Native.IconOf(sample) is { } componentIcon) return componentIcon;
+        }
+        return WindowsComponents.IsComponent(path) ? UnknownIcon : Native.IconOf(path) ?? UnknownIcon;
+    }
 
     /// <summary>Farbe der Betriebsart: Orange fragt nach, Grün erlaubt alles, Rot verbietet alles.</summary>
     public static Brush ModeBrush(OperationMode m) => m switch
@@ -133,7 +145,9 @@ internal sealed class RuleRow(Rule rule)
     public string ActionText => Rule.Action == RuleAction.Allow ? Loc.T("Erlauben", "Allow") : Loc.T("Verbieten", "Deny");
     public Brush ActionBrush => Rule.Action == RuleAction.Allow ? Ui.Allow : Ui.Deny;
     public string ProcessName => Rule.ProcessName;
-    public string ProcessPath => Rule.AnyProcess ? Loc.T("Gilt für alle Programme", "Applies to all programs") : Rule.Process;
+    public string ProcessPath => Rule.AnyProcess ? Loc.T("Gilt für alle Programme", "Applies to all programs")
+        : WindowsComponents.IsComponent(Rule.Process) ? Loc.T("Alle Programme dieses Windows-Bestandteils an ihrem geschützten Windows-Ort", "All programs of this Windows component at their protected Windows location")
+        : Rule.Process;
     public ImageSource Icon => Ui.IconFor(Rule.Process, true);
     public string Description => (Rule.HighPriority ? "❗ " : "") + Rule.Describe();
     public string? Notes => Rule.Notes.Length > 0 ? Rule.Notes : null;
@@ -596,6 +610,7 @@ public partial class MainWindow : Window
     private static string DisplayName(string path)
     {
         if (path.Length == 0) return Loc.T("Unbekannter Prozess", "Unknown Process");
+        if (WindowsComponents.Of(path) is { } component) return WindowsComponents.Title(component) + " · " + Rule.NameOf(path);
         var title = Native.InfoOf(path).Title;
         return title.Length > 0 ? title : Rule.NameOf(path);
     }

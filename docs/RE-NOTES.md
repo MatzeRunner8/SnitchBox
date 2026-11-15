@@ -168,5 +168,20 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
   rules, combine rules of the same kind, remove rules for programs that no longer exist (full paths only, checked outside the engine
   lock). Factory rules stay untouched. Dry run on the test machine’s rules: 90 → 43, BackgroundDownload.exe 17 → 3.
 
+## Build 23
+- Windows Update and Virus & threat protection recognizable as rules (user request): their programs outside svchost.exe have
+  meaningless names (SIHClient.exe, MoUsoCoreWorker.exe, MpCmdRun.exe …) and were easily denied by accident – the test machine had a
+  rule denying SIHClient.exe and one denying MpCmdRun.exe access to definitionupdates.microsoft.com (virus signatures).
+- WindowsComponents (Components.cs): recognizes them by file name and location – Windows Update directly in System32/SysWOW64 or below
+  UUS, WinSxS, servicing, SoftwareDistribution; Defender below ProgramData\Microsoft\Windows Defender\Platform\ and the Windows Defender
+  program folders. Only folders writable by Windows and administrators alone, so no program can pose as Windows Update by its file name
+  (subfolders of System32 don’t count, some are writable by everyone).
+- Process “@windows-update” / “@defender” in a rule = all programs of the component. Factory rule revision 3 adds “Windows Update” and
+  “Virus & threat protection” (allow outgoing, can be switched off); own deny rules for single programs still take precedence
+  (same rank, deny wins a tie).
+- Display: the rule list shows “Windows Update” / “Virus & threat protection” as the process, or “Windows Update · SIHClient.exe” for
+  rules of single programs, with the icon of Settings or Windows Security; the same in the Network Monitor; the alert window names the
+  component and says what denying it does.
+
 ## Open
 - Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

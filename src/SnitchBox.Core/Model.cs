@@ -60,7 +60,13 @@ public sealed class Rule
         && Targets.Select(t => t.Trim().TrimEnd('.').ToLowerInvariant()).ToHashSet().SetEquals(o.Targets.Select(t => t.Trim().TrimEnd('.').ToLowerInvariant()));
 
     [JsonIgnore] public bool AnyProcess => Process.Length == 0;
-    [JsonIgnore] public string ProcessName => AnyProcess ? Loc.T("Jeder Prozess", "Any Process") : NameOf(Process);
+    /// <summary>Anzeigename: bei Windows Update und dem Viren- &amp; Bedrohungsschutz deren Name vorn, damit solche Regeln sofort
+    /// erkennbar sind („Windows Update · SIHClient.exe“).</summary>
+    [JsonIgnore]
+    public string ProcessName => AnyProcess ? Loc.T("Jeder Prozess", "Any Process")
+        : WindowsComponents.IsComponent(Process) ? WindowsComponents.Title(Process)
+        : WindowsComponents.Of(Process) is { } c ? WindowsComponents.Title(c) + " · " + NameOf(Process)
+        : NameOf(Process);
 
     public static string NameOf(string path)
     {
@@ -264,8 +270,26 @@ public sealed class Store
 /// <summary>Werksregeln: ohne sie stünde Windows selbst (Namensauflösung, DHCP, Updates) sofort still.</summary>
 public static class FactoryRules
 {
-    /// <summary>2: DNS nur noch zu den DNS-Servern des Systems, DHCP nur noch ins lokale Netz (vorher je „jeder Server“).</summary>
-    public const int Version = 2;
+    /// <summary>2: DNS nur noch zu den DNS-Servern des Systems, DHCP nur noch ins lokale Netz (vorher je „jeder Server“).
+    /// 3: Windows Update und Viren- &amp; Bedrohungsschutz (<see cref="WindowsComponents"/>) dazu.</summary>
+    public const int Version = 3;
+
+    /// <summary>Werksregeln für Windows-Bestandteile außerhalb von svchost.exe (ab Stand 3).</summary>
+    private static List<Rule> ComponentRules() =>
+    [
+        new()
+        {
+            Action = RuleAction.Allow, Process = WindowsComponents.Update, Direction = Direction.Outgoing, Factory = true,
+            Notes = Loc.T("Updates von Windows (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); die Dienste in svchost.exe erlaubt eine eigene Werksregel",
+                          "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own"),
+        },
+        new()
+        {
+            Action = RuleAction.Allow, Process = WindowsComponents.Defender, Direction = Direction.Outgoing, Factory = true,
+            Notes = Loc.T("Microsoft Defender: neue Virensignaturen und Cloud-Schutz (MsMpEng, MpCmdRun, NisSrv …)",
+                          "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)"),
+        },
+    ];
     private const string DnsPorts = "53", DhcpPorts = "67, 68, 546, 547";
 
     public static List<Rule> Create(string systemRoot)
@@ -287,6 +311,7 @@ public static class FactoryRules
             R(sys + "lsass.exe", Direction.Outgoing, RemoteKind.Any, "", Proto.Any, Loc.T("Windows-Anmeldung", "Windows sign-in")),
             R(sys + "svchost.exe", Direction.Incoming, RemoteKind.LocalNet, "", Proto.Any, Loc.T("Windows-Dienste aus dem lokalen Netz", "Windows services from the local network")),
             R(Rule.KernelProcess, Direction.Incoming, RemoteKind.LocalNet, "", Proto.Any, Loc.T("Dateifreigaben aus dem lokalen Netz", "File sharing from the local network")),
+            .. ComponentRules(),
         ];
     }
 
@@ -310,6 +335,13 @@ public static class FactoryRules
                 if (r.Ports == DnsPorts) r.Remote = RemoteKind.DnsServers;
                 else if (r.Ports == DhcpPorts) r.Remote = RemoteKind.LocalNet;
             }
+        }
+        if (s.FactoryRulesCreated && s.FactoryRulesVersion < 3)
+        {
+            // Stand 3: Windows Update und Viren- & Bedrohungsschutz. Eigene Verbieten-Regeln für einzelne ihrer Programme gehen weiter
+            // vor (gleiche Rangstufe, bei Gleichstand gewinnt „Verbieten“).
+            var at = store.Rules.FindLastIndex(r => r.Factory) + 1;
+            store.Rules.InsertRange(at, ComponentRules().Where(n => !store.Rules.Any(r => r.Factory && r.Process == n.Process)));
         }
         s.FactoryRulesVersion = Version;
     }

@@ -294,5 +294,11 @@
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": "Полный путь к файлу .exe, только имя файла, например chrome.exe, или пусто для любой программы. * обозначает любую часть имени папки или файла, например C:\\Temp\\*\\setup.exe",
  "Remove duplicate and superfluous rules, combine rules of the same kind": "Удалить повторяющиеся и лишние правила, объединить однотипные",
  "The rules are already tidy.": "Правила уже в порядке.",
- "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "Правила ({0}) будут действовать для каждой копии и версии своей программы (меняющиеся имена папок, например случайные временные папки или номера версий, заменяются на *)."
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "Правила ({0}) будут действовать для каждой копии и версии своей программы (меняющиеся имена папок, например случайные временные папки или номера версий, заменяются на *).",
+ "Virus & threat protection": "Защита от вирусов и угроз",
+ "All programs of this Windows component at their protected Windows location": "Все программы этого компонента Windows в их защищенном расположении Windows",
+ "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: новые сигнатуры вирусов и облачная защита (MsMpEng, MpCmdRun, NisSrv…)",
+ "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Обновления Windows (SIHClient, MoUsoCoreWorker, WaaSMedicAgent…); службы в svchost.exe разрешает отдельное стандартное правило",
+ "Part of Windows: if you deny this, Windows no longer gets updates.": "Часть Windows: если запретить это, Windows перестанет получать обновления.",
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Часть Windows: если запретить это, антивирусная защита перестанет получать новые сигнатуры и облачную защиту."
 }

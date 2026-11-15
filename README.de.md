@@ -78,6 +78,9 @@ Zurück zu Build 12: Build 13 stellt die Werksregeln um, was Build 12 nicht lese
 - Werksregeln: DNS darf jedes Programm nur zu den DNS-Servern des Systems (aus den Netzwerkeinstellungen), DHCP nur ins lokale Netz.
   Die Regel für den Windows-Kern („System“) gilt nur für ihn selbst, nicht für Dateien, die zufällig System heißen.
   Alle Windows-Dienste laufen als svchost.exe und sind über eine Werksregel gemeinsam erlaubt.
+  Windows Update und der Viren- & Bedrohungsschutz (Microsoft Defender) haben je eine eigene Werksregel; ihre Programme (z. B.
+  SIHClient.exe, MpCmdRun.exe) erkennt SnitchBox nur an ihrem geschützten Windows-Ort und zeigt den Namen des Bestandteils in Regeln,
+  Netzwerkmonitor und Warnfenster.
 - Lokaler DNS-Resolver (als DNS-Server ist 127.0.0.1, ::1 oder eine eigene Adresse eingetragen, z. B. dnscrypt-proxy, AdGuard):
   Seine Anfragen nach draußen fragt SnitchBox einmal nach (die Werksregel öffnet Port 53 dann nicht für jeden Server).
 - Blocklisten sperren auch Programme, denen „jede Verbindung“ erlaubt ist. Vorrang haben nur Erlauben-Regeln mit hoher Priorität

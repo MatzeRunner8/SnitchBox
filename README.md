@@ -78,6 +78,9 @@ Going back to Build 12: Build 13 converts the factory rules into a form Build 12
 - Factory rules: every program may send DNS only to the system’s DNS servers (from the network settings), DHCP only into the local network.
   The rule for the Windows kernel (“System”) applies only to the kernel itself, not to files that happen to be called System.
   All Windows services run as svchost.exe and are allowed together by one factory rule.
+  Windows Update and Virus & threat protection (Microsoft Defender) each have a factory rule of their own; SnitchBox recognizes their
+  programs (e.g. SIHClient.exe, MpCmdRun.exe) only at their protected Windows location and shows the component’s name in rules,
+  Network Monitor and alert window.
 - Local DNS resolver (127.0.0.1, ::1 or one of your own addresses is set as DNS server, e.g. dnscrypt-proxy, AdGuard):
   SnitchBox asks once about its outgoing queries (the factory rule then does not open port 53 to every server).
 - Blocklists also block programs that are allowed “any connection”. Only allow rules with high priority

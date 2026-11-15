@@ -54,7 +54,8 @@ public sealed class RuleSet
             if (!PortSet.TryParse(r.Ports, out var ports)) continue;
             // „chrome.exe“ passt auf jeden Ort, „System“ (Windows-Kern) dagegen nur genau so – nie auf C:\…\System.
             var nameOnly = r.Process.Length > 0 && r.Process.IndexOfAny(['\\', '/']) < 0
-                           && !r.Process.Equals(Rule.KernelProcess, StringComparison.OrdinalIgnoreCase);
+                           && !r.Process.Equals(Rule.KernelProcess, StringComparison.OrdinalIgnoreCase)
+                           && !WindowsComponents.IsComponent(r.Process);
             var c = new Compiled { Rule = r, Ports = ports, NameOnly = nameOnly, Glob = ProcessGlob(r.Process) };
             if (r.Remote == RemoteKind.Addresses)
                 c.Ranges = r.Targets.Select(t => AddressRange.TryParse(t, out var a) ? a : (AddressRange?)null).Where(a => a != null).Select(a => a!.Value).ToArray();
@@ -80,7 +81,12 @@ public sealed class RuleSet
         if (r.Process.Length > 0)
         {
             var p = c.NameOnly ? Rule.NameOf(conn.ProcessPath) : conn.ProcessPath;
-            if (c.Glob != null)
+            if (WindowsComponents.IsComponent(r.Process))
+            {
+                // Windows Update bzw. Viren- & Bedrohungsschutz: jedes ihrer Programme an seinem geschützten Ort.
+                if (WindowsComponents.Of(conn.ProcessPath) != r.Process) return false;
+            }
+            else if (c.Glob != null)
             {
                 // Ein Muster passt nie auf einen unbekannten Prozess (sonst gälte „*“ auch für ihn).
                 if (conn.ProcessPath.Length == 0 || !c.Glob.IsMatch(p)) return false;

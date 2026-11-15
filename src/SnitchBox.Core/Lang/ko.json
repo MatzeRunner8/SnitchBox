@@ -294,5 +294,11 @@
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe의 전체 경로, chrome.exe 같은 파일 이름만, 또는 모든 프로그램이면 비워 둠. *는 폴더 또는 파일 이름의 임의 부분을 나타냅니다(예: C:\\Temp\\*\\setup.exe)",
  "Remove duplicate and superfluous rules, combine rules of the same kind": "중복되거나 불필요한 규칙을 삭제하고 같은 종류의 규칙을 합칩니다",
  "The rules are already tidy.": "규칙이 이미 정리되어 있습니다.",
- "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "규칙 {0}개가 해당 프로그램의 모든 복사본과 버전에 적용됩니다(임의의 임시 폴더나 버전 번호처럼 바뀌는 폴더 이름은 *가 됩니다)."
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "규칙 {0}개가 해당 프로그램의 모든 복사본과 버전에 적용됩니다(임의의 임시 폴더나 버전 번호처럼 바뀌는 폴더 이름은 *가 됩니다).",
+ "Virus & threat protection": "바이러스 및 위협 방지",
+ "All programs of this Windows component at their protected Windows location": "보호된 Windows 위치에 있는 이 Windows 구성 요소의 모든 프로그램",
+ "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: 새 바이러스 서명 및 클라우드 보호(MsMpEng, MpCmdRun, NisSrv 등)",
+ "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Windows 업데이트(SIHClient, MoUsoCoreWorker, WaaSMedicAgent 등). svchost.exe의 서비스는 별도의 기본 규칙으로 허용됩니다",
+ "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows의 일부: 이를 차단하면 Windows가 더 이상 업데이트를 받지 못합니다.",
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows의 일부: 이를 차단하면 바이러스 보호가 더 이상 새 서명과 클라우드 보호를 받지 못합니다."
 }

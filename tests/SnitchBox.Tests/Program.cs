@@ -483,8 +483,10 @@ Check(IpKey.From(IPAddress.Parse("127.0.0.53")).IsLoopback && IpKey.From(IPAddre
     old.Rules.Add(new Rule { Factory = true, Action = RuleAction.Allow, Ports = "67, 68, 546, 547", Protocol = Proto.Udp, Remote = RemoteKind.Any });
     old.Save(); // Stand 1 liegt auf der Platte und wird vor der Umstellung gesichert
     FactoryRules.Ensure(old, @"C:\Windows");
-    Check(old.Rules.Count == 2 && old.Rules[0].Remote == RemoteKind.DnsServers && !old.Rules[0].Enabled && old.Rules[1].Remote == RemoteKind.LocalNet
-          && old.Settings.FactoryRulesVersion == FactoryRules.Version, "Werksregeln Stand 1 → 2");
+    // Ab Stand 3 kommen Windows Update und Viren- & Bedrohungsschutz dazu (hinten angefügt).
+    Check(old.Rules.Count == 4 && old.Rules[0].Remote == RemoteKind.DnsServers && !old.Rules[0].Enabled && old.Rules[1].Remote == RemoteKind.LocalNet
+          && old.Rules.Skip(2).All(r => r.Factory && WindowsComponents.IsComponent(r.Process))
+          && old.Settings.FactoryRulesVersion == FactoryRules.Version, "Werksregeln Stand 1 → 3");
     var backup = Path.Combine(Paths.DataDir, "config.json.vor-werksregeln-2");
     Check(File.Exists(backup) && File.ReadAllText(backup).Contains("\"Any\""), "Sicherung vor Werksregeln Stand 2");
 }
@@ -619,6 +621,50 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     var own = fs.Rules.Where(r => !r.Factory).ToList();
     Check(own.Count == 1 && own[0].Targets.Count == 2 && fe.Alerts.Count == 0, "zwei Nachfragen (Host) ergeben eine Regel mit zwei Hosts");
     AlertRules.TempRoots = [];
+}
+
+// ---- Windows Update und Viren- & Bedrohungsschutz als eigene, erkennbare Werksregeln
+{
+    WindowsComponents.Configure(@"C:\Windows", @"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData");
+    Check(WindowsComponents.Of(@"C:\Windows\System32\SIHClient.exe") == WindowsComponents.Update
+          && WindowsComponents.Of(@"C:\Windows\UUS\amd64\MoUsoCoreWorker.exe") == WindowsComponents.Update
+          && WindowsComponents.Of(@"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.25110.5-0\MsMpEng.exe") == WindowsComponents.Defender
+          && WindowsComponents.Of(@"C:\Program Files\Windows Defender\MpCmdRun.exe") == WindowsComponents.Defender
+          && WindowsComponents.Of(@"C:\ProgramData\Microsoft\Windows Defender\Platform\*\MpCmdRun.exe") == WindowsComponents.Defender,
+        "Windows Update und Defender an ihren Orten erkannt (auch als Muster)");
+    Check(WindowsComponents.Of(@"R:\Temp\SIHClient.exe") == null && WindowsComponents.Of(@"C:\Windows\System32\spool\drivers\color\SIHClient.exe") == null
+          && WindowsComponents.Of(@"C:\Users\x\Downloads\MsMpEng.exe") == null && WindowsComponents.Of(@"C:\Windows\System32\notepad.exe") == null
+          && WindowsComponents.Of(@"C:\ProgramData\Microsoft\Windows Defender\Platform\..\..\x\MsMpEng.exe") == null,
+        "gleicher Dateiname an einem anderen Ort ist kein Windows-Bestandteil");
+    var cs = new Store();
+    FactoryRules.Ensure(cs, @"C:\Windows");
+    Connection P(string path) => new()
+    {
+        ProcessPath = path, Pid = 9, Direction = Direction.Outgoing, Protocol = Proto.Tcp, Remote = IpKey.From(IPAddress.Parse("20.1.2.3")), Port = 443,
+    };
+    var crs = RuleSet.Build(cs, "boot");
+    Check(crs.Evaluate(P(@"C:\Windows\System32\SIHClient.exe"), now).Action == RuleAction.Allow
+          && crs.Evaluate(P(@"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.25110.5-0\MpCmdRun.exe"), now).Action == RuleAction.Allow
+          && crs.Evaluate(P(@"R:\Temp\SIHClient.exe"), now).Action == null,
+        "Werksregeln erlauben Windows Update und Defender, aber keine Namensvettern");
+    cs.Rules.Add(new Rule { Action = RuleAction.Deny, Process = @"C:\Windows\System32\SIHClient.exe" });
+    Check(RuleSet.Build(cs, "boot").Evaluate(P(@"C:\Windows\System32\SIHClient.exe"), now).Action == RuleAction.Deny, "eigenes Verbot für ein Programm geht der Werksregel vor");
+    Check(cs.Rules.Single(r => r.Process == WindowsComponents.Update).ProcessName == "Windows Update"
+          && cs.Rules.Last().ProcessName == "Windows Update · SIHClient.exe"
+          && cs.Rules.Single(r => r.Process == WindowsComponents.Defender).ProcessName == "Viren- & Bedrohungsschutz",
+        "Regelliste zeigt den Bestandteil");
+    var old = new Store();
+    FactoryRules.Ensure(old, @"C:\Windows");
+    old.Rules.RemoveAll(r => WindowsComponents.IsComponent(r.Process));
+    old.Settings.FactoryRulesVersion = 2;
+    FactoryRules.Ensure(old, @"C:\Windows");
+    FactoryRules.Ensure(old, @"C:\Windows");
+    Check(old.Rules.Count(r => WindowsComponents.IsComponent(r.Process)) == 2 && old.Settings.FactoryRulesVersion == FactoryRules.Version,
+        "Aktualisierung auf Werksregel-Stand 3 ergänzt die beiden Regeln genau einmal");
+    cs.Rules.Add(new Rule { Action = RuleAction.Allow, Process = @"C:\Windows\System32\MoUsoCoreWorker.exe" });
+    Check(RuleCleanup.Plan(cs.Rules, new HashSet<string>()).Rules.Any(r => r.Process == @"C:\Windows\System32\MoUsoCoreWorker.exe"),
+        "eine Werksregel macht eigene Regeln beim Aufräumen nie überflüssig (abschaltbar)");
+    WindowsComponents.Configure("", "", "", "");
 }
 
 // ---- Sprachen: jede Tabelle vollständig, Platzhalter unverändert, string.Format scheitert nicht

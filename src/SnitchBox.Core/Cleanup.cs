@@ -42,7 +42,9 @@ public static class RuleCleanup
     private static bool ProcessCovers(string wide, string narrow)
     {
         if (wide.Equals(narrow, StringComparison.OrdinalIgnoreCase)) return true;
-        if (wide.Length == 0 || narrow.Length == 0 || narrow.Contains('*')) return false;
+        if (wide.Length == 0 || narrow.Length == 0 || (narrow.Contains('*') && !WindowsComponents.IsComponent(wide))) return false;
+        if (WindowsComponents.IsComponent(wide)) return WindowsComponents.Of(narrow) == wide;
+        if (WindowsComponents.IsComponent(narrow)) return false;
         var nameOnly = wide.IndexOfAny(['\\', '/']) < 0;
         if (nameOnly && wide.Equals(Rule.KernelProcess, StringComparison.OrdinalIgnoreCase)) return false;
         var subject = nameOnly ? Rule.NameOf(narrow) : narrow;
@@ -53,7 +55,7 @@ public static class RuleCleanup
     /// geschätzt über den Dateinamen: verschiedene Dateinamen schließen sich aus, ein Muster im Dateinamen nur, wenn es nicht passt.</summary>
     private static bool ProcessMayOverlap(Rule o, Rule n)
     {
-        if (o.AnyProcess || n.AnyProcess) return true;
+        if (o.AnyProcess || n.AnyProcess || WindowsComponents.IsComponent(o.Process) || WindowsComponents.IsComponent(n.Process)) return true;
         string a = Rule.NameOf(o.Process), b = Rule.NameOf(n.Process);
         if (a.Contains('*') && b.Contains('*')) return true;
         if (a.Contains('*')) return RuleSet.ProcessGlob(a)!.IsMatch(b);

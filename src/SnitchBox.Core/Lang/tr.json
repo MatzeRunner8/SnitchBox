@@ -294,5 +294,11 @@
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe dosyasının tam yolu, yalnızca chrome.exe gibi bir dosya adı ya da tüm programlar için boş. * bir klasör veya dosya adının herhangi bir bölümünün yerini tutar, ör. C:\\Temp\\*\\setup.exe",
  "Remove duplicate and superfluous rules, combine rules of the same kind": "Yinelenen ve gereksiz kuralları kaldır, aynı türden kuralları birleştir",
  "The rules are already tidy.": "Kurallar zaten düzenli.",
- "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} kural, programının her kopyasına ve sürümüne uygulanacak (rastgele geçici klasörler veya sürüm numaraları gibi değişen klasör adları * olur)."
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} kural, programının her kopyasına ve sürümüne uygulanacak (rastgele geçici klasörler veya sürüm numaraları gibi değişen klasör adları * olur).",
+ "Virus & threat protection": "Virüs ve tehdit koruması",
+ "All programs of this Windows component at their protected Windows location": "Bu Windows bileşeninin korumalı Windows konumundaki tüm programları",
+ "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender: yeni virüs imzaları ve bulut koruması (MsMpEng, MpCmdRun, NisSrv…)",
+ "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Windows güncelleştirmeleri (SIHClient, MoUsoCoreWorker, WaaSMedicAgent…); svchost.exe içindeki hizmetlere ayrı bir varsayılan kural izin verir",
+ "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows'un parçası: Bunu engellersen Windows artık güncelleştirme almaz.",
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows'un parçası: Bunu engellersen virüs koruması artık yeni imzalar ve bulut koruması almaz."
 }

@@ -294,5 +294,11 @@
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe 的完整路径、仅文件名（如 chrome.exe），或留空表示任意程序。* 代表文件夹名或文件名中的任意部分，例如 C:\\Temp\\*\\setup.exe",
  "Remove duplicate and superfluous rules, combine rules of the same kind": "删除重复和多余的规则，合并同类规则",
  "The rules are already tidy.": "规则已经很整洁。",
- "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} 条规则将适用于其程序的每个副本和版本（变化的文件夹名，例如随机临时文件夹或版本号，变为 *）。"
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} 条规则将适用于其程序的每个副本和版本（变化的文件夹名，例如随机临时文件夹或版本号，变为 *）。",
+ "Virus & threat protection": "病毒和威胁防护",
+ "All programs of this Windows component at their protected Windows location": "此 Windows 组件位于受保护 Windows 位置的所有程序",
+ "Microsoft Defender: new virus signatures and cloud protection (MsMpEng, MpCmdRun, NisSrv …)": "Microsoft Defender：新的病毒特征码和云保护（MsMpEng、MpCmdRun、NisSrv 等）",
+ "Windows updates (SIHClient, MoUsoCoreWorker, WaaSMedicAgent …); the services in svchost.exe are allowed by a factory rule of their own": "Windows 更新（SIHClient、MoUsoCoreWorker、WaaSMedicAgent 等）；svchost.exe 中的服务由另一条默认规则允许",
+ "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows 的组成部分：如果禁止，Windows 将无法再获取更新。",
+ "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows 的组成部分：如果禁止，病毒防护将无法再获取新的特征码和云保护。"
 }

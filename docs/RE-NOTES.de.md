@@ -169,5 +169,20 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
   geprüft außerhalb der Sperre der Engine). Werksregeln bleiben unberührt. Probelauf mit den Regeln des Testrechners: 90 → 43,
   BackgroundDownload.exe 17 → 3.
 
+## Build 23
+- Windows Update und Viren- & Bedrohungsschutz als Regel erkennbar (Wunsch des Nutzers): Ihre Programme außerhalb von svchost.exe haben
+  nichtssagende Namen (SIHClient.exe, MoUsoCoreWorker.exe, MpCmdRun.exe …) und wurden leicht versehentlich verboten – auf dem Testrechner
+  gab es eine Regel gegen SIHClient.exe und eine, die MpCmdRun.exe definitionupdates.microsoft.com (Virensignaturen) verbot.
+- WindowsComponents (Components.cs): erkennt sie an Dateiname und Ort – Windows Update direkt in System32/SysWOW64 oder unter UUS, WinSxS,
+  servicing, SoftwareDistribution; Defender unter ProgramData\Microsoft\Windows Defender\Platform\ und den Programmordnern von Windows
+  Defender. Nur Ordner, in die allein Windows und Administratoren schreiben, damit sich kein Programm per Dateiname als Windows Update
+  ausgeben kann (Unterordner von System32 zählen nicht, manche sind für alle beschreibbar).
+- Prozess „@windows-update“ / „@defender“ in einer Regel = alle Programme des Bestandteils. Werksregel-Stand 3 ergänzt „Windows Update“ und
+  „Viren- & Bedrohungsschutz“ (ausgehend erlauben, abschaltbar); eigene Verbieten-Regeln für einzelne Programme gehen weiter vor
+  (gleiche Rangstufe, bei Gleichstand gewinnt „Verbieten“).
+- Anzeige: Die Regelliste zeigt „Windows Update“ / „Viren- & Bedrohungsschutz“ als Prozess bzw. „Windows Update · SIHClient.exe“ bei Regeln
+  für einzelne Programme, mit dem Symbol der Einstellungen bzw. der Windows-Sicherheit; ebenso im Netzwerkmonitor; das Warnfenster nennt
+  den Bestandteil und sagt, was ein Verbot bewirkt.
+
 ## Offen
 - Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.

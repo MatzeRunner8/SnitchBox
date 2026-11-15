@@ -31,6 +31,15 @@ public partial class AlertWindow : Window
 
         var info = Native.InfoOf(c.ProcessPath);
         NameText.Text = info.Title.Length > 0 ? info.Title : c.ProcessName;
+        if (WindowsComponents.Of(c.ProcessPath) is { } component)
+        {
+            NameText.Text = WindowsComponents.Title(component) + " · " + c.ProcessName;
+            ComponentHint.Text = "ⓘ " + (component == WindowsComponents.Update
+                ? Loc.T("Teil von Windows: Verbietest du das, bekommt Windows keine Updates mehr.", "Part of Windows: if you deny this, Windows no longer gets updates.")
+                : Loc.T("Teil von Windows: Verbietest du das, bekommt der Virenschutz keine neuen Signaturen und keinen Cloud-Schutz mehr.",
+                        "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection."));
+            ComponentHint.Visibility = Visibility.Visible;
+        }
         var port = $"{c.Port} ({(c.Protocol == Proto.Tcp ? "TCP" : "UDP")})";
         // Der Satz nennt die Gegenstelle fett, damit das Wichtigste sofort ins Auge fällt.
         var (before, after) = c.Direction == Direction.Outgoing
