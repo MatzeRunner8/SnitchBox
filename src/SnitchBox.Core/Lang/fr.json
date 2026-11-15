@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Composant de Windows : si vous le bloquez, Windows ne reçoit plus de mises à jour.",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Composant de Windows : si vous le bloquez, la protection antivirus ne reçoit plus de nouvelles signatures ni de protection cloud.",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Désactiver le filtre réseau ?\n\nSnitchBox laissera alors passer toutes les connexions sans demander – y compris celles que vos règles et listes de blocage interdisent. Vous pouvez le réactiver à tout moment via « Filtre réseau ».",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Quitter SnitchBox ?\n\nSans SnitchBox, rien n’est filtré : toutes les connexions passent sans demander jusqu’au prochain démarrage de SnitchBox."
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Quitter SnitchBox ?\n\nSans SnitchBox, rien n’est filtré : toutes les connexions passent sans demander jusqu’au prochain démarrage de SnitchBox.",
+ "Windows service": "Service Windows",
+ "Windows service: {0}": "Service Windows : {0}",
+ "Data volume of all Windows services combined": "Volume de données de tous les services Windows réunis",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Uniquement avec svchost.exe : nom court du service, p. ex. DiagTrack (télémétrie). Vide = tout service.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Les services Windows n’existent qu’avec svchost.exe. Indiquez svchost.exe comme programme (ou laissez-le vide) – ou laissez le service vide."
 }

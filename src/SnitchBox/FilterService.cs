@@ -50,6 +50,37 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
     private Timer? _dnsTimer;
     /// <summary>Markiert in PacketMeta.Raw „Flags stammen vom Treiber“ (liegt in dessen reservierten Bits).</summary>
     private const uint Captured = 0x80000000;
+    private static readonly string Svchost = Path.Combine(Environment.SystemDirectory, "svchost.exe");
+    // Laufende Windows-Dienste je Prozessnummer (für svchost.exe); neu gelesen bei unbekannter Nummer (höchstens 1×/s) und jede Minute.
+    private readonly object _servicesGate = new();
+    private Dictionary<int, string[]> _servicesByPid = [];
+    private long _servicesTick = -1_000_000;
+
+    /// <summary>Der Windows-Dienst in einem svchost-Prozess – nur wenn er dort allein läuft. Beherbergt ein Prozess mehrere Dienste
+    /// (auf Rechnern mit viel Speicher selten, z. B. RpcSs + RpcEptMapper), lässt sich nicht sagen, welcher die Verbindung aufbaut: leer.</summary>
+    private string ServiceOf(int pid)
+    {
+        lock (_servicesGate)
+        {
+            var age = Environment.TickCount64 - _servicesTick;
+            if (age > 60_000 || (age > 1000 && !_servicesByPid.ContainsKey(pid)))
+            {
+                try
+                {
+                    _servicesByPid = Native.Services(true).Where(s => s.Pid != 0).GroupBy(s => s.Pid)
+                        .ToDictionary(g => g.Key, g => g.Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+                }
+                catch (Exception e)
+                {
+                    if (Interlocked.Increment(ref _loggedErrors) <= 20) Log.Write("Dienste lesen: " + e.Message);
+                }
+                _servicesTick = Environment.TickCount64;
+            }
+            return _servicesByPid.TryGetValue(pid, out var names) && names.Length == 1 ? names[0] : "";
+        }
+    }
+
+    private string ServiceFor(int pid, string path) => path.Equals(Svchost, StringComparison.OrdinalIgnoreCase) ? ServiceOf(pid) : "";
 
     public bool Running { get; private set; }
     /// <summary>Lesbare Ursache, wenn der Treiber nicht startet.</summary>
@@ -86,7 +117,7 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                     if (incoming && !incomingFiltered) continue;
                     var conn = new Connection
                     {
-                        ProcessPath = path, Pid = c.Pid, Protocol = Proto.Tcp, Remote = c.Remote,
+                        ProcessPath = path, Pid = c.Pid, Service = ServiceFor(c.Pid, path), Protocol = Proto.Tcp, Remote = c.Remote,
                         Direction = incoming ? Direction.Incoming : Direction.Outgoing,
                         Port = incoming ? c.LocalPort : c.RemotePort,
                         Hostnames = engine.Hosts.Lookup(c.Remote),
@@ -585,7 +616,7 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
     }
 
     /// <summary>PID 0 heißt „unbekannt“ und darf nicht als Windows-Kern durchgehen.</summary>
-    private ProcessInfo Info(int pid) => pid != 0 && PathOf(pid) is { } path ? new ProcessInfo(pid, path) : new ProcessInfo(pid, "");
+    private ProcessInfo Info(int pid) => pid != 0 && PathOf(pid) is { } path ? new ProcessInfo(pid, path, ServiceFor(pid, path)) : new ProcessInfo(pid, "");
 
     /// <summary>Wer auf einem TCP-Port lauscht (0 = niemand). Die Tabelle wird spätestens alle 2 s neu gelesen, nach
     /// einem geschlossenen Socket oder bei einem unbekannten Port schon nach 25 ms (ein neuer Lauscher, dessen Ereignis

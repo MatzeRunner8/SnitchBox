@@ -75,6 +75,10 @@ public static class LsRules
         set.Add(d);
     }
 
+    /// <summary>Eigener Schlüssel für den Windows-Dienst (Little Snitch kennt keine Dienste); ohne ihn würde aus „DiagTrack verbieten“
+    /// beim Wiedereinlesen „svchost.exe verbieten“.</summary>
+    private const string ServiceKey = "snitchbox-service";
+
     private static Rule? ParseRule(JsonObject o)
     {
         var action = Text(o["action"]).ToLowerInvariant();
@@ -89,6 +93,7 @@ public static class LsRules
         };
         var process = Text(o["process"]);
         r.Process = process.Equals("any", StringComparison.OrdinalIgnoreCase) ? "" : process;
+        r.Service = Text(o[ServiceKey]);
         var ports = Text(o["ports"]);
         r.Ports = ports.Equals("any", StringComparison.OrdinalIgnoreCase) ? "" : ports;
         if (!PortSet.TryParse(r.Ports, out _)) return null;
@@ -124,6 +129,7 @@ public static class LsRules
                 ["direction"] = r.Direction == Direction.Incoming ? "incoming" : "outgoing",
                 ["priority"] = r.HighPriority ? "high" : "regular",
             };
+            if (r.Service.Length > 0) o[ServiceKey] = r.Service;
             if (!r.Enabled) o["disabled"] = true;
             if (PortSet.TryParse(r.Ports, out var ps) && !ps.Any) o["ports"] = r.Ports;
             if (r.Protocol != Proto.Any) o["protocol"] = r.Protocol == Proto.Tcp ? "tcp" : "udp";

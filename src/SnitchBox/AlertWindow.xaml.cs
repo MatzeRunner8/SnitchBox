@@ -51,7 +51,9 @@ public partial class AlertWindow : Window
 
         AddressText.Text = c.Remote + (AddressRange.IsLocal(c.Remote) ? Loc.T("  (lokales Netz)", "  (local network)") : "")
                            + (c.Hostnames.Count == 0 ? Loc.T("  – kein Name bekannt", "  – no name known") : "");
-        PathText.Text = (c.ProcessPath.Length > 0 ? c.ProcessPath : Loc.T("unbekannt", "unknown")) + (c.Pid > 0 ? $"  (PID {c.Pid})" : "");
+        PathText.Text = (c.ProcessPath.Length > 0 ? c.ProcessPath : Loc.T("unbekannt", "unknown")) + (c.Service.Length > 0 ? " · " + c.Service : "")
+                        + (c.Pid > 0 ? $"  (PID {c.Pid})" : "");
+        if (c.Service.Length > 0) NameText.Text = Loc.F("Windows-Dienst: {0}", "Windows service: {0}", Rule.ServiceTitle(c.Service) ?? c.Service);
         PathText.ToolTip = c.ProcessPath;
         PublisherText.Text = info.Publisher.Length > 0 ? info.Publisher : Loc.T("keine eingebettete Signatur", "no embedded signature");
         if (c.Hostnames.Count > 1) NamesText.Text = string.Join(", ", c.Hostnames.Skip(1));

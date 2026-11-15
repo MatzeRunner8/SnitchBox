@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows 的组成部分：如果禁止，Windows 将无法再获取更新。",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows 的组成部分：如果禁止，病毒防护将无法再获取新的特征码和云保护。",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "关闭网络过滤器？\n\n关闭后，SnitchBox 将不经询问放行所有连接——包括你的规则和阻止列表禁止的连接。你可以随时通过“网络筛选器”重新开启。",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "退出 SnitchBox？\n\n没有 SnitchBox 就不会进行任何过滤：在 SnitchBox 再次启动之前，所有连接都会不经询问直接通过。"
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "退出 SnitchBox？\n\n没有 SnitchBox 就不会进行任何过滤：在 SnitchBox 再次启动之前，所有连接都会不经询问直接通过。",
+ "Windows service": "Windows 服务",
+ "Windows service: {0}": "Windows 服务：{0}",
+ "Data volume of all Windows services combined": "所有 Windows 服务的合计数据量",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "仅适用于 svchost.exe：服务的短名称，例如 DiagTrack（遥测）。留空 = 任意服务。",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows 服务只存在于 svchost.exe 中。请将程序填为 svchost.exe（或留空），或者将服务留空。"
 }

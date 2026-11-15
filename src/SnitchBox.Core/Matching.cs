@@ -78,6 +78,7 @@ public sealed class RuleSet
         if (r.Lifetime == LifetimeKind.UntilQuit && r.QuitPid != conn.Pid) return false;
         if (r.Protocol != Proto.Any && r.Protocol != conn.Protocol) return false;
         if (!c.Ports.Contains(conn.Port)) return false;
+        if (r.Service.Length > 0 && !r.Service.Equals(conn.Service, StringComparison.OrdinalIgnoreCase)) return false;
         if (r.Process.Length > 0)
         {
             var p = c.NameOnly ? Rule.NameOf(conn.ProcessPath) : conn.ProcessPath;
@@ -128,10 +129,10 @@ public sealed class RuleSet
         _ => 0,
     };
 
-    /// <summary>Rangfolge wie im Original: hohe Priorität, dann der genauere Prozess, die genauere Gegenstelle,
-    /// Port und Protokoll; bei Gleichstand gewinnt „Verbieten“.</summary>
+    /// <summary>Rangfolge wie im Original: hohe Priorität, dann der genauere Prozess, ein bestimmter Windows-Dienst (genauer als
+    /// „svchost.exe“ allein), die genauere Gegenstelle, Port und Protokoll; bei Gleichstand gewinnt „Verbieten“.</summary>
     internal static int Score(Rule r, PortSet ports) =>
-        (r.HighPriority ? 1 << 20 : 0) + (r.AnyProcess ? 0 : 1 << 16) + (Specificity(r.Remote) << 8)
+        (r.HighPriority ? 1 << 20 : 0) + (r.AnyProcess ? 0 : 1 << 16) + (r.Service.Length > 0 ? 1 << 12 : 0) + (Specificity(r.Remote) << 8)
         + (ports.Any ? 0 : 1 << 4) + (r.Protocol == Proto.Any ? 0 : 1 << 2) + (r.Action == RuleAction.Deny ? 1 : 0);
 
     public Decision Evaluate(Connection conn, DateTime now)
@@ -276,7 +277,7 @@ public static class AlertRules
         var r = new Rule
         {
             Action = allow ? RuleAction.Allow : RuleAction.Deny,
-            Process = ProcessPattern(c.ProcessPath), Direction = c.Direction, Profile = profile, Created = now,
+            Process = ProcessPattern(c.ProcessPath), Service = c.Service, Direction = c.Direction, Profile = profile, Created = now,
         };
         if (scope is AlertScope.Port or AlertScope.HostAndPort or AlertScope.DomainAndPort)
         {

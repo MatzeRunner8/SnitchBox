@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows'un parçası: Bunu engellersen Windows artık güncelleştirme almaz.",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows'un parçası: Bunu engellersen virüs koruması artık yeni imzalar ve bulut koruması almaz.",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Ağ filtresi kapatılsın mı?\n\nSnitchBox bundan sonra her bağlantıyı sormadan geçirir – kurallarının ve engelleme listelerinin yasakladıkları dahil. İstediğin zaman “Ağ filtresi” ile yeniden açabilirsin.",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "SnitchBox kapatılsın mı?\n\nSnitchBox olmadan hiçbir şey filtrelenmez: SnitchBox yeniden başlatılana kadar her bağlantı sormadan geçer."
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "SnitchBox kapatılsın mı?\n\nSnitchBox olmadan hiçbir şey filtrelenmez: SnitchBox yeniden başlatılana kadar her bağlantı sormadan geçer.",
+ "Windows service": "Windows hizmeti",
+ "Windows service: {0}": "Windows hizmeti: {0}",
+ "Data volume of all Windows services combined": "Tüm Windows hizmetlerinin toplam veri miktarı",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Yalnızca svchost.exe ile: hizmetin kısa adı, ör. DiagTrack (telemetri). Boş = herhangi bir hizmet.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows hizmetleri yalnızca svchost.exe ile vardır. Program olarak svchost.exe gir (veya boş bırak) – ya da hizmeti boş bırak."
 }

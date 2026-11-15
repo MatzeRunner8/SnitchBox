@@ -62,6 +62,7 @@
  "For 7 Days": "Für 7 Tage",
  "For 30 Days": "Für 30 Tage",
  "Forever": "Für immer",
+ "Windows service: {0}": "Windows-Dienst: {0}",
  "Any Process": "Jeder Prozess",
  "Allow outgoing connections": "Erlaube ausgehende Verbindungen",
  "Allow incoming connections": "Erlaube eingehende Verbindungen",
@@ -256,6 +257,7 @@
  "All Programs": "Alle Programme",
  "{0} programs · {1} remotes": "{0} Programme · {1} Gegenstellen",
  "{0} remotes · last {1:HH:mm:ss}": "{0} Gegenstellen · zuletzt {1:HH:mm:ss}",
+ "Data volume of all Windows services combined": "Datenmenge aller Windows-Dienste zusammen",
  "Connection existed before start": "Verbindung bestand schon vor dem Start",
  "Select a connection in the list first.": "Wähle zuerst eine Verbindung in der Liste.",
  "The program of this connection is unknown. A rule without a program would apply to every program – create one deliberately via “New Rule” if needed.": "Zu dieser Verbindung ist das Programm unbekannt. Eine Regel ohne Programm gälte für alle Programme – lege sie bei Bedarf über „Neue Regel“ bewusst an.",
@@ -276,6 +278,8 @@
  "Delete profile “{0}” and its {1} rules?": "Profil „{0}“ samt seinen {1} Regeln löschen?",
  "Choose…": "Wählen …",
  "Full path of the .exe, just a file name like chrome.exe, or empty for any program": "Voller Pfad der .exe, nur ein Dateiname wie chrome.exe, oder leer für jedes Programm",
+ "Windows service": "Windows-Dienst",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Nur bei svchost.exe: Kurzname des Dienstes, z. B. DiagTrack (Telemetrie). Leer = jeder Dienst.",
  "Separate several entries with commas": "Mehrere Einträge durch Komma trennen",
  "Empty = any port. Examples: 443 · 80, 443 · 8000-8100": "Leer = jeder Port. Beispiele: 443 · 80, 443 · 8000-8100",
  "High priority (overrides all other rules)": "Hohe Priorität (geht allen anderen Regeln vor)",
@@ -302,5 +306,6 @@
  "Programs": "Programme",
  "Please enter at least one remote.": "Bitte mindestens eine Gegenstelle eintragen.",
  "“{0}” is not a valid address or range.": "„{0}“ ist keine gültige Adresse oder kein gültiger Bereich.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Einen Windows-Dienst gibt es nur bei svchost.exe. Trage dort svchost.exe ein (oder lass das Programm leer) – oder lass den Dienst leer.",
  "The port entry is invalid. Examples: 443 · 80, 443 · 8000-8100": "Die Portangabe ist ungültig. Beispiele: 443 · 80, 443 · 8000-8100"
 }

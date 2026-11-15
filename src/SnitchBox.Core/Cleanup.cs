@@ -23,7 +23,8 @@ public static class RuleCleanup
     public static bool Mergeable(Rule a, Rule b) =>
         a.Enabled && b.Enabled && !a.Factory && !b.Factory && a.Action == b.Action && a.Direction == b.Direction
         && a.Remote == b.Remote && a.Remote is RemoteKind.Hosts or RemoteKind.Domains or RemoteKind.Addresses
-        && a.Process.Equals(b.Process, StringComparison.OrdinalIgnoreCase) && a.Protocol == b.Protocol && a.Profile == b.Profile
+        && a.Process.Equals(b.Process, StringComparison.OrdinalIgnoreCase) && a.Service.Equals(b.Service, StringComparison.OrdinalIgnoreCase)
+        && a.Protocol == b.Protocol && a.Profile == b.Profile
         && a.HighPriority == b.HighPriority && SamePorts(a.Ports, b.Ports) && SameLifetime(a, b)
         && (a.Notes == b.Notes || a.Notes.Length == 0 || b.Notes.Length == 0);
 
@@ -96,6 +97,8 @@ public static class RuleCleanup
         if (ReferenceEquals(w, n) || w.Id == n.Id || !w.Enabled || !n.Enabled || w.Factory || n.Factory) return false;
         if (w.Action != n.Action || w.Direction != n.Direction || (w.Profile != null && w.Profile != n.Profile)) return false;
         if (w.Protocol != Proto.Any && w.Protocol != n.Protocol) return false;
+        // Eine Regel für einen Dienst erfasst nur dessen Verbindungen; eine ohne Dienst erfasst auch die jedes Dienstes.
+        if (w.Service.Length > 0 && !w.Service.Equals(n.Service, StringComparison.OrdinalIgnoreCase)) return false;
         if (!PortSet.TryParse(w.Ports, out var wp) || !PortSet.TryParse(n.Ports, out var np) || (!wp.Any && !wp.SameAs(np))) return false;
         if (!ProcessCovers(w.Process, n.Process) || !RemoteCovers(w, n) || !Outlives(w, n)) return false;
         if (Exempts(n) && !Exempts(w)) return false; // n hielte eine Blockliste fern, w nicht

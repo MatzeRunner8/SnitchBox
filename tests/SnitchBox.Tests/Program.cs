@@ -667,6 +667,53 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     WindowsComponents.Configure("", "", "", "");
 }
 
+// ---- Windows-Dienste einzeln (svchost.exe): sehen und regeln
+{
+    const string Svc = @"C:\Windows\System32\svchost.exe";
+    Connection S(string service) => new()
+    {
+        ProcessPath = Svc, Service = service, Pid = 1200, Direction = Direction.Outgoing, Protocol = Proto.Tcp,
+        Remote = IpKey.From(IPAddress.Parse("20.42.65.92")), Port = 443, Hostnames = ["v10.events.data.microsoft.com"],
+    };
+    var ss = new Store();
+    FactoryRules.Ensure(ss, @"C:\Windows");
+    ss.Rules.Add(new Rule { Action = RuleAction.Deny, Process = Svc, Service = "DiagTrack" });
+    var srs = RuleSet.Build(ss, "boot");
+    Check(srs.Evaluate(S("DiagTrack"), now).Action == RuleAction.Deny && srs.Evaluate(S("wuauserv"), now).Action == RuleAction.Allow
+          && srs.Evaluate(S(""), now).Action == RuleAction.Allow,
+        "„DiagTrack verbieten“ geht der svchost-Werksregel vor, andere Dienste bleiben erlaubt");
+    var anyProcess = new Store();
+    anyProcess.Rules.Add(new Rule { Action = RuleAction.Deny, Service = "diagtrack" });
+    Check(RuleSet.Build(anyProcess, "boot").Evaluate(S("DiagTrack"), now).Action == RuleAction.Deny, "Dienst ohne Programmangabe, Groß/klein egal");
+
+    var sp = new FakeProcs();
+    var se = new FirewallEngine(ss, sp, "boot", () => now);
+    sp.Ports[(true, 52000)] = new ProcessInfo(1200, Svc, "DiagTrack");
+    sp.Ports[(true, 52001)] = new ProcessInfo(1201, Svc, "wuauserv");
+    var sm = new PacketMeta(true, false, 7, 0);
+    Check(se.Process(V4(6, "192.168.1.10", "20.42.65.92", TcpSyn(52000, 443, 1)), sm, out _) == Verdict.Reject
+          && se.Process(V4(6, "192.168.1.10", "20.42.65.92", TcpSyn(52001, 443, 1)), sm, out _) == Verdict.Pass,
+        "Engine: Telemetrie-Dienst abgewiesen, Windows Update durchgelassen");
+    var rows = se.History.Snapshot().Where(r => r.ProcessPath == Svc).ToList();
+    Check(rows.Count == 2 && rows.Any(r => r.Service == "DiagTrack" && r.Allowed == false) && rows.Any(r => r.Service == "wuauserv" && r.Allowed == true),
+        "Monitor: je Dienst eine eigene Zeile");
+    var fromMonitor = AlertRules.Create(rows.First(r => r.Service == "wuauserv").Template, false, AlertScope.Host, AlertLifetime.Forever, "boot", null, now)!;
+    Check(fromMonitor.Service == "wuauserv" && fromMonitor.Process == Svc, "Regel aus einer Monitor-Zeile gilt für den Dienst");
+
+    var wideSvc = new Rule { Action = RuleAction.Deny, Process = Svc };
+    var narrowSvc = new Rule { Action = RuleAction.Deny, Process = Svc, Service = "DiagTrack", Remote = RemoteKind.Hosts, Targets = ["v10.events.data.microsoft.com"] };
+    var svcAny = new Rule { Action = RuleAction.Deny, Process = Svc, Service = "DiagTrack" };
+    var plainHost = new Rule { Action = RuleAction.Deny, Process = Svc, Remote = RemoteKind.Hosts, Targets = ["x.example"] };
+    Check(RuleCleanup.MakesRedundant(wideSvc, narrowSvc, [wideSvc, narrowSvc]) && !RuleCleanup.MakesRedundant(svcAny, plainHost, [svcAny, plainHost])
+          && !svcAny.SameScope(wideSvc) && !RuleCleanup.Mergeable(narrowSvc, plainHost),
+        "Aufräumen: Regel ohne Dienst erfasst jeden Dienst, eine Dienst-Regel nur ihren");
+    var reread = LsRules.Parse(LsRules.Export("x", [svcAny])).Rules.Single();
+    Check(reread.Service == "DiagTrack" && reread.Process == Svc, "Export/Import behält den Dienst");
+    Rule.ServiceTitle = s => s.Equals("DiagTrack", StringComparison.OrdinalIgnoreCase) ? "Telemetrie" : null;
+    Check(svcAny.ProcessName == "Windows-Dienst: Telemetrie" && new Rule { Process = Svc, Service = "Foo" }.ProcessName == "Windows-Dienst: Foo", "Regelliste zeigt den Dienst");
+    Rule.ServiceTitle = _ => null;
+}
+
 // ---- Sprachen: jede Tabelle vollständig, Platzhalter unverändert, string.Format scheitert nicht
 Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.Normalize("xx") == "en" && Loc.Normalize(null) == "en", "Sprachcodes");
 {

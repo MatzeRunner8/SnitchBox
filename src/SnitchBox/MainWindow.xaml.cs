@@ -163,7 +163,7 @@ internal sealed class ProcessRow : INotifyPropertyChanged
 
     public string? Path { get; init; }
     public string Name { get; init; } = "";
-    public ImageSource Icon => Path == null ? Ui.AllProgramsIcon : Ui.IconFor(Path, false);
+    public ImageSource Icon => Path == null ? Ui.AllProgramsIcon : Ui.IconFor(Path.Split('|')[0], false);
     public string Summary { get => _summary; set => Set(ref _summary, value); }
     public string DownText { get => _down; set => Set(ref _down, value); }
     public string UpText { get => _up; set => Set(ref _up, value); }
@@ -189,7 +189,9 @@ internal sealed class ConnectionRow(ConnectionRecord record)
         _ => r.Pending ? Loc.T("Fragt …", "Asking…") : Loc.T("Ohne Regel", "No rule"),
     };
     public Brush StateBrush => r.Allowed switch { true => Ui.Allow, false => Ui.Deny, _ => r.Pending ? Ui.Ask : Ui.NoRule };
-    public string Process => r.ProcessPath.Length == 0 ? Loc.T("Unbekannt", "Unknown") : Rule.NameOf(r.ProcessPath);
+    public string Process => r.ProcessPath.Length == 0 ? Loc.T("Unbekannt", "Unknown")
+        : r.Service.Length > 0 ? Rule.NameOf(r.ProcessPath) + " · " + r.Service
+        : Rule.NameOf(r.ProcessPath);
     public string Host => r.Host;
     public string Address => r.Remote.ToString();
     /// <summary>Für den Tooltip der Gegenstelle: voller Name, Adresse und die Regel, die entschieden hat.</summary>
@@ -608,8 +610,16 @@ public partial class MainWindow : Window
         UpText.Text = "↑ " + Ui.Rate(_up[^1]);
     }
 
+    /// <summary>Zeile der Programmliste: Pfad, bei einem Windows-Dienst „Pfad|Dienst“ („|“ kommt in Pfaden nicht vor).</summary>
+    private static string KeyOf(ConnectionRecord r) => r.Service.Length > 0 ? r.ProcessPath + "|" + r.Service : r.ProcessPath;
+
     private static string DisplayName(string path)
     {
+        if (path.IndexOf('|') is var bar and >= 0)
+        {
+            var service = path[(bar + 1)..];
+            return Loc.F("Windows-Dienst: {0}", "Windows service: {0}", Rule.ServiceTitle(service) ?? service);
+        }
         if (path.Length == 0) return Loc.T("Unbekannter Prozess", "Unknown Process");
         if (WindowsComponents.Of(path) is { } component) return WindowsComponents.Title(component) + " · " + Rule.NameOf(path);
         var title = Native.InfoOf(path).Title;
@@ -622,7 +632,8 @@ public partial class MainWindow : Window
     {
         var records = App.Engine.History.Snapshot();
         var traffic = App.Engine.Traffic.Snapshot().ToDictionary(t => t.ProcessPath, StringComparer.OrdinalIgnoreCase);
-        var groups = records.GroupBy(r => r.ProcessPath, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        // Je Programm eine Zeile, bei svchost.exe je Windows-Dienst (Schlüssel „Pfad|Dienst“).
+        var groups = records.GroupBy(KeyOf, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
         // Auch Programme zeigen, die nur Daten übertragen (Verbindungen von vor dem Start).
         var paths = groups.Keys.Union(traffic.Keys, StringComparer.OrdinalIgnoreCase)
             .Select(p => (Path: p, Name: DisplayName(p)))
@@ -650,11 +661,14 @@ public partial class MainWindow : Window
         all.DownText = Ui.Volume("↓", traffic.Values.Sum(t => t.Down), traffic.Values.Sum(t => t.RateDown));
         all.UpText = Ui.Volume("↑", traffic.Values.Sum(t => t.Up), traffic.Values.Sum(t => t.RateUp));
         all.StateBrush = State(records);
+        var serviceHosts = groups.Keys.Where(k => k.Contains('|')).Select(k => k[..k.IndexOf('|')]).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var row in _processRows.Skip(1))
         {
+            // Datenmengen zählt SnitchBox je Programm; ein einzelner Dienst hat daher keine eigenen Zahlen.
+            var isService = row.Path!.Contains('|');
             traffic.TryGetValue(row.Path!, out var t);
-            row.DownText = Ui.Volume("↓", t.Down, t.RateDown);
-            row.UpText = Ui.Volume("↑", t.Up, t.RateUp);
+            row.DownText = isService ? "" : Ui.Volume("↓", t.Down, t.RateDown);
+            row.UpText = isService ? "" : Ui.Volume("↑", t.Up, t.RateUp);
             if (groups.TryGetValue(row.Path!, out var g))
             {
                 row.Summary = Loc.F("{0} Gegenstellen · zuletzt {1:HH:mm:ss}", "{0} remotes · last {1:HH:mm:ss}", g.Count, g.Max(r => r.LastSeen));
@@ -662,7 +676,9 @@ public partial class MainWindow : Window
             }
             else
             {
-                row.Summary = Loc.T("Verbindung bestand schon vor dem Start", "Connection existed before start");
+                row.Summary = serviceHosts.Contains(row.Path!)
+                    ? Loc.T("Datenmenge aller Windows-Dienste zusammen", "Data volume of all Windows services combined")
+                    : Loc.T("Verbindung bestand schon vor dem Start", "Connection existed before start");
                 row.StateBrush = Ui.None;
             }
         }
@@ -674,7 +690,7 @@ public partial class MainWindow : Window
         records ??= App.Engine.History.Snapshot();
         var selected = (ConnectionList.SelectedItem as ConnectionRow)?.Record;
         var rows = records
-            .Where(r => _selectedProcess == null || r.ProcessPath.Equals(_selectedProcess, StringComparison.OrdinalIgnoreCase))
+            .Where(r => _selectedProcess == null || KeyOf(r).Equals(_selectedProcess, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(r => r.LastSeen).Select(r => new ConnectionRow(r)).ToList();
         ConnectionList.ItemsSource = rows;
         if (selected != null) ConnectionList.SelectedItem = rows.FirstOrDefault(r => r.Record == selected);

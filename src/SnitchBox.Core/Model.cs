@@ -20,6 +20,8 @@ public sealed class Rule
     public RuleAction Action { get; set; }
     /// <summary>Voller Pfad der .exe, nur ein Dateiname („chrome.exe“) oder leer für jeden Prozess.</summary>
     public string Process { get; set; } = "";
+    /// <summary>Nur für diesen Windows-Dienst (Kurzname wie „DiagTrack“, bei svchost.exe); leer = für jeden.</summary>
+    public string Service { get; set; } = "";
     public Direction Direction { get; set; }
     public RemoteKind Remote { get; set; }
     /// <summary>Hostnamen, Domains oder Adressbereiche, je nach <see cref="Remote"/>.</summary>
@@ -54,7 +56,8 @@ public sealed class Rule
     /// <summary>Gilt für genau dieselben Verbindungen (Prozess, Richtung, Gegenstelle, Ports, Protokoll, Profil)?
     /// Aktion, Priorität, Dauer und Notizen zählen nicht: eine solche Regel ist ein Doppel oder ein Widerspruch.</summary>
     public bool SameScope(Rule o) =>
-        Process.Equals(o.Process, StringComparison.OrdinalIgnoreCase) && Direction == o.Direction && Remote == o.Remote
+        Process.Equals(o.Process, StringComparison.OrdinalIgnoreCase) && Service.Equals(o.Service, StringComparison.OrdinalIgnoreCase)
+        && Direction == o.Direction && Remote == o.Remote
         && Protocol == o.Protocol && Profile == o.Profile
         && (PortSet.TryParse(Ports, out var a) && PortSet.TryParse(o.Ports, out var b) ? a.SameAs(b) : Ports.Trim() == o.Ports.Trim())
         && Targets.Select(t => t.Trim().TrimEnd('.').ToLowerInvariant()).ToHashSet().SetEquals(o.Targets.Select(t => t.Trim().TrimEnd('.').ToLowerInvariant()));
@@ -63,10 +66,15 @@ public sealed class Rule
     /// <summary>Anzeigename: bei Windows Update und dem Viren- &amp; Bedrohungsschutz deren Name vorn, damit solche Regeln sofort
     /// erkennbar sind („Windows Update · SIHClient.exe“).</summary>
     [JsonIgnore]
-    public string ProcessName => AnyProcess ? Loc.T("Jeder Prozess", "Any Process")
+    public string ProcessName => Service.Length > 0 ? Loc.F("Windows-Dienst: {0}", "Windows service: {0}", ServiceTitle(Service) ?? Service)
+        : AnyProcess ? Loc.T("Jeder Prozess", "Any Process")
         : WindowsComponents.IsComponent(Process) ? WindowsComponents.Title(Process)
         : WindowsComponents.Of(Process) is { } c ? WindowsComponents.Title(c) + " · " + NameOf(Process)
         : NameOf(Process);
+
+    /// <summary>Anzeigename eines Windows-Dienstes (unter Windows vom Dienst-Manager, z. B. „Benutzererfahrung und Telemetrie im
+    /// verbundenen Modus“ für DiagTrack); null = unbekannt.</summary>
+    public static Func<string, string?> ServiceTitle { get; set; } = _ => null;
 
     public static string NameOf(string path)
     {
@@ -107,6 +115,8 @@ public sealed class Rule
 public sealed class Connection
 {
     public string ProcessPath { get; init; } = "";
+    /// <summary>Windows-Dienst bei svchost.exe (eindeutig bestimmt), sonst leer.</summary>
+    public string Service { get; init; } = "";
     public int Pid { get; init; }
     public Direction Direction { get; init; }
     public Proto Protocol { get; init; }

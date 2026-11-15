@@ -28,6 +28,7 @@ public partial class RuleEditorWindow : Window
         AllowRadio.IsChecked = rule.Action == RuleAction.Allow;
         DenyRadio.IsChecked = rule.Action == RuleAction.Deny;
         ProcessBox.Text = rule.Process;
+        ServiceBox.Text = rule.Service;
         ProcessBox.ToolTip = Loc.T("Voller Pfad der .exe, nur ein Dateiname wie chrome.exe, oder leer für jedes Programm. * steht für einen beliebigen Teil eines Ordner- oder Dateinamens, z. B. C:\\Temp\\*\\setup.exe",
                                    "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe");
         DirectionBox.Items.Add(Loc.T("Ausgehende Verbindungen", "Outgoing connections"));
@@ -106,6 +107,14 @@ public partial class RuleEditorWindow : Window
             Fail(Loc.F("„{0}“ ist keine gültige Adresse oder kein gültiger Bereich.", "“{0}” is not a valid address or range.", bad), TargetsBox);
             return;
         }
+        var service = ServiceBox.Text.Trim();
+        var process = ProcessBox.Text.Trim().Trim('"');
+        if (service.Length > 0 && process.Length > 0 && !Rule.NameOf(process).Equals("svchost.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            Fail(Loc.T("Einen Windows-Dienst gibt es nur bei svchost.exe. Trage dort svchost.exe ein (oder lass das Programm leer) – oder lass den Dienst leer.",
+                       "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty."), ServiceBox);
+            return;
+        }
         if (!PortSet.TryParse(PortsBox.Text, out _))
         {
             Fail(Loc.T("Die Portangabe ist ungültig. Beispiele: 443 · 80, 443 · 8000-8100", "The port entry is invalid. Examples: 443 · 80, 443 · 8000-8100"), PortsBox);
@@ -114,7 +123,8 @@ public partial class RuleEditorWindow : Window
 
         var r = _source.Clone();
         r.Action = AllowRadio.IsChecked == true ? RuleAction.Allow : RuleAction.Deny;
-        r.Process = ProcessBox.Text.Trim().Trim('"');
+        r.Process = process;
+        r.Service = service;
         r.Direction = (Direction)Math.Max(0, DirectionBox.SelectedIndex);
         r.Remote = remote;
         r.Targets = remote is RemoteKind.Domains or RemoteKind.Hosts ? targets.Select(t => t.TrimEnd('.').ToLowerInvariant()).ToList() : targets;

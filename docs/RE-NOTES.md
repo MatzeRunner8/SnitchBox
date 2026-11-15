@@ -189,5 +189,21 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
   so an accidental Enter changes nothing. Quitting only asks while SnitchBox is actually filtering; turning the filter on never asks.
   App.SetFilterEnabled / App.QuitAsked; if cancelled, the switch returns to the actual state.
 
+## Build 25
+- Windows services individually: all services in svchost.exe shared one factory rule “allow any”, including telemetry (DiagTrack,
+  “Connected User Experiences and Telemetry”). Now the process lookup also determines the service: Native.Services enumerates the
+  running Win32 services with their process ID (EnumServicesStatusEx, no admin rights needed), FilterService.ServiceOf maps a svchost
+  PID to its service – only if the process hosts exactly one (test machine: 91 of 95 service processes; shared ones such as
+  RpcSs + RpcEptMapper can’t be told apart and fall under the svchost rule). User service instances lose their per-logon suffix
+  (CDPUserSvc_4396b → CDPUserSvc).
+- Connection/ConnectionRecord/ProcessInfo carry the service; Rule.Service restricts a rule to one service (rank between process and
+  remote, so “deny DiagTrack” beats the svchost factory rule); the alert window and the monitor buttons fill it in; rule editor field
+  “Windows service”; .lsrules export/import keeps it under “snitchbox-service”; Cleanup treats a rule without service as covering
+  every service. Newly denied IPv4 TCP connections of a service are cut as well.
+- Display: the Network Monitor lists each service as its own row (“Windows service: Connected User Experiences and Telemetry”, data
+  volumes stay on the svchost row because traffic is counted per program), the rule list and alert window show the localized
+  display name (Native.ServiceDisplayName).
+- Note: older builds ignore Rule.Service – going back would turn “deny DiagTrack” into “deny svchost.exe”.
+
 ## Open
 - Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

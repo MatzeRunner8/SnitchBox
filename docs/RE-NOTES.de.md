@@ -190,5 +190,21 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
   ein versehentliches Enter ändert also nichts. Beenden fragt nur, solange SnitchBox wirklich filtert; Einschalten fragt nie.
   App.SetFilterEnabled / App.QuitAsked; bei Abbruch springt der Schalter auf den tatsächlichen Stand zurück.
 
+## Build 25
+- Windows-Dienste einzeln: Alle Dienste in svchost.exe teilten sich eine Werksregel „jede Verbindung erlauben“, auch die Telemetrie
+  (DiagTrack, „Benutzererfahrungen und Telemetrie im verbundenen Modus“). Jetzt bestimmt die Prozess-Zuordnung auch den Dienst:
+  Native.Services liest die laufenden Win32-Dienste mit Prozessnummer (EnumServicesStatusEx, ohne Adminrechte), FilterService.ServiceOf
+  ordnet einer svchost-PID ihren Dienst zu – nur wenn der Prozess genau einen beherbergt (Testrechner: 91 von 95 Dienst-Prozessen;
+  geteilte wie RpcSs + RpcEptMapper lassen sich nicht unterscheiden und fallen unter die svchost-Regel). Benutzerdienst-Instanzen
+  verlieren ihre je Anmeldung wechselnde Endung (CDPUserSvc_4396b → CDPUserSvc).
+- Connection/ConnectionRecord/ProcessInfo tragen den Dienst; Rule.Service beschränkt eine Regel auf einen Dienst (Rangstufe zwischen
+  Prozess und Gegenstelle, „DiagTrack verbieten“ schlägt also die svchost-Werksregel); Warnfenster und Monitor-Knöpfe übernehmen ihn;
+  Feld „Windows-Dienst“ im Regel-Editor; .lsrules-Export/-Import behält ihn unter „snitchbox-service“; Aufräumen behandelt eine Regel
+  ohne Dienst als für jeden Dienst geltend. Neu verbotene IPv4-TCP-Verbindungen eines Dienstes werden ebenfalls getrennt.
+- Anzeige: Der Netzwerkmonitor zeigt jeden Dienst als eigene Zeile („Windows-Dienst: Benutzererfahrungen und Telemetrie …“; die
+  Datenmengen bleiben bei der svchost-Zeile, weil sie je Programm gezählt werden), Regelliste und Warnfenster zeigen den Anzeigenamen
+  in der Sprache von Windows (Native.ServiceDisplayName).
+- Hinweis: Ältere Builds kennen Rule.Service nicht – zurück zu ihnen würde aus „DiagTrack verbieten“ „svchost.exe verbieten“.
+
 ## Offen
 - Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.

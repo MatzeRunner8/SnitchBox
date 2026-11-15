@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Windows の一部: これを禁止すると、Windows は更新を受け取れなくなります。",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Windows の一部: これを禁止すると、ウイルス対策は新しい定義とクラウド保護を受け取れなくなります。",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "ネットワーク フィルターをオフにしますか?\n\nオフにすると、SnitchBox はすべての接続を確認なしで通過させます。ルールやブロックリストで禁止している接続も含まれます。「ネットワーク フィルター」からいつでも再びオンにできます。",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "SnitchBox を終了しますか?\n\nSnitchBox がないと何もフィルターされません。SnitchBox を再び起動するまで、すべての接続が確認なしで通過します。"
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "SnitchBox を終了しますか?\n\nSnitchBox がないと何もフィルターされません。SnitchBox を再び起動するまで、すべての接続が確認なしで通過します。",
+ "Windows service": "Windows サービス",
+ "Windows service: {0}": "Windows サービス: {0}",
+ "Data volume of all Windows services combined": "すべての Windows サービスの合計データ量",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "svchost.exe の場合のみ: サービスの短い名前 (例: DiagTrack (テレメトリ))。空欄 = すべてのサービス。",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows サービスは svchost.exe にのみ存在します。プログラムに svchost.exe を入力する (または空欄にする) か、サービスを空欄にしてください。"
 }

@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Часть Windows: если запретить это, Windows перестанет получать обновления.",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Часть Windows: если запретить это, антивирусная защита перестанет получать новые сигнатуры и облачную защиту.",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Отключить сетевой фильтр?\n\nПосле этого SnitchBox будет пропускать все соединения без запроса – в том числе запрещенные вашими правилами и списками блокировки. Снова включить его можно в любой момент через «Сетевой фильтр».",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Закрыть SnitchBox?\n\nБез SnitchBox ничего не фильтруется: все соединения проходят без запроса, пока SnitchBox не будет запущен снова."
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Закрыть SnitchBox?\n\nБез SnitchBox ничего не фильтруется: все соединения проходят без запроса, пока SnitchBox не будет запущен снова.",
+ "Windows service": "Служба Windows",
+ "Windows service: {0}": "Служба Windows: {0}",
+ "Data volume of all Windows services combined": "Объем данных всех служб Windows вместе",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Только для svchost.exe: краткое имя службы, например DiagTrack (телеметрия). Пусто = любая служба.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Службы Windows бывают только у svchost.exe. Укажите svchost.exe как программу (или оставьте ее пустой) – либо оставьте службу пустой."
 }

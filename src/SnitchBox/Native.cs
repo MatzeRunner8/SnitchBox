@@ -250,6 +250,87 @@ internal static unsafe class Native
         return result;
     }
 
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern IntPtr OpenSCManagerW(string? machine, string? database, uint access);
+    [DllImport("advapi32.dll", SetLastError = true)] private static extern bool CloseServiceHandle(IntPtr handle);
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool EnumServicesStatusExW(IntPtr scm, int infoLevel, uint serviceType, uint serviceState, byte* services, uint bufSize,
+        out uint bytesNeeded, out uint servicesReturned, ref uint resumeHandle, string? groupName);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ENUM_SERVICE_STATUS_PROCESSW
+    {
+        public IntPtr ServiceName, DisplayName;
+        public uint Type, State, ControlsAccepted, Win32ExitCode, SpecificExitCode, CheckPoint, WaitHint, ProcessId, Flags;
+    }
+
+    /// <summary>Win32-Dienste mit Prozessnummer (0 = läuft nicht). Benutzerdienst-Instanzen („CDPUserSvc_3f2a1“) heißen ohne die
+    /// je Anmeldung wechselnde Endung – sonst passte eine Regel nach dem nächsten Anmelden nicht mehr.</summary>
+    public static List<(string Name, string Display, int Pid)> Services(bool runningOnly)
+    {
+        var result = new List<(string, string, int)>();
+        var scm = OpenSCManagerW(null, null, 0x0004 /*SC_MANAGER_ENUMERATE_SERVICE*/);
+        if (scm == IntPtr.Zero) return result;
+        try
+        {
+            uint resume = 0, size = 128 * 1024;
+            for (var round = 0; round < 16; round++)
+            {
+                var buffer = new byte[size];
+                fixed (byte* p = buffer)
+                {
+                    var ok = EnumServicesStatusExW(scm, 0 /*SC_ENUM_PROCESS_INFO*/, 0x30 /*SERVICE_WIN32*/, runningOnly ? 1u : 3u,
+                        p, size, out var needed, out var count, ref resume, null);
+                    var error = ok ? 0 : Marshal.GetLastWin32Error();
+                    var rows = (ENUM_SERVICE_STATUS_PROCESSW*)p;
+                    for (var i = 0; i < count; i++)
+                    {
+                        var name = Marshal.PtrToStringUni(rows[i].ServiceName) ?? "";
+                        var display = Marshal.PtrToStringUni(rows[i].DisplayName) ?? "";
+                        if ((rows[i].Type & 0x80 /*SERVICE_USERSERVICE_INSTANCE*/) != 0 && name.LastIndexOf('_') is var cut and > 0)
+                        {
+                            var suffix = name[cut..];
+                            name = name[..cut];
+                            if (display.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) display = display[..^suffix.Length];
+                        }
+                        if (name.Length > 0) result.Add((name, display, (int)rows[i].ProcessId));
+                    }
+                    if (ok || error != 234 /*ERROR_MORE_DATA*/) break;
+                    size = Math.Max(size, needed + 4096);
+                }
+            }
+        }
+        finally { CloseServiceHandle(scm); }
+        return result;
+    }
+
+    private static readonly object ServiceNamesGate = new();
+    private static Dictionary<string, string> _serviceNames = new(StringComparer.OrdinalIgnoreCase);
+    private static long _serviceNamesTick = -1_000_000;
+
+    /// <summary>Anzeigename eines Dienstes in der Sprache von Windows (z. B. „Benutzererfahrung und Telemetrie im verbundenen Modus“
+    /// für DiagTrack); null, wenn es ihn nicht gibt. Die Liste wird höchstens alle 30 s neu gelesen.</summary>
+    public static string? ServiceDisplayName(string name)
+    {
+        lock (ServiceNamesGate)
+        {
+            if (!_serviceNames.ContainsKey(name) && Environment.TickCount64 - _serviceNamesTick > 30_000)
+            {
+                var all = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    // Benutzerdienst-Instanzen heißen oft nur wie ihr Kurzname; dann gilt der Anzeigename der Vorlage (gleicher Kurzname).
+                    foreach (var s in Services(false))
+                        if (!all.TryGetValue(s.Name, out var known) || known.Equals(s.Name, StringComparison.OrdinalIgnoreCase))
+                            all[s.Name] = s.Display;
+                }
+                catch { }
+                _serviceNames = all;
+                _serviceNamesTick = Environment.TickCount64;
+            }
+            return _serviceNames.TryGetValue(name, out var display) && display.Length > 0 ? display : null;
+        }
+    }
+
     public static string? PathOfProcess(int pid)
     {
         if (pid == 4) return SnitchBox.Core.Rule.KernelProcess;

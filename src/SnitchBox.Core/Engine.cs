@@ -19,7 +19,9 @@ public enum Verdict
 /// unveränderten Adress-Flags des Treibers (u. a. ob die Prüfsummen schon stimmen); 0 bei selbst gebauten Paketen.</summary>
 public readonly record struct PacketMeta(bool Outbound, bool V6, uint IfIdx, uint SubIfIdx, uint Raw = 0);
 
-public readonly record struct ProcessInfo(int Pid, string Path);
+/// <summary>Prozess zu einer Verbindung. <paramref name="Service"/>: der Windows-Dienst bei svchost.exe, wenn der Prozess genau einen
+/// Dienst beherbergt (sonst leer – mehrere Dienste in einem Prozess lassen sich nicht auseinanderhalten).</summary>
+public readonly record struct ProcessInfo(int Pid, string Path, string Service = "");
 
 /// <summary>Findet den Prozess zu einem lokalen Port (unter Windows über Socket-Ereignisse und die Tabellen der IP-Hilfe).</summary>
 public interface IProcessLookup
@@ -46,6 +48,8 @@ public readonly record struct FlowKey(IpKey Remote, ushort LocalPort, ushort Rem
 public sealed class ConnectionRecord
 {
     public required string ProcessPath { get; init; }
+    /// <summary>Windows-Dienst (svchost.exe), sonst leer.</summary>
+    public string Service { get; init; } = "";
     public required string Host { get; init; }
     public required IpKey Remote { get; init; }
     public required ushort Port { get; init; }
@@ -66,7 +70,7 @@ public sealed class ConnectionRecord
 public sealed class ConnectionLog
 {
     private const int Max = 4000;
-    private readonly Dictionary<(string, string, ushort, Proto, Direction), ConnectionRecord> _records = [];
+    private readonly Dictionary<(string, string, string, ushort, Proto, Direction), ConnectionRecord> _records = [];
     private readonly object _gate = new();
     public long Version { get; private set; }
 
@@ -74,7 +78,7 @@ public sealed class ConnectionLog
     {
         lock (_gate)
         {
-            var key = (c.ProcessPath.ToLowerInvariant(), c.Host, c.Port, c.Protocol, c.Direction);
+            var key = (c.ProcessPath.ToLowerInvariant(), c.Service.ToLowerInvariant(), c.Host, c.Port, c.Protocol, c.Direction);
             if (!_records.TryGetValue(key, out var r))
             {
                 if (_records.Count >= Max)
@@ -85,7 +89,7 @@ public sealed class ConnectionLog
                 }
                 _records[key] = r = new ConnectionRecord
                 {
-                    ProcessPath = c.ProcessPath, Host = c.Host, Remote = c.Remote, Port = c.Port, Protocol = c.Protocol, Direction = c.Direction,
+                    ProcessPath = c.ProcessPath, Service = c.Service, Host = c.Host, Remote = c.Remote, Port = c.Port, Protocol = c.Protocol, Direction = c.Direction,
                 };
             }
             r.LastSeen = now;
@@ -404,7 +408,7 @@ public sealed class FirewallEngine
                 if (incoming && proc.Pid == 0) return Verdict.Pass;
                 var conn = new Connection
                 {
-                    ProcessPath = proc.Path, Pid = proc.Pid,
+                    ProcessPath = proc.Path, Pid = proc.Pid, Service = proc.Service,
                     Direction = incoming ? Direction.Incoming : Direction.Outgoing,
                     Protocol = tcp ? Proto.Tcp : Proto.Udp,
                     Remote = key.Remote, Port = incoming ? key.LocalPort : key.RemotePort,
@@ -459,7 +463,7 @@ public sealed class FirewallEngine
 
     private static bool SameQuestion(Connection a, Connection b) =>
         a.Direction == b.Direction && a.Protocol == b.Protocol && a.Port == b.Port && a.Remote == b.Remote
-        && a.ProcessPath.Equals(b.ProcessPath, StringComparison.OrdinalIgnoreCase);
+        && a.ProcessPath.Equals(b.ProcessPath, StringComparison.OrdinalIgnoreCase) && a.Service.Equals(b.Service, StringComparison.OrdinalIgnoreCase);
 
     private void Hold(PendingAlert alert, FlowKey key, ReadOnlySpan<byte> packet, PacketMeta meta, bool tcp)
     {

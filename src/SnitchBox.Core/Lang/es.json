@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Parte de Windows: si lo bloqueas, Windows deja de recibir actualizaciones.",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Parte de Windows: si lo bloqueas, la protección antivirus deja de recibir nuevas firmas y protección en la nube.",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "¿Desactivar el filtro de red?\n\nSnitchBox dejará pasar todas las conexiones sin preguntar, incluso las que tus reglas y listas de bloqueo prohíben. Puedes volver a activarlo en cualquier momento con «Filtro de red».",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "¿Salir de SnitchBox?\n\nSin SnitchBox no se filtra nada: todas las conexiones pasan sin preguntar hasta que SnitchBox vuelva a iniciarse."
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "¿Salir de SnitchBox?\n\nSin SnitchBox no se filtra nada: todas las conexiones pasan sin preguntar hasta que SnitchBox vuelva a iniciarse.",
+ "Windows service": "Servicio de Windows",
+ "Windows service: {0}": "Servicio de Windows: {0}",
+ "Data volume of all Windows services combined": "Volumen de datos de todos los servicios de Windows juntos",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Solo con svchost.exe: nombre corto del servicio, p. ej. DiagTrack (telemetría). Vacío = cualquier servicio.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Los servicios de Windows solo existen con svchost.exe. Indica svchost.exe como programa (o déjalo vacío), o deja vacío el servicio."
 }

@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Componente di Windows: se lo blocchi, Windows non riceve più aggiornamenti.",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Componente di Windows: se lo blocchi, la protezione antivirus non riceve più nuove firme né la protezione cloud.",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Disattivare il filtro di rete?\n\nSnitchBox lascerà passare ogni connessione senza chiedere, anche quelle vietate dalle tue regole e blocklist. Puoi riattivarlo in qualsiasi momento con «Filtro di rete».",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Uscire da SnitchBox?\n\nSenza SnitchBox nulla viene filtrato: ogni connessione passa senza chiedere finché SnitchBox non viene riavviato."
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Uscire da SnitchBox?\n\nSenza SnitchBox nulla viene filtrato: ogni connessione passa senza chiedere finché SnitchBox non viene riavviato.",
+ "Windows service": "Servizio di Windows",
+ "Windows service: {0}": "Servizio di Windows: {0}",
+ "Data volume of all Windows services combined": "Volume di dati di tutti i servizi di Windows insieme",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Solo con svchost.exe: nome breve del servizio, ad es. DiagTrack (telemetria). Vuoto = qualsiasi servizio.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "I servizi di Windows esistono solo con svchost.exe. Indica svchost.exe come programma (o lascialo vuoto), oppure lascia vuoto il servizio."
 }

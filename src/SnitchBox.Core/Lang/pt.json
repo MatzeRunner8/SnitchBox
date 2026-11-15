@@ -302,5 +302,10 @@
  "Part of Windows: if you deny this, Windows no longer gets updates.": "Parte do Windows: se você bloquear, o Windows deixa de receber atualizações.",
  "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection.": "Parte do Windows: se você bloquear, a proteção antivírus deixa de receber novas assinaturas e a proteção na nuvem.",
  "Turn off the network filter?\n\nSnitchBox will then let every connection through without asking – including those your rules and blocklists deny. You can turn it back on at any time via “Network Filter”.": "Desativar o filtro de rede?\n\nO SnitchBox passará a deixar todas as conexões passarem sem perguntar – inclusive as que suas regras e listas de bloqueio proíbem. Você pode reativá-lo a qualquer momento em “Filtro de rede”.",
- "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Sair do SnitchBox?\n\nSem o SnitchBox nada é filtrado: todas as conexões passam sem perguntar até o SnitchBox ser iniciado novamente."
+ "Quit SnitchBox?\n\nWithout SnitchBox nothing is filtered: every connection goes through without asking until SnitchBox is started again.": "Sair do SnitchBox?\n\nSem o SnitchBox nada é filtrado: todas as conexões passam sem perguntar até o SnitchBox ser iniciado novamente.",
+ "Windows service": "Serviço do Windows",
+ "Windows service: {0}": "Serviço do Windows: {0}",
+ "Data volume of all Windows services combined": "Volume de dados de todos os serviços do Windows juntos",
+ "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Somente com svchost.exe: nome curto do serviço, p. ex. DiagTrack (telemetria). Vazio = qualquer serviço.",
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Serviços do Windows só existem com svchost.exe. Informe svchost.exe como programa (ou deixe-o vazio) – ou deixe o serviço vazio."
 }

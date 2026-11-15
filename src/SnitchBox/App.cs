@@ -124,6 +124,8 @@ public sealed class App : Application
         Log.Write("— " + Title + " — " + Environment.ProcessPath + (DemoMode ? " (Demo)" : ""));
         // Temp-Ordner für Regeln an Programmen, die sich bei jedem Start in einen neuen Zufallsordner kopieren (AlertRules.ProcessPattern).
         var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        // Anzeigenamen der Windows-Dienste (Regeln für einzelne Dienste in svchost.exe).
+        Rule.ServiceTitle = Native.ServiceDisplayName;
         // Geschützte Orte von Windows Update und Viren- & Bedrohungsschutz (Werksregeln, Beschriftung in den Listen).
         WindowsComponents.Configure(windows, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
