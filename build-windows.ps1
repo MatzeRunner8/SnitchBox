@@ -44,7 +44,8 @@ if (-not $NoBump) { [IO.File]::WriteAllText($buildFile, "$([int](Get-Content $bu
 $Build = (Get-Content $buildFile -Raw).Trim()
 $B = Join-Path $Root 'build'
 New-Item -ItemType Directory -Force $B | Out-Null
-$VerArgs = @("-p:Version=$Version.$Build", "-p:FileVersion=$Version.$Build", "-p:InformationalVersion=$Version (Build $Build)")
+# Ohne „+<Commit>“ hinter der Version (das .NET-SDK hängt ihn in einem git-Repository sonst an; der Installer zeigt die Angabe).
+$VerArgs = @("-p:Version=$Version.$Build", "-p:FileVersion=$Version.$Build", "-p:InformationalVersion=$Version (Build $Build)", "-p:IncludeSourceRevisionInInformationalVersion=false")
 
 function Publish([string]$Out, [string[]]$Extra) {
     $dir = Join-Path $B $Out
