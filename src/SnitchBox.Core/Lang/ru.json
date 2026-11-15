@@ -101,7 +101,6 @@
  "  (local network)": "  (локальная сеть)",
  "  – no name known": "  – имя неизвестно",
  "unknown": "неизвестно",
- "no embedded signature": "нет встроенной подписи",
  "Any connection": "Любое подключение",
  "Only port {0}": "Только порт {0}",
  "Only domain {0}": "Только домен {0}",
@@ -307,5 +306,11 @@
  "Windows service: {0}": "Служба Windows: {0}",
  "Data volume of all Windows services combined": "Объем данных всех служб Windows вместе",
  "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Только для svchost.exe: краткое имя службы, например DiagTrack (телеметрия). Пусто = любая служба.",
- "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Службы Windows бывают только у svchost.exe. Укажите svchost.exe как программу (или оставьте ее пустой) – либо оставьте службу пустой."
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Службы Windows бывают только у svchost.exe. Укажите svchost.exe как программу (или оставьте ее пустой) – либо оставьте службу пустой.",
+ "Checking signature…": "Проверка подписи…",
+ "valid signature": "подпись действительна",
+ "Windows catalog": "каталог Windows",
+ "Invalid signature – the file was modified or the certificate is not trusted": "Недействительная подпись – файл изменен или сертификат не является доверенным",
+ "not signed": "без подписи",
+ "could not be checked": "проверить не удалось"
 }

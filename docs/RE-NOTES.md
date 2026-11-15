@@ -205,5 +205,16 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
   display name (Native.ServiceDisplayName).
 - Note: older builds ignore Rule.Service – going back would turn “deny DiagTrack” into “deny svchost.exe”.
 
+## Build 26
+- Real signature check (Signature.cs): the alert window used to only read the publisher from an embedded signature. Now Windows checks
+  the signature (WinVerifyTrust, WINTRUST_ACTION_GENERIC_VERIFY_V2) – embedded signatures and, if there is none, catalog signatures
+  (CryptCATAdmin…: file hash → catalog → WinVerifyTrust with WTD_CHOICE_CATALOG; SHA256, then SHA1). No network access
+  (WTD_REVOCATION_CHECK_NONE, WTD_CACHE_ONLY_URL_RETRIEVAL), results cached per path, size and modification time; runs after the alert
+  window has opened. Display: “✓ Google LLC – valid signature” (green, “Windows catalog” for catalog signatures), “⚠ Invalid signature
+  – the file was modified or the certificate is not trusted (0x…)” (red), “not signed”.
+- Checked on the test machine: svchost.exe/SIHClient.exe (Microsoft Windows Publisher), chrome.exe (Google LLC), devenv.exe (Microsoft
+  Corporation), a copy of notepad.exe (catalog, Microsoft Windows), an unsigned exe, and devenv.exe with one changed byte
+  (invalid, TRUST_E_BAD_DIGEST); at most 42 ms per file.
+
 ## Open
 - Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

@@ -55,7 +55,14 @@ public partial class AlertWindow : Window
                         + (c.Pid > 0 ? $"  (PID {c.Pid})" : "");
         if (c.Service.Length > 0) NameText.Text = Loc.F("Windows-Dienst: {0}", "Windows service: {0}", Rule.ServiceTitle(c.Service) ?? c.Service);
         PathText.ToolTip = c.ProcessPath;
-        PublisherText.Text = info.Publisher.Length > 0 ? info.Publisher : Loc.T("keine eingebettete Signatur", "no embedded signature");
+        // Signatur mit Windows prüfen (bei Katalog-Signaturen einige zehn Millisekunden): nicht im Fenster-Aufbau, sondern danach.
+        if (c.ProcessPath == Rule.KernelProcess) PublisherText.Text = "Microsoft Windows";
+        else
+        {
+            PublisherText.Text = Loc.T("Signatur wird geprüft …", "Checking signature…");
+            var path = c.ProcessPath;
+            Task.Run(() => Signature.Check(path)).ContinueWith(t => Dispatcher.BeginInvoke(() => ShowSignature(t.Result, info.Publisher)), TaskScheduler.Default);
+        }
         if (c.Hostnames.Count > 1) NamesText.Text = string.Join(", ", c.Hostnames.Skip(1));
         else NamesLabel.Visibility = NamesText.Visibility = Visibility.Collapsed;
 
@@ -93,6 +100,34 @@ public partial class AlertWindow : Window
         var area = SystemParameters.WorkArea;
         Left = area.Right - Width - 24;
         Top = area.Top + 24;
+    }
+
+    /// <summary>Ergebnis der Signaturprüfung in der Zeile „Herausgeber“: grün bei gültiger Signatur, rot bei ungültiger
+    /// (Datei verändert oder Zertifikat nicht vertrauenswürdig).</summary>
+    private void ShowSignature(SignatureInfo sig, string readPublisher)
+    {
+        switch (sig.State)
+        {
+            case SignatureState.Valid:
+                var signer = sig.Signer.Length > 0 ? sig.Signer : readPublisher;
+                PublisherText.Text = "✓ " + signer + " – " + Loc.T("Signatur gültig", "valid signature")
+                                     + (sig.Catalog ? " (" + Loc.T("Windows-Katalog", "Windows catalog") + ")" : "");
+                PublisherText.Foreground = Ui.Allow;
+                break;
+            case SignatureState.Invalid:
+                PublisherText.Text = "⚠ " + Loc.T("Signatur ungültig – die Datei wurde verändert oder das Zertifikat ist nicht vertrauenswürdig",
+                                                  "Invalid signature – the file was modified or the certificate is not trusted") + $" (0x{sig.Code:X8})";
+                PublisherText.Foreground = Ui.Deny;
+                PublisherText.FontWeight = FontWeights.SemiBold;
+                break;
+            case SignatureState.Unsigned:
+                PublisherText.Text = Loc.T("nicht signiert", "not signed");
+                break;
+            default:
+                PublisherText.Text = Loc.T("nicht prüfbar", "could not be checked");
+                break;
+        }
+        PublisherText.ToolTip = PublisherText.Text;
     }
 
     private void AddScope(AlertScope scope, string text)

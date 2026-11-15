@@ -101,7 +101,6 @@
  "  (local network)": "  （本地网络）",
  "  – no name known": "  – 名称未知",
  "unknown": "未知",
- "no embedded signature": "无嵌入签名",
  "Any connection": "所有连接",
  "Only port {0}": "仅端口 {0}",
  "Only domain {0}": "仅域名 {0}",
@@ -307,5 +306,11 @@
  "Windows service: {0}": "Windows 服务：{0}",
  "Data volume of all Windows services combined": "所有 Windows 服务的合计数据量",
  "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "仅适用于 svchost.exe：服务的短名称，例如 DiagTrack（遥测）。留空 = 任意服务。",
- "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows 服务只存在于 svchost.exe 中。请将程序填为 svchost.exe（或留空），或者将服务留空。"
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows 服务只存在于 svchost.exe 中。请将程序填为 svchost.exe（或留空），或者将服务留空。",
+ "Checking signature…": "正在检查签名...",
+ "valid signature": "签名有效",
+ "Windows catalog": "Windows 目录",
+ "Invalid signature – the file was modified or the certificate is not trusted": "签名无效 – 文件已被修改或证书不受信任",
+ "not signed": "未签名",
+ "could not be checked": "无法检查"
 }

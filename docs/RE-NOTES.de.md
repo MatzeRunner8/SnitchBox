@@ -206,5 +206,16 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
   in der Sprache von Windows (Native.ServiceDisplayName).
 - Hinweis: Ältere Builds kennen Rule.Service nicht – zurück zu ihnen würde aus „DiagTrack verbieten“ „svchost.exe verbieten“.
 
+## Build 26
+- Echte Signaturprüfung (Signature.cs): Das Warnfenster las den Herausgeber bisher nur aus einer eingebetteten Signatur. Jetzt prüft
+  Windows die Signatur (WinVerifyTrust, WINTRUST_ACTION_GENERIC_VERIFY_V2) – eingebettete Signaturen und, wenn es keine gibt,
+  Katalog-Signaturen (CryptCATAdmin…: Hash der Datei → Katalog → WinVerifyTrust mit WTD_CHOICE_CATALOG; SHA256, dann SHA1). Ohne
+  Netzzugriff (WTD_REVOCATION_CHECK_NONE, WTD_CACHE_ONLY_URL_RETRIEVAL), Ergebnis je Pfad, Größe und Änderungszeit gemerkt; läuft,
+  nachdem das Warnfenster offen ist. Anzeige: „✓ Google LLC – Signatur gültig“ (grün, „Windows-Katalog“ bei Katalog-Signaturen),
+  „⚠ Signatur ungültig – die Datei wurde verändert oder das Zertifikat ist nicht vertrauenswürdig (0x…)“ (rot), „nicht signiert“.
+- Geprüft auf dem Testrechner: svchost.exe/SIHClient.exe (Microsoft Windows Publisher), chrome.exe (Google LLC), devenv.exe (Microsoft
+  Corporation), eine Kopie von notepad.exe (Katalog, Microsoft Windows), eine unsignierte exe und devenv.exe mit einem geänderten Byte
+  (ungültig, TRUST_E_BAD_DIGEST); höchstens 42 ms je Datei.
+
 ## Offen
 - Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.

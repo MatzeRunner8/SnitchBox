@@ -101,7 +101,6 @@
  "  (local network)": "  (로컬 네트워크)",
  "  – no name known": "  – 알려진 이름 없음",
  "unknown": "알 수 없음",
- "no embedded signature": "포함된 서명 없음",
  "Any connection": "모든 연결",
  "Only port {0}": "포트 {0}만",
  "Only domain {0}": "도메인 {0}만",
@@ -307,5 +306,11 @@
  "Windows service: {0}": "Windows 서비스: {0}",
  "Data volume of all Windows services combined": "모든 Windows 서비스의 합계 데이터량",
  "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "svchost.exe에만 해당: 서비스의 짧은 이름(예: DiagTrack(원격 분석)). 비워 두면 모든 서비스.",
- "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows 서비스는 svchost.exe에만 있습니다. 프로그램에 svchost.exe를 입력하거나(또는 비워 두거나) 서비스를 비워 두세요."
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows 서비스는 svchost.exe에만 있습니다. 프로그램에 svchost.exe를 입력하거나(또는 비워 두거나) 서비스를 비워 두세요.",
+ "Checking signature…": "서명 확인 중…",
+ "valid signature": "유효한 서명",
+ "Windows catalog": "Windows 카탈로그",
+ "Invalid signature – the file was modified or the certificate is not trusted": "잘못된 서명 – 파일이 변경되었거나 인증서를 신뢰할 수 없습니다",
+ "not signed": "서명 안 됨",
+ "could not be checked": "확인할 수 없음"
 }

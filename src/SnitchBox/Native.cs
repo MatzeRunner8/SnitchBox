@@ -381,8 +381,8 @@ internal static unsafe class Native
 
     private static readonly ConcurrentDictionary<string, (string Title, string Publisher)> Infos = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Anzeigename (Dateibeschreibung) und Herausgeber laut eingebetteter Signatur. Die Signatur wird nicht geprüft,
-    /// nur ausgelesen; Windows-eigene Programme sind über Kataloge signiert und haben hier keinen Eintrag.</summary>
+    /// <summary>Anzeigename (Dateibeschreibung) und Herausgeber laut eingebetteter Signatur, nur ausgelesen (schnell, für Listen).
+    /// Geprüft wird die Signatur mit <see cref="Signature.Check"/> (Warnfenster).</summary>
     public static (string Title, string Publisher) InfoOf(string path)
     {
         if (path.Length == 0 || path == "System") return ("", "");

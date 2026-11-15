@@ -15,7 +15,7 @@ oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide br
 
 ## Funktionen
 
-- Warnfenster je neuer Verbindung: Programm, Hostname, Port; Gültigkeit (Einmal … Für immer) und Reichweite (jede Verbindung, Port, Domain, Host)
+- Warnfenster je neuer Verbindung: Programm (mit von Windows geprüfter Signatur: gültig, ungültig oder nicht signiert), Hostname, Port; Gültigkeit (Einmal … Für immer) und Reichweite (jede Verbindung, Port, Domain, Host)
 - Betriebsarten: Warnmodus, Stiller Modus „alles erlauben“ / „alles verbieten“; Netzwerkfilter ein/aus (mit Warnung vor dem Ausschalten und Beenden)
 - Windows-Dienste in svchost.exe einzeln sehen und regeln (z. B. Telemetrie „DiagTrack“ verbieten, Windows Update behalten)
 - Regeln je Programm: Erlauben/Verbieten, aus-/eingehend, Hosts, Domains, Adressbereiche, lokales Netz, DNS-Server des Systems, Ports, TCP/UDP, Priorität, Gültigkeit, Profile
@@ -99,7 +99,6 @@ Zurück zu Build 12: Build 13 stellt die Werksregeln um, was Build 12 nicht lese
   aus der Benutzerumgebung beachtet die .NET-Laufzeit aber noch und könnten darüber Code mit Administratorrechten ausführen: Profiler
   (`CORECLR_*`), Diagnose-Ports (`DOTNET_DiagnosticPorts`) und bei `SnitchBox.exe` (framework-abhängig) `DOTNET_ADDITIONAL_DEPS`/`DOTNET_SHARED_STORE`.
   Vollständig schlösse das erst ein Start mit bereinigter Umgebung (kleiner nativer Starter oder Dienst) – noch nicht umgesetzt.
-- Die Herausgeber-Angabe im Warnfenster wird ausgelesen, nicht kryptografisch geprüft.
 
 Details zum Original, zur Technik und zu den Änderungen je Build: [docs/RE-NOTES.de.md](docs/RE-NOTES.de.md).
 

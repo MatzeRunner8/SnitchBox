@@ -15,7 +15,7 @@ or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both nee
 
 ## Features
 
-- Alert window for every new connection: program, host name, port; lifetime (Once … Forever) and scope (any connection, port, domain, host)
+- Alert window for every new connection: program (with its digital signature checked by Windows: valid, invalid or unsigned), host name, port; lifetime (Once … Forever) and scope (any connection, port, domain, host)
 - Modes: Alert Mode, Silent Mode “allow all” / “deny all”; network filter on/off (with a warning before turning it off or quitting)
 - Windows services in svchost.exe shown and ruled individually (e.g. deny telemetry “DiagTrack”, keep Windows Update)
 - Per-program rules: allow/deny, outgoing/incoming, hosts, domains, address ranges, local network, system DNS servers, ports, TCP/UDP, priority, lifetime, profiles
@@ -99,7 +99,6 @@ Going back to Build 12: Build 13 converts the factory rules into a form Build 12
   runtime variables from the user environment, which could be used to run code with administrator rights: profilers
   (`CORECLR_*`), diagnostic ports (`DOTNET_DiagnosticPorts`) and, for `SnitchBox.exe` (framework-dependent), `DOTNET_ADDITIONAL_DEPS`/`DOTNET_SHARED_STORE`.
   Closing this completely would require starting with a sanitized environment (a small native launcher or a service) – not implemented yet.
-- The publisher shown in the alert window is read from the file, not cryptographically verified.
 
 Details on the original, the technology and the changes per build: [docs/RE-NOTES.md](docs/RE-NOTES.md).
 

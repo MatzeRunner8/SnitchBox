@@ -101,7 +101,6 @@
  "  (local network)": "  (ローカル ネットワーク)",
  "  – no name known": "  – 名前は不明",
  "unknown": "不明",
- "no embedded signature": "埋め込み署名なし",
  "Any connection": "すべての接続",
  "Only port {0}": "ポート {0} のみ",
  "Only domain {0}": "ドメイン {0} のみ",
@@ -307,5 +306,11 @@
  "Windows service: {0}": "Windows サービス: {0}",
  "Data volume of all Windows services combined": "すべての Windows サービスの合計データ量",
  "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "svchost.exe の場合のみ: サービスの短い名前 (例: DiagTrack (テレメトリ))。空欄 = すべてのサービス。",
- "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows サービスは svchost.exe にのみ存在します。プログラムに svchost.exe を入力する (または空欄にする) か、サービスを空欄にしてください。"
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Windows サービスは svchost.exe にのみ存在します。プログラムに svchost.exe を入力する (または空欄にする) か、サービスを空欄にしてください。",
+ "Checking signature…": "署名を確認しています...",
+ "valid signature": "有効な署名",
+ "Windows catalog": "Windows カタログ",
+ "Invalid signature – the file was modified or the certificate is not trusted": "無効な署名 – ファイルが変更されたか、証明書が信頼されていません",
+ "not signed": "署名なし",
+ "could not be checked": "確認できません"
 }

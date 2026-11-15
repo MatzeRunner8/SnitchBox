@@ -101,7 +101,6 @@
  "  (local network)": "  (sieć lokalna)",
  "  – no name known": "  – nazwa nieznana",
  "unknown": "nieznana",
- "no embedded signature": "brak osadzonego podpisu",
  "Any connection": "Dowolne połączenie",
  "Only port {0}": "Tylko port {0}",
  "Only domain {0}": "Tylko domena {0}",
@@ -307,5 +306,11 @@
  "Windows service: {0}": "Usługa systemu Windows: {0}",
  "Data volume of all Windows services combined": "Ilość danych wszystkich usług systemu Windows łącznie",
  "Only with svchost.exe: short name of the service, e.g. DiagTrack (telemetry). Empty = any service.": "Tylko z svchost.exe: krótka nazwa usługi, np. DiagTrack (telemetria). Puste = dowolna usługa.",
- "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Usługi systemu Windows występują tylko w svchost.exe. Wpisz svchost.exe jako program (albo zostaw go pusty) – lub zostaw pustą usługę."
+ "Windows services only exist with svchost.exe. Enter svchost.exe as the program (or leave it empty) – or leave the service empty.": "Usługi systemu Windows występują tylko w svchost.exe. Wpisz svchost.exe jako program (albo zostaw go pusty) – lub zostaw pustą usługę.",
+ "Checking signature…": "Sprawdzanie podpisu…",
+ "valid signature": "prawidłowy podpis",
+ "Windows catalog": "katalog systemu Windows",
+ "Invalid signature – the file was modified or the certificate is not trusted": "Nieprawidłowy podpis – plik został zmieniony lub certyfikat nie jest zaufany",
+ "not signed": "niepodpisany",
+ "could not be checked": "nie można sprawdzić"
 }
