@@ -312,5 +312,6 @@
  "Windows catalog": "catalogo di Windows",
  "Invalid signature – the file was modified or the certificate is not trusted": "Firma non valida – il file è stato modificato o il certificato non è attendibile",
  "not signed": "non firmato",
- "could not be checked": "verifica non possibile"
+ "could not be checked": "verifica non possibile",
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox è stato avviato con variabili d’ambiente che permettono di caricare codice estraneo in SnitchBox:\n{0}\n\nSe non le hai impostate di proposito (ad es. per uno strumento di sviluppo), potrebbe trattarsi di un attacco – SnitchBox viene eseguito con diritti di amministratore.\n\nAvvia SnitchBox tramite SnitchBoxStart.exe (menu Start, avvio automatico): il programma di avvio rimuove queste variabili."
 }

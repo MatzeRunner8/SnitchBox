@@ -86,6 +86,10 @@ namespace SnitchBoxSetup
 
         public static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SnitchBox");
         public static string AppExe { get { return Path.Combine(InstallDir, "SnitchBox.exe"); } }
+        /// <summary>Nativer Starter: startet SnitchBox.exe ohne die Umgebungsvariablen der .NET-Laufzeit (CORECLR_*, COR_*,
+        /// COMPlus_*, DOTNET_*), über die sonst jedes Programm Code in das mit Administratorrechten laufende SnitchBox laden könnte.
+        /// Verknüpfungen und Autostart zeigen auf ihn.</summary>
+        public static string StarterExe { get { return Path.Combine(InstallDir, "SnitchBoxStart.exe"); } }
         public static string SetupCopy { get { return Path.Combine(InstallDir, "SnitchBox-Setup.exe"); } }
         public static string StartMenuLink { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "SnitchBox.lnk"); } }
         public static string DesktopLink { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "SnitchBox.lnk"); } }
@@ -155,6 +159,7 @@ namespace SnitchBoxSetup
             progress(L.T("Kopiere SnitchBox …", "Copying SnitchBox …"), -1);
             Directory.CreateDirectory(InstallDir); // erbt die Rechte von C:\Program Files: nur Administratoren dürfen schreiben
             ReplaceFile(AppExe, s => CopyResource("SnitchBox.exe", s));
+            ReplaceFile(StarterExe, s => CopyResource("SnitchBoxStart.exe", s));
             if (!SamePath(Self, SetupCopy)) ReplaceFile(SetupCopy, s => { using (var f = File.OpenRead(Self)) f.CopyTo(s); });
 
             progress(L.T("Lege Verknüpfungen an …", "Creating shortcuts …"), -1);
@@ -168,7 +173,7 @@ namespace SnitchBoxSetup
             if ((o.Launch || wasRunning) && !IsSystem)
             {
                 progress(L.T("Starte SnitchBox …", "Starting SnitchBox …"), -1);
-                Process.Start(new ProcessStartInfo(AppExe) { UseShellExecute = true, WorkingDirectory = InstallDir });
+                Process.Start(new ProcessStartInfo(StarterExe) { UseShellExecute = true, WorkingDirectory = InstallDir });
             }
             progress(L.T("Fertig. SnitchBox ist installiert.", "Done. SnitchBox is installed."), 100);
         }
@@ -262,7 +267,7 @@ namespace SnitchBoxSetup
             {
                 var lnk = type.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { link });
                 var t = lnk.GetType();
-                t.InvokeMember("TargetPath", BindingFlags.SetProperty, null, lnk, new object[] { AppExe });
+                t.InvokeMember("TargetPath", BindingFlags.SetProperty, null, lnk, new object[] { StarterExe });
                 t.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, lnk, new object[] { InstallDir });
                 t.InvokeMember("IconLocation", BindingFlags.SetProperty, null, lnk, new object[] { AppExe + ",0" });
                 t.InvokeMember("Description", BindingFlags.SetProperty, null, lnk, new object[] { L.T("Firewall: zeigt, welches Programm sich wohin verbinden will", "Firewall: shows which program wants to connect where") });
@@ -301,7 +306,7 @@ namespace SnitchBoxSetup
                       "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n" +
                       "    <Enabled>true</Enabled>\r\n" +
                       "  </Settings>\r\n" +
-                      "  <Actions Context=\"Author\"><Exec><Command>" + SecurityElement.Escape(AppExe) + "</Command><Arguments>--tray</Arguments></Exec></Actions>\r\n" +
+                      "  <Actions Context=\"Author\"><Exec><Command>" + SecurityElement.Escape(StarterExe) + "</Command><Arguments>--tray</Arguments></Exec></Actions>\r\n" +
                       "</Task>\r\n";
             // Im Programmordner (nur Administratoren), nicht in %TEMP%: dort ließe sich die Datei vor dem Einlesen austauschen.
             var file = Path.Combine(InstallDir, "autostart-task.xml");
@@ -331,7 +336,8 @@ namespace SnitchBoxSetup
         static void Register()
         {
             var info = FileVersionInfo.GetVersionInfo(AppExe);
-            long size = new FileInfo(AppExe).Length + (File.Exists(SetupCopy) ? new FileInfo(SetupCopy).Length : 0);
+            long size = new FileInfo(AppExe).Length + (File.Exists(StarterExe) ? new FileInfo(StarterExe).Length : 0)
+                        + (File.Exists(SetupCopy) ? new FileInfo(SetupCopy).Length : 0);
             using (var k = Registry.LocalMachine.CreateSubKey(UninstallKey))
             {
                 k.SetValue("DisplayName", "SnitchBox");
@@ -358,6 +364,7 @@ namespace SnitchBoxSetup
             SetShortcut(DesktopLink, false);
             try { Registry.LocalMachine.DeleteSubKeyTree(UninstallKey, false); } catch { }
             DeleteNowOrLater(AppExe);
+            DeleteNowOrLater(StarterExe);
             foreach (var leftover in Directory.Exists(InstallDir) ? Directory.GetFiles(InstallDir, "*.alt") : new string[0]) DeleteNowOrLater(leftover);
             if (removeData && Directory.Exists(DataDir))
             {

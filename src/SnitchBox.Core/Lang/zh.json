@@ -312,5 +312,6 @@
  "Windows catalog": "Windows 目录",
  "Invalid signature – the file was modified or the certificate is not trusted": "签名无效 – 文件已被修改或证书不受信任",
  "not signed": "未签名",
- "could not be checked": "无法检查"
+ "could not be checked": "无法检查",
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox 启动时带有可将外部代码加载到 SnitchBox 中的环境变量：\n{0}\n\n如果这些变量不是你有意设置的（例如用于开发工具），这可能是一次攻击——SnitchBox 以管理员权限运行。\n\n请通过 SnitchBoxStart.exe（开始菜单、自动启动）启动 SnitchBox：启动器会移除这些变量。"
 }

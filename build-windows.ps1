@@ -68,6 +68,17 @@ foreach ($old in @($sa, (Join-Path $dist 'SnitchBox-NET.exe'))) { if (Test-Path 
 New-Item -ItemType Directory $sa | Out-Null
 Copy-Item -Path @((Join-Path $B 'publish\SnitchBox.exe'), (Join-Path $B 'publish\*.dll')) -Destination $sa
 
+# SnitchBoxStart.exe: nativer Starter, der SnitchBox ohne die Umgebungsvariablen der .NET-Laufzeit startet (launcher\).
+# Braucht den C++-Compiler von Visual Studio (Arbeitslast „Desktopentwicklung mit C++“).
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$vsPath = if (Test-Path $vswhere) { & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath } else { $null }
+$vcvars = if ($vsPath) { Join-Path $vsPath 'VC\Auxiliary\Build\vcvars64.bat' } else { $null }
+if (-not $vcvars -or -not (Test-Path $vcvars)) { Write-Host 'C++-Compiler von Visual Studio fehlt (für SnitchBoxStart.exe)'; exit 1 }
+$v = $Version.Split('.')
+& cmd /c "`"$(Join-Path $Root 'launcher\build-launcher.cmd')`" `"$vcvars`" `"$dist`" `"$(Join-Path $B 'launcher')`" $($v[0]) $($v[1]) $($v[2]) $Build" | Where-Object { $_ -and $_ -notmatch 'vswhere|falsch geschrieben|gefunden werden|SnitchBoxStart\.cpp' }
+if ($LASTEXITCODE -ne 0) { Write-Host 'Starter ließ sich nicht übersetzen'; exit 1 }
+Copy-Item (Join-Path $dist 'SnitchBoxStart.exe') $sa
+
 # SnitchBox-Setup.exe: kleiner Installer für andere PCs. Für das .NET Framework 4.x (auf jedem Windows 10/11 vorhanden),
 # übersetzt mit dem in Windows mitgelieferten csc.exe (C# 5); enthält dist\SnitchBox.exe.
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -88,10 +99,11 @@ $langSource = if ($python -and (Test-Path $setupLang)) { $setupLang } else { $la
 $langResources = Get-ChildItem $langSource -Filter '??.json' | ForEach-Object { "/resource:$($_.FullName),Lang.$($_.Name)" }
 & $csc /nologo /noconfig /target:winexe /platform:anycpu /optimize+ /codepage:65001 "/out:$setup" `
     "/win32icon:$(Join-Path $Root 'src\SnitchBox\app.ico')" "/win32manifest:$(Join-Path $Root 'installer\setup.manifest')" `
-    "/resource:$(Join-Path $dist 'SnitchBox.exe'),SnitchBox.exe" "/resource:$(Join-Path $Root 'src\SnitchBox\app.ico'),app.ico" @langResources `
+    "/resource:$(Join-Path $dist 'SnitchBox.exe'),SnitchBox.exe" "/resource:$(Join-Path $dist 'SnitchBoxStart.exe'),SnitchBoxStart.exe" `
+    "/resource:$(Join-Path $Root 'src\SnitchBox\app.ico'),app.ico" @langResources `
     /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Runtime.Serialization.dll /r:System.Xml.dll `
     (Join-Path $Root 'installer\Setup.cs') $setupVersion
 if ($LASTEXITCODE -ne 0) { Write-Host 'Installer ließ sich nicht übersetzen'; exit 1 }
 
-Get-ChildItem (Join-Path $dist 'SnitchBox.exe'), $setup, $sa | Format-Table Name, Length -AutoSize
-Write-Host "Erstellt: SnitchBox für Windows $Version (Build $Build) → dist\SnitchBox.exe (braucht .NET 10 Desktop Runtime), dist\SnitchBox-Setup.exe (Installer), dist\SnitchBox-Standalone\ (ohne .NET)"
+Get-ChildItem (Join-Path $dist 'SnitchBox.exe'), (Join-Path $dist 'SnitchBoxStart.exe'), $setup, $sa | Format-Table Name, Length -AutoSize
+Write-Host "Erstellt: SnitchBox für Windows $Version (Build $Build) → dist\SnitchBox.exe (braucht .NET 10 Desktop Runtime) mit Starter dist\SnitchBoxStart.exe, dist\SnitchBox-Setup.exe (Installer), dist\SnitchBox-Standalone\ (ohne .NET)"

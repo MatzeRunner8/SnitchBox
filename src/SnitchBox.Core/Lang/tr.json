@@ -312,5 +312,6 @@
  "Windows catalog": "Windows kataloğu",
  "Invalid signature – the file was modified or the certificate is not trusted": "Geçersiz imza – dosya değiştirilmiş veya sertifika güvenilir değil",
  "not signed": "imzasız",
- "could not be checked": "denetlenemedi"
+ "could not be checked": "denetlenemedi",
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox, SnitchBox'a yabancı kod yüklenmesine izin veren ortam değişkenleriyle başlatıldı:\n{0}\n\nBunları bilerek ayarlamadıysan (ör. bir geliştirici aracı için), bu bir saldırı olabilir – SnitchBox yönetici haklarıyla çalışır.\n\nSnitchBox'ı SnitchBoxStart.exe ile başlat (Başlat menüsü, otomatik başlatma): başlatıcı bu değişkenleri kaldırır."
 }

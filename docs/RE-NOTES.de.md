@@ -217,5 +217,21 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
   Corporation), eine Kopie von notepad.exe (Katalog, Microsoft Windows), eine unsignierte exe und devenv.exe mit einem geänderten Byte
   (ungültig, TRUST_E_BAD_DIGEST); höchstens 42 ms je Datei.
 
+## Build 27
+- Nativer Starter SnitchBoxStart.exe (launcher\SnitchBoxStart.cpp, C++, statische Laufzeit, ~205 KB, Manifest requireAdministrator, nur
+  kernel32/user32): entfernt alle Umgebungsvariablen, die mit CORECLR_, COR_, COMPlus_ oder DOTNET_ beginnen, und startet SnitchBox.exe aus
+  seinem Ordner mit der übrigen Umgebung und den eigenen Argumenten, dann beendet er sich. Schließt die Lücke „Laufzeit-Variablen aus der
+  Benutzerumgebung“ (jedes Programm darf sie in HKCU\Environment setzen; beim nächsten Anmelden hätte der Autostart fremden Code mit
+  Administratorrechten geladen).
+- Installer: legt den Starter neben SnitchBox.exe; Startmenü-/Desktop-Verknüpfung, Autostart-Aufgabe und der Start nach der Installation
+  nutzen ihn; die Deinstallation entfernt ihn. SnitchBox: Der Autostart zeigt auf den Starter, wenn er neben SnitchBox.exe liegt; ein
+  bestehender Autostart, der noch SnitchBox.exe direkt startet, wird beim Start umgestellt; mit bedenklichen Variablen gestartet
+  (CORECLR_*, COR_PROFILER*, DOTNET_DiagnosticPorts, DOTNET_ADDITIONAL_DEPS, DOTNET_SHARED_STORE, DOTNET_STARTUP_HOOKS) warnt SnitchBox.
+- Build: build-windows.ps1 findet Visual Studio über vswhere und baut den Starter mit launcher\build-launcher.cmd (rc + cl /O1 /MT /GS
+  /guard:cf, Linker /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA /CETCOMPAT); auch in SnitchBox-Standalone\ und im Installer eingebettet.
+- Getestet mit einer Fassung ohne Admin-Manifest und cmd.exe als „SnitchBox.exe“: CORECLR_ENABLE_PROFILING, CORECLR_PROFILER_PATH,
+  COR_PROFILER, DOTNET_DiagnosticPorts und COMPlus_EnableDiagnostics waren weg, andere Variablen (PATH, eigene Testvariable) und die
+  Argumente kamen an. Die echte Startkette (UAC, Autostart) ist beim Nutzer noch ungetestet.
+
 ## Offen
 - Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.

@@ -216,5 +216,20 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
   Corporation), a copy of notepad.exe (catalog, Microsoft Windows), an unsigned exe, and devenv.exe with one changed byte
   (invalid, TRUST_E_BAD_DIGEST); at most 42 ms per file.
 
+## Build 27
+- Native starter SnitchBoxStart.exe (launcher\SnitchBoxStart.cpp, C++, static runtime, ~205 KB, manifest requireAdministrator, only
+  kernel32/user32): removes all environment variables starting with CORECLR_, COR_, COMPlus_ or DOTNET_ and starts SnitchBox.exe from its
+  own folder with the remaining environment and its own arguments, then exits. Closes the gap “runtime variables from the user environment”
+  (any program may set them in HKCU\Environment; at the next sign-in the autostart would have loaded foreign code with administrator rights).
+- Installer: installs the starter next to SnitchBox.exe; Start menu/desktop shortcuts, autostart task and the start after installing use it;
+  uninstall removes it. SnitchBox: autostart points to the starter if it lies next to SnitchBox.exe, an existing autostart that still starts
+  SnitchBox.exe directly is switched over at startup; started with risky variables (CORECLR_*, COR_PROFILER*, DOTNET_DiagnosticPorts,
+  DOTNET_ADDITIONAL_DEPS, DOTNET_SHARED_STORE, DOTNET_STARTUP_HOOKS) SnitchBox warns.
+- Build: build-windows.ps1 finds Visual Studio via vswhere and builds the starter with launcher\build-launcher.cmd (rc + cl /O1 /MT /GS
+  /guard:cf, linker /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA /CETCOMPAT); also in SnitchBox-Standalone\ and embedded in the installer.
+- Tested with a variant without the admin manifest and cmd.exe as “SnitchBox.exe”: CORECLR_ENABLE_PROFILING, CORECLR_PROFILER_PATH,
+  COR_PROFILER, DOTNET_DiagnosticPorts and COMPlus_EnableDiagnostics were gone, other variables (PATH, own test variable) and the arguments
+  arrived. The real start chain (UAC, autostart) is not yet tested on the user’s machine.
+
 ## Open
 - Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

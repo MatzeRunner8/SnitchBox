@@ -185,6 +185,31 @@ public sealed class App : Application
 
         if (!_args.Contains("--tray")) ShowMain();
         if (!DemoMode) ThreadPool.QueueUserWorkItem(_ => CheckAutostartTarget());
+        WarnAboutRiskyEnvironment();
+    }
+
+    /// <summary>Umgebungsvariablen, über die die .NET-Laufzeit fremden Code lädt (Profiler, Diagnose-Ports, zusätzliche
+    /// Abhängigkeiten). Der Starter SnitchBoxStart.exe entfernt sie; startet jemand SnitchBox.exe direkt mit ihnen, ist es womöglich
+    /// schon geschehen – dann wenigstens Bescheid geben.</summary>
+    internal static bool IsRiskyVariable(string name) =>
+        name.StartsWith("CORECLR_", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("COR_ENABLE_PROFILING", StringComparison.OrdinalIgnoreCase) || name.StartsWith("COR_PROFILER", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("DOTNET_DiagnosticPorts", StringComparison.OrdinalIgnoreCase) || name.Equals("DOTNET_ADDITIONAL_DEPS", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("DOTNET_SHARED_STORE", StringComparison.OrdinalIgnoreCase) || name.Equals("DOTNET_STARTUP_HOOKS", StringComparison.OrdinalIgnoreCase);
+
+    private void WarnAboutRiskyEnvironment()
+    {
+        var risky = Environment.GetEnvironmentVariables().Keys.Cast<string>().Where(IsRiskyVariable).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        if (risky.Count == 0) return;
+        Log.Write("Bedenkliche Umgebungsvariablen beim Start: " + string.Join(", ", risky));
+        var text = Loc.F("SnitchBox wurde mit Umgebungsvariablen gestartet, über die fremder Code in SnitchBox geladen werden kann:\n{0}\n\n" +
+                         "Hast du sie nicht bewusst gesetzt (etwa für ein Entwicklerwerkzeug), kann das ein Angriff sein – SnitchBox läuft mit Administratorrechten.\n\n" +
+                         "Starte SnitchBox über SnitchBoxStart.exe (Startmenü, Autostart): Der Starter entfernt diese Variablen.",
+                         "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\n" +
+                         "If you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\n" +
+                         "Start SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.",
+                         string.Join(", ", risky));
+        Dispatcher.BeginInvoke(() => MessageBox.Show(text, Title, MessageBoxButton.OK, MessageBoxImage.Warning));
     }
 
     /// <summary>Startet der Autostart eine Datei, die nicht nur Administratoren ändern können, einmal je Build warnen
@@ -196,6 +221,13 @@ public sealed class App : Application
         {
             var command = Autostart.Command;
             if (command == null) return;
+            // Älterer Autostart startet SnitchBox.exe direkt, der Starter liegt jetzt daneben: auf den Starter umstellen.
+            if (Autostart.Starter is { } starter && command.Equals(Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
+            {
+                Autostart.Enabled = true;
+                Log.Write($"Autostart startet jetzt {starter}");
+                command = Autostart.Command ?? command;
+            }
             string text;
             if (!File.Exists(command))
             {
@@ -370,6 +402,23 @@ internal static class Autostart
 {
     private const string Task = "SnitchBox";
 
+    /// <summary>Der native Starter neben SnitchBox.exe (SnitchBoxStart.exe), falls vorhanden: Er startet SnitchBox ohne die
+    /// Umgebungsvariablen der .NET-Laufzeit, über die sonst jedes Programm Code in das mit Administratorrechten laufende SnitchBox
+    /// laden könnte – beim Autostart sogar ohne UAC-Rückfrage.</summary>
+    public static string? Starter
+    {
+        get
+        {
+            var dir = Path.GetDirectoryName(Environment.ProcessPath ?? "");
+            if (string.IsNullOrEmpty(dir)) return null;
+            var starter = Path.Combine(dir, "SnitchBoxStart.exe");
+            return File.Exists(starter) ? starter : null;
+        }
+    }
+
+    /// <summary>Was der Autostart startet: der Starter, ohne ihn SnitchBox.exe selbst.</summary>
+    public static string Target => Starter ?? Environment.ProcessPath ?? "";
+
     private static int Run(string arguments) => Run(arguments, out _);
 
     private static int Run(string arguments, out string output)
@@ -444,7 +493,7 @@ internal static class Autostart
         {
             if (!value) { Run($"/Delete /F /TN \"{Task}\""); return; }
             var user = System.Security.SecurityElement.Escape(WindowsIdentity.GetCurrent().Name);
-            var exe = System.Security.SecurityElement.Escape(Environment.ProcessPath ?? "");
+            var exe = System.Security.SecurityElement.Escape(Target);
             // Als XML, weil nur so „auch im Akkubetrieb starten“ und „nie nach Zeit beenden“ einstellbar sind.
             var xml = $"""
                 <?xml version="1.0" encoding="UTF-16"?>

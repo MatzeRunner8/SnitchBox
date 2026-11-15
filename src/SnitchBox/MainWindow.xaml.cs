@@ -837,7 +837,8 @@ public partial class MainWindow : Window
                 if (!File.Exists(command))
                     parts.Add(Loc.F("Der Autostart startet eine Datei, die es nicht mehr gibt: {0}. Aus- und wieder einschalten, um diese hier zu verwenden.",
                                     "Autostart runs a file that no longer exists: {0}. Switch it off and on again to use this one.", command));
-                else if (!string.Equals(command, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
+                else if (!string.Equals(command, Autostart.Target, StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(command, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
                     parts.Add(Loc.F("Der Autostart startet eine andere Datei: {0}. Aus- und wieder einschalten, um diese hier zu verwenden.",
                                     "Autostart runs a different file: {0}. Switch it off and on again to use this one.", command));
                 if (File.Exists(command) && FolderSecurity.WritersOtherThanAdmins(command) is { Count: > 0 } writers)
@@ -852,7 +853,7 @@ public partial class MainWindow : Window
 
     private void Autostart_Click(object sender, RoutedEventArgs e)
     {
-        if (AutostartBox.IsChecked == true && Environment.ProcessPath is { } exe && FolderSecurity.WritersOtherThanAdmins(exe) is { Count: > 0 } writers
+        if (AutostartBox.IsChecked == true && Autostart.Target is { Length: > 0 } exe && FolderSecurity.WritersOtherThanAdmins(exe) is { Count: > 0 } writers
             && MessageBox.Show(this, Autostart.WarningText(exe, writers, true), App.Title, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
         {
             AutostartBox.IsChecked = _autostart;

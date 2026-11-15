@@ -34,6 +34,7 @@ Der Filter wirkt nur, solange SnitchBox läuft; endet das Programm, läuft der V
 - Windows: `powershell -ExecutionPolicy Bypass -File build-windows.ps1` · Mac: `./build-windows.sh` (zeichnet zusätzlich das Symbol neu).
   Beide zählen BUILD_NUMBER hoch und führen vorher die Kern-Tests aus (`dotnet run --project tests/SnitchBox.Tests`).
 - `dist/SnitchBox.exe` – eine Datei, braucht die „.NET Desktop Runtime“ 10 oder neuer (fehlt sie, bietet Windows den Download an). Empfohlen.
+  Dazu `dist/SnitchBoxStart.exe`, der native Starter (gebaut mit dem C++-Compiler von Visual Studio, Arbeitslast „Desktopentwicklung mit C++“).
 - `dist/SnitchBox-Standalone/` – läuft ohne .NET-Installation; die WPF-Bibliotheken liegen neben der .exe.
 - `dist/SnitchBox-Setup.exe` – kleiner Installer (rund 1 MB, nur von build-windows.ps1 gebaut) für andere PCs, siehe unten.
 
@@ -95,10 +96,11 @@ Zurück zu Build 12: Build 13 stellt die Werksregeln um, was Build 12 nicht lese
   Programm lauscht (Portscans, Weiterleitungen an virtuelle Maschinen) – darüber entscheidet die Windows-Firewall.
 - Das Programm zu einer Verbindung ermittelt SnitchBox über den lokalen Port (Socket-Ereignisse, Port-Tabellen von Windows). Gegen
   Schadsoftware, die schon als derselbe Benutzer läuft und Ports gezielt neu belegt, ist das kein vollständiger Schutz.
-- Der Autostart läuft mit der Umgebung des Benutzers. Startup-Hooks und `DOTNET_ROOT` sind abgeschaltet, andere Laufzeit-Variablen
-  aus der Benutzerumgebung beachtet die .NET-Laufzeit aber noch und könnten darüber Code mit Administratorrechten ausführen: Profiler
-  (`CORECLR_*`), Diagnose-Ports (`DOTNET_DiagnosticPorts`) und bei `SnitchBox.exe` (framework-abhängig) `DOTNET_ADDITIONAL_DEPS`/`DOTNET_SHARED_STORE`.
-  Vollständig schlösse das erst ein Start mit bereinigter Umgebung (kleiner nativer Starter oder Dienst) – noch nicht umgesetzt.
+- SnitchBox läuft mit Administratorrechten, aber in der Umgebung des Benutzers. Manche Umgebungsvariablen lassen die .NET-Laufzeit
+  fremden Code laden (Profiler `CORECLR_*`/`COR_*`, `DOTNET_DiagnosticPorts`, `DOTNET_ADDITIONAL_DEPS` …), und jedes Programm darf sie setzen.
+  Deshalb starten Startmenü, Desktop-Verknüpfung und Autostart `SnitchBoxStart.exe`: einen kleinen nativen Starter ohne .NET, der alle
+  Variablen `CORECLR_*`, `COR_*`, `COMPlus_*` und `DOTNET_*` entfernt und dann `SnitchBox.exe` startet. Direkt mit solchen Variablen
+  gestartet, warnt SnitchBox. Beide Dateien gehören zusammen.
 
 Details zum Original, zur Technik und zu den Änderungen je Build: [docs/RE-NOTES.de.md](docs/RE-NOTES.de.md).
 

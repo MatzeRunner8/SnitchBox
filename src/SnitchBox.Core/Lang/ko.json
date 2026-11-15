@@ -312,5 +312,6 @@
  "Windows catalog": "Windows 카탈로그",
  "Invalid signature – the file was modified or the certificate is not trusted": "잘못된 서명 – 파일이 변경되었거나 인증서를 신뢰할 수 없습니다",
  "not signed": "서명 안 됨",
- "could not be checked": "확인할 수 없음"
+ "could not be checked": "확인할 수 없음",
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox가 외부 코드를 SnitchBox에 로드할 수 있는 환경 변수와 함께 시작되었습니다:\n{0}\n\n의도적으로 설정한 것이 아니라면(예: 개발 도구용) 공격일 수 있습니다. SnitchBox는 관리자 권한으로 실행됩니다.\n\nSnitchBoxStart.exe(시작 메뉴, 자동 시작)로 SnitchBox를 시작하세요. 시작 프로그램이 이 변수들을 제거합니다."
 }
