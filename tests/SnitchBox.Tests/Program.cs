@@ -505,6 +505,122 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(Fails() == before && Store.Load().Rules.Count == e.Read(s => s.Rules.Count), "gleichzeitiges Speichern");
 }
 
+// ---- Programme in Temp-Ordnern, Prozess-Muster, Zusammenfassen und Aufräumen von Regeln
+{
+    AlertRules.TempRoots = [@"R:\Temp\", @"C:\Windows\Temp"];
+    const string VsTemp = @"R:\Temp\obkz3fue.blc\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe";
+    string Tmp(string folder) => VsTemp.Replace("obkz3fue.blc", folder);
+    var vsPattern = AlertRules.ProcessPattern(VsTemp);
+    Check(vsPattern == @"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe", "Temp-Programm wird zum Muster: " + vsPattern);
+    Check(AlertRules.ProcessPattern(@"C:\Program Files\App\app.exe") == @"C:\Program Files\App\app.exe"
+          && AlertRules.ProcessPattern(@"R:\Temp\setup.exe") == @"R:\Temp\setup.exe"
+          && AlertRules.ProcessPattern(@"C:\Users\x\AppData\Local\Temp\abc\x.exe") == @"C:\Users\x\AppData\Local\Temp\*\x.exe",
+        "nur Programme in Unterordnern von Temp werden verallgemeinert");
+    const string StoreApp = @"C:\Program Files\WindowsApps\Claude_5.11492.5.0_x64__pzs8sxrjxfjjc\app\claude.exe";
+    Check(AlertRules.ProcessPattern(StoreApp) == @"C:\Program Files\WindowsApps\Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe"
+          && AlertRules.ProcessPattern(@"C:\Users\x\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.325\806e0a45e6f5\claude.exe")
+             == @"C:\Users\x\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe"
+          && AlertRules.ProcessPattern(@"C:\Users\x\AppData\Local\Discord\app-1.0.9163\Discord.exe") == @"C:\Users\x\AppData\Local\Discord\*\Discord.exe",
+        "Versions-, Hash- und Store-Paket-Ordner werden zu *");
+    Check(AlertRules.ProcessPattern(@"C:\Users\x\Documents\optimizerDuck-src\dotnet-sdk-10.0.404\dotnet.exe") == @"C:\Users\x\Documents\optimizerDuck-src\dotnet-sdk-10.0.404\dotnet.exe"
+          && AlertRules.ProcessPattern(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == @"C:\Program Files\Google\Chrome\Application\chrome.exe"
+          && AlertRules.ProcessPattern(@"C:\Tools\1.2.3.exe") == @"C:\Tools\1.2.3.exe",
+        "gewöhnliche Ordner und der Dateiname bleiben genau");
+    var storeRules = new Store();
+    storeRules.Rules.Add(new Rule { Action = RuleAction.Allow, Process = AlertRules.ProcessPattern(StoreApp) });
+    Check(RuleSet.Build(storeRules, "boot").Evaluate(new Connection { ProcessPath = StoreApp.Replace("5.11492.5.0", "5.12000.1.0"), Pid = 1, Remote = IpKey.From(IPAddress.Parse("20.1.2.3")), Port = 443 }, now).Action == RuleAction.Allow,
+        "Regel gilt nach einem Update weiter");
+    AlertRules.TempRoots = [@"C:\"];
+    Check(AlertRules.ProcessPattern(@"C:\Apps\x.exe") == @"C:\Apps\x.exe", "ein ganzes Laufwerk gilt nie als Temp-Ordner");
+    AlertRules.TempRoots = [@"R:\Temp\", @"C:\Windows\Temp"];
+    var fromAlert = AlertRules.Create(new Connection { ProcessPath = VsTemp, Pid = 5, Remote = IpKey.From(IPAddress.Parse("20.1.2.3")), Port = 443, Protocol = Proto.Tcp },
+        false, AlertScope.AnyConnection, AlertLifetime.Forever, "boot", null, now)!;
+    Check(fromAlert.Process == vsPattern, "Warnfenster legt die Regel mit Muster an");
+
+    Connection C(string path, string host = "x.example") => new()
+    {
+        ProcessPath = path, Pid = 1, Direction = Direction.Outgoing, Protocol = Proto.Tcp,
+        Remote = IpKey.From(IPAddress.Parse("20.1.2.3")), Port = 443, Hostnames = [host],
+    };
+    var gs = new Store();
+    gs.Rules.Add(new Rule { Action = RuleAction.Deny, Process = vsPattern });
+    gs.Rules.Add(new Rule { Action = RuleAction.Allow, Process = "Background*.exe", Remote = RemoteKind.Hosts, Targets = ["ok.example"] });
+    var grs = RuleSet.Build(gs, "boot");
+    Check(grs.Evaluate(C(Tmp("zz9.abc")), now).Action == RuleAction.Deny, "Muster passt auf jeden neuen Zufallsordner");
+    Check(grs.Evaluate(C(@"R:\Temp\a\b\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe"), now).Action == null
+          && grs.Evaluate(C(@"R:\Temp\a\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\Other.exe"), now).Action == null,
+        "* steht für genau einen Ordnernamen, der Rest muss stimmen");
+    Check(grs.Evaluate(C(Tmp("zz9.abc"), "ok.example"), now).Action == RuleAction.Allow, "Dateinamen-Muster (Background*.exe) passt an jedem Ort");
+    var star = new Store();
+    star.Rules.Add(new Rule { Action = RuleAction.Deny, Process = "*" });
+    Check(RuleSet.Build(star, "boot").Evaluate(C(""), now).Action == null, "ein Muster gilt nie für einen unbekannten Prozess");
+
+    Rule HostRule(string host, RuleAction a = RuleAction.Deny, string proc = @"C:\A\bd.exe") =>
+        new() { Action = a, Process = proc, Remote = RemoteKind.Hosts, Targets = [host] };
+    var absorbed = new List<Rule>();
+    RuleCleanup.Absorb(absorbed, HostRule("a.example"));
+    var st = RuleCleanup.Absorb(absorbed, HostRule("B.example."));
+    Check(absorbed.Count == 1 && st.Targets.SequenceEqual(["a.example", "b.example"]), "zweite Gegenstelle kommt in die bestehende Regel");
+    RuleCleanup.Absorb(absorbed, HostRule("c.example", RuleAction.Allow));
+    RuleCleanup.Absorb(absorbed, new Rule { Action = RuleAction.Deny, Process = @"C:\A\bd.exe" });
+    Check(absorbed.Count == 3, "liegt eine Erlauben-Regel für dasselbe Programm dazwischen, bleiben die genaueren Verbieten-Regeln");
+    absorbed.RemoveAll(r => r.Action == RuleAction.Allow);
+    RuleCleanup.Absorb(absorbed, new Rule { Action = RuleAction.Deny, Process = @"C:\A\bd.exe" });
+    Check(absorbed.Count == 1 && absorbed[0].Remote == RemoteKind.Any, "„jede Verbindung verbieten“ macht Host-Regeln und das Doppel überflüssig");
+    var tl = new List<Rule> { HostRule("a.example") };
+    RuleCleanup.Absorb(tl, new Rule { Action = RuleAction.Deny, Process = @"C:\A\bd.exe", Lifetime = LifetimeKind.Timed, Expires = now.AddDays(1) });
+    Check(tl.Count == 2, "eine befristete Regel ersetzt keine dauerhafte");
+    var bl = new List<Rule> { HostRule("ads.example", RuleAction.Allow) };
+    RuleCleanup.Absorb(bl, new Rule { Action = RuleAction.Allow, Process = @"C:\A\bd.exe" });
+    Check(bl.Count == 2, "Erlauben für einen Host (nimmt ihn von Blocklisten aus) bleibt neben „jede Verbindung erlauben“");
+
+    // Der Fall des Nutzers: Visual-Studio-Installer aus wechselnden Temp-Ordnern, je Nachfrage eine Regel
+    var mess = new List<Rule>();
+    foreach (var f in new[] { "obkz3fue.blc", "oow4xwqi.qn1" })
+        foreach (var h in new[] { "go.microsoft.com", "aka.ms", "settings.visualstudio.microsoft.com" })
+            mess.Add(HostRule(h, proc: Tmp(f)));
+    mess.Add(new Rule { Action = RuleAction.Deny, Process = Tmp("yebzrttz.n44") });
+    mess.Add(new Rule { Action = RuleAction.Deny, Process = Tmp("vfp5enaw.jsr") });
+    mess.Add(new Rule { Action = RuleAction.Deny, Process = Tmp("xd5yyjpi.2s4"), Lifetime = LifetimeKind.Timed, Expires = now.AddDays(30) });
+    const string VsInst = @"C:\Program Files (x86)\Microsoft Visual Studio\Installer\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe";
+    foreach (var h in new[] { "settings.visualstudio.microsoft.com", "go.microsoft.com", "aka.ms" }) mess.Add(HostRule(h, proc: VsInst));
+    mess.Add(new Rule { Action = RuleAction.Allow, Process = @"C:\Gone\old.exe" });
+    mess.Add(new Rule { Action = RuleAction.Allow, Process = "svchost.exe", Factory = true });
+    mess.Add(new Rule { Action = RuleAction.Allow, Process = "svchost.exe", Factory = true });
+    var plan = RuleCleanup.Plan(mess, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { @"C:\Gone\old.exe" });
+    var tempRules = plan.Rules.Where(r => r.Process == vsPattern).ToList();
+    var instRules = plan.Rules.Where(r => r.Process == VsInst).ToList();
+    Check(plan.Before == 15 && plan.Rules.Count == 4 && plan.Generalized == 9 && plan.Vanished == 1 && plan.Redundant == 8
+          && plan.MergedFrom == 3 && plan.MergedInto == 1,
+        $"Aufräumen im Fall des Nutzers: {plan.Before} → {plan.Rules.Count} (verallgemeinert {plan.Generalized}, weg {plan.Vanished}, überflüssig {plan.Redundant}, zusammengefasst {plan.MergedFrom}→{plan.MergedInto})");
+    Check(tempRules.Count == 1 && tempRules[0].Remote == RemoteKind.Any && tempRules[0].Lifetime == LifetimeKind.Forever,
+        "übrig bleibt für die Temp-Kopien eine Regel „jede Verbindung verbieten, für immer“");
+    Check(instRules.Count == 1 && instRules[0].Targets.Count == 3 && plan.Rules.Count(r => r.Factory) == 2, "drei Host-Regeln zu einer, Werksregeln unberührt");
+    Check(mess[0].Process == Tmp("obkz3fue.blc") && mess.Count == 15, "der Plan ändert die Vorlage nicht");
+    var beforeSet = RuleSet.Build(new Store { Rules = mess }, "boot");
+    var afterSet = RuleSet.Build(new Store { Rules = plan.Rules }, "boot");
+    var same = new[] { C(VsInst, "aka.ms"), C(VsInst, "go.microsoft.com"), C(VsInst, "example.org"), C(Tmp("obkz3fue.blc"), "aka.ms"), C(Tmp("vfp5enaw.jsr"), "example.org") }
+        .All(c => beforeSet.Evaluate(c, now).Action == afterSet.Evaluate(c, now).Action);
+    Check(same, "aufgeräumte Regeln entscheiden wie vorher");
+    Check(RuleCleanup.Plan(plan.Rules, new HashSet<string>()).Empty, "ein zweites Aufräumen findet nichts mehr");
+
+    // Zwei Nachfragen (Reichweite Host) für dasselbe Programm ergeben eine Regel mit beiden Hosts
+    var fp = new FakeProcs();
+    var fs = new Store();
+    var fe = new FirewallEngine(fs, fp, "boot", () => now);
+    fe.Hosts.Add("a.example", [IpKey.From(IPAddress.Parse("198.51.100.1"))]);
+    fe.Hosts.Add("b.example", [IpKey.From(IPAddress.Parse("198.51.100.2"))]);
+    fp.Ports[(true, 51000)] = new ProcessInfo(900, @"C:\A\bd.exe");
+    fp.Ports[(true, 51001)] = new ProcessInfo(900, @"C:\A\bd.exe");
+    var om = new PacketMeta(true, false, 7, 0);
+    fe.Process(V4(6, "192.168.1.10", "198.51.100.1", TcpSyn(51000, 443, 1)), om, out _);
+    fe.Process(V4(6, "192.168.1.10", "198.51.100.2", TcpSyn(51001, 443, 1)), om, out _);
+    foreach (var a in fe.Alerts) fe.Resolve(a.Id, false, AlertRules.Create(a.Connection, false, AlertScope.Host, AlertLifetime.Forever, "boot", null, now));
+    var own = fs.Rules.Where(r => !r.Factory).ToList();
+    Check(own.Count == 1 && own[0].Targets.Count == 2 && fe.Alerts.Count == 0, "zwei Nachfragen (Host) ergeben eine Regel mit zwei Hosts");
+    AlertRules.TempRoots = [];
+}
+
 // ---- Sprachen: jede Tabelle vollständig, Platzhalter unverändert, string.Format scheitert nicht
 Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.Normalize("xx") == "en" && Loc.Normalize(null) == "en", "Sprachcodes");
 {

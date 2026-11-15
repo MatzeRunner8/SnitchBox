@@ -122,6 +122,14 @@ public sealed class App : Application
         if (DemoMode) Paths.Override = Path.Combine(Paths.DefaultDataDir, "demo");
 
         Log.Write("— " + Title + " — " + Environment.ProcessPath + (DemoMode ? " (Demo)" : ""));
+        // Temp-Ordner für Regeln an Programmen, die sich bei jedem Start in einen neuen Zufallsordner kopieren (AlertRules.ProcessPattern).
+        var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        AlertRules.TempRoots = new[]
+            {
+                Path.GetTempPath(), Environment.GetEnvironmentVariable("TEMP"), Environment.GetEnvironmentVariable("TMP"),
+                Path.Combine(windows, "Temp"), Path.Combine(windows, "SystemTemp"),
+            }
+            .Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => Path.GetFullPath(p!)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var store = Store.Load();
         // Gewählte Sprache aus den Einstellungen (--lang hat Vorrang).
         if (langArg == null && store.Settings.Language != null) Loc.Language = store.Settings.Language;

@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "Правило сохранено, но не подходит к этому соединению (другой профиль, адресат или порт).",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "Правило сохранено, но не действует для этого соединения. Приоритет имеет:\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox бесплатен. Если он вам нравится, вы можете угостить меня кофе на Ko-fi – кнопка откроет страницу в браузере.",
- "The browser could not be opened. The address is:\n{0}": "Не удалось открыть браузер. Адрес:\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "Не удалось открыть браузер. Адрес:\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "Удаляются повторяющиеся или лишние правила ({0}): более общее правило уже решает так же.",
+ "{0} rules for programs that no longer exist are removed:": "Удаляются правила ({0}) для программ, которых больше нет:",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "Однотипные правила ({0}) объединяются в {1} (несколько удаленных узлов в одном правиле).",
+ "Clean Up…": "Очистить…",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "Стандартные правила не изменяются. Правил до: {0}, после: {1}. Выполнить очистку сейчас?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": "Полный путь к файлу .exe, только имя файла, например chrome.exe, или пусто для любой программы. * обозначает любую часть имени папки или файла, например C:\\Temp\\*\\setup.exe",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "Удалить повторяющиеся и лишние правила, объединить однотипные",
+ "The rules are already tidy.": "Правила уже в порядке.",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "Правила ({0}) будут действовать для каждой копии и версии своей программы (меняющиеся имена папок, например случайные временные папки или номера версий, заменяются на *)."
 }

@@ -490,7 +490,9 @@ public sealed class FirewallEngine
             before = _rules;
             if (rule != null)
             {
-                _store.Rules.Add(rule);
+                // Gleichartige Regel vorhanden (nur andere Gegenstelle)? Dann kommt die neue Gegenstelle dorthin, statt dass je
+                // Nachfrage eine weitere Regel entsteht; überflüssig gewordene Regeln entfallen.
+                rule = RuleCleanup.Absorb(_store.Rules, rule);
                 Rebuild();
             }
             var alert = _alerts.Find(a => a.Id == alertId);

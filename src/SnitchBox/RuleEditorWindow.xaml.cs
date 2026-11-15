@@ -28,6 +28,8 @@ public partial class RuleEditorWindow : Window
         AllowRadio.IsChecked = rule.Action == RuleAction.Allow;
         DenyRadio.IsChecked = rule.Action == RuleAction.Deny;
         ProcessBox.Text = rule.Process;
+        ProcessBox.ToolTip = Loc.T("Voller Pfad der .exe, nur ein Dateiname wie chrome.exe, oder leer für jedes Programm. * steht für einen beliebigen Teil eines Ordner- oder Dateinamens, z. B. C:\\Temp\\*\\setup.exe",
+                                   "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe");
         DirectionBox.Items.Add(Loc.T("Ausgehende Verbindungen", "Outgoing connections"));
         DirectionBox.Items.Add(Loc.T("Eingehende Verbindungen", "Incoming connections"));
         DirectionBox.SelectedIndex = (int)rule.Direction;

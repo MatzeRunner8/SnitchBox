@@ -413,7 +413,15 @@ public partial class MainWindow : Window
             else s.Rules.Add(result);
             // Eine andere eigene Regel für genau dieselben Verbindungen ist ein Doppel oder ein Widerspruch: Bei Gleichstand
             // gewinnt „Verbieten“, ein „Erlauben“ für eine schon verbotene Verbindung bliebe also wirkungslos. Die neue ersetzt sie.
-            if (!gone) s.Rules.RemoveAll(r => r.Id != result.Id && !r.Factory && r.SameScope(result));
+            if (gone) return;
+            s.Rules.RemoveAll(r => r.Id != result.Id && !r.Factory && r.SameScope(result));
+            // Neue Regel: in eine gleichartige einfügen (nur andere Gegenstelle). Danach entfallen Regeln, die sie überflüssig macht.
+            if (isNew) result = RuleCleanup.Absorb(s.Rules, result);
+            else
+            {
+                var all = s.Rules.ToList();
+                s.Rules.RemoveAll(n => RuleCleanup.MakesRedundant(result, n, all));
+            }
         });
         if (gone)
         {
@@ -423,6 +431,53 @@ public partial class MainWindow : Window
             return null;
         }
         return result;
+    }
+
+    /// <summary>Regeln aufräumen: zeigt, was sich ändert, und wendet es nach Bestätigung an. Ob ein Programm noch existiert,
+    /// wird außerhalb der Sperre der Engine geprüft (ein nicht erreichbares Netzlaufwerk hielte sonst den Filter an).</summary>
+    private void CleanupRules_Click(object sender, RoutedEventArgs e)
+    {
+        var processes = App.Engine.Read(s => s.Rules.Where(r => !r.Factory).Select(r => r.Process).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        var vanished = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in processes)
+        {
+            // Nur volle Pfade, die nicht verallgemeinert werden (Temp- und Versionsordner werden zu *); nie Muster, Dateinamen oder „System“.
+            if (p.Contains('*') || p.IndexOf('\\') < 0 || AlertRules.ProcessPattern(p) != p) continue;
+            try { if (!File.Exists(p)) vanished.Add(p); } catch { }
+        }
+        var plan = App.Engine.Read(s => RuleCleanup.Plan(s.Rules, vanished));
+        if (plan.Empty)
+        {
+            MessageBox.Show(this, Loc.T("Die Regeln sind schon aufgeräumt.", "The rules are already tidy."), App.Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var lines = new List<string>();
+        if (plan.Generalized > 0)
+            lines.Add(Loc.F("{0} Regeln gelten künftig für jede Kopie und Version ihres Programms (wechselnde Ordnernamen wie Temp-Zufallsordner oder Versionsnummern werden zu *).",
+                            "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).", plan.Generalized));
+        if (plan.Redundant > 0)
+            lines.Add(Loc.F("{0} doppelte oder überflüssige Regeln entfallen (eine umfassendere Regel entscheidet schon genauso).",
+                            "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).", plan.Redundant));
+        if (plan.MergedFrom > 0)
+            lines.Add(Loc.F("{0} gleichartige Regeln werden zu {1} zusammengefasst (mehrere Gegenstellen in einer Regel).",
+                            "{0} rules of the same kind are combined into {1} (several remotes in one rule).", plan.MergedFrom, plan.MergedInto));
+        if (plan.Vanished > 0)
+        {
+            var names = vanished.Select(Rule.NameOf).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.CurrentCultureIgnoreCase).ToList();
+            lines.Add(Loc.F("{0} Regeln für Programme, die es nicht mehr gibt, entfallen:", "{0} rules for programs that no longer exist are removed:", plan.Vanished)
+                      + " " + string.Join(", ", names.Take(8)) + (names.Count > 8 ? " …" : ""));
+        }
+        var text = string.Join("\n\n", lines.Select(l => "• " + l)) + "\n\n"
+                   + Loc.F("Werksregeln bleiben unberührt. Vorher {0} Regeln, danach {1}. Jetzt aufräumen?",
+                           "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?", plan.Before, plan.Rules.Count);
+        if (MessageBox.Show(this, text, App.Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        // Unter der Sperre neu planen: inzwischen geänderte Regeln (z. B. aus einem Warnfenster) gehen so nicht verloren.
+        App.Engine.Mutate(s =>
+        {
+            var fresh = RuleCleanup.Plan(s.Rules, vanished);
+            s.Rules.Clear();
+            s.Rules.AddRange(fresh.Rules);
+        });
     }
 
     private void DeleteRule_Click(object sender, RoutedEventArgs e)

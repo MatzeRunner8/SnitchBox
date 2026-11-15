@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "Reguła została zapisana, ale nie pasuje do tego połączenia (inny profil, inny cel lub inny port).",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "Reguła została zapisana, ale nie działa dla tego połączenia. Pierwszeństwo ma:\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox jest darmowy. Jeśli ci się podoba, możesz postawić mi kawę na Ko-fi – przycisk otwiera stronę w przeglądarce.",
- "The browser could not be opened. The address is:\n{0}": "Nie udało się otworzyć przeglądarki. Adres:\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "Nie udało się otworzyć przeglądarki. Adres:\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "Usuwane są zduplikowane lub zbędne reguły ({0}) – szersza reguła już decyduje tak samo.",
+ "{0} rules for programs that no longer exist are removed:": "Usuwane reguły ({0}) dla programów, których już nie ma:",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "Reguły tego samego rodzaju ({0}) zostaną połączone w {1} (kilka hostów zdalnych w jednej regule).",
+ "Clean Up…": "Uporządkuj…",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "Reguły domyślne pozostają bez zmian. Liczba reguł przed: {0}, po: {1}. Uporządkować teraz?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": "Pełna ścieżka pliku .exe, sama nazwa pliku, np. chrome.exe, lub puste pole dla dowolnego programu. * oznacza dowolną część nazwy folderu lub pliku, np. C:\\Temp\\*\\setup.exe",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "Usuń zduplikowane i zbędne reguły, połącz reguły tego samego rodzaju",
+ "The rules are already tidy.": "Reguły są już uporządkowane.",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "Reguły ({0}) będą obejmować każdą kopię i wersję swojego programu (zmienne nazwy folderów, np. losowe foldery tymczasowe lub numery wersji, zmieniają się w *)."
 }

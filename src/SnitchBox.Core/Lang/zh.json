@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "规则已保存，但与此连接不匹配（配置文件、目标或端口不同）。",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "规则已保存，但对此连接不生效。优先的是：\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox 是免费的。如果你喜欢，可以在 Ko-fi 上请我喝杯咖啡——按钮会在浏览器中打开该页面。",
- "The browser could not be opened. The address is:\n{0}": "无法打开浏览器。地址：\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "无法打开浏览器。地址：\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "将删除 {0} 条重复或多余的规则（更宽泛的规则已作出相同的判断）。",
+ "{0} rules for programs that no longer exist are removed:": "将删除 {0} 条针对已不存在程序的规则：",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "将 {0} 条同类规则合并为 {1} 条（一条规则包含多个远程主机）。",
+ "Clean Up…": "整理...",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "默认规则保持不变。整理前：{0} 条规则，整理后：{1} 条。现在整理吗？",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe 的完整路径、仅文件名（如 chrome.exe），或留空表示任意程序。* 代表文件夹名或文件名中的任意部分，例如 C:\\Temp\\*\\setup.exe",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "删除重复和多余的规则，合并同类规则",
+ "The rules are already tidy.": "规则已经很整洁。",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} 条规则将适用于其程序的每个副本和版本（变化的文件夹名，例如随机临时文件夹或版本号，变为 *）。"
 }

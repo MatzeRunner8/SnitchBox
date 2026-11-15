@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "ルールは保存されましたが、この接続には一致しません（プロファイル、接続先、またはポートが異なります）。",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "ルールは保存されましたが、この接続には適用されません。優先されるルール：\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox は無料です。気に入っていただけたら、Ko-fi でコーヒーを 1 杯おごってください。ボタンを押すとブラウザーでページが開きます。",
- "The browser could not be opened. The address is:\n{0}": "ブラウザーを開けませんでした。アドレス:\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "ブラウザーを開けませんでした。アドレス:\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "重複または不要なルール {0} 個を削除します (より広いルールが同じ判断をすでに行います)。",
+ "{0} rules for programs that no longer exist are removed:": "存在しなくなったプログラムのルール {0} 個を削除します:",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "同じ種類のルール {0} 個を {1} 個にまとめます (1 つのルールに複数のリモート ホスト)。",
+ "Clean Up…": "整理...",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "既定のルールは変更されません。整理前: {0} 個、整理後: {1} 個。今すぐ整理しますか?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe のフル パス、chrome.exe のようなファイル名のみ、またはすべてのプログラムを対象にする場合は空欄。* はフォルダー名やファイル名の任意の部分を表します (例: C:\\Temp\\*\\setup.exe)",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "重複・不要なルールを削除し、同じ種類のルールをまとめます",
+ "The rules are already tidy.": "ルールはすでに整理されています。",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "ルール {0} 個を、そのプログラムのすべてのコピーとバージョンに適用します (一時フォルダーのランダムな名前やバージョン番号など、変化するフォルダー名は * になります)。"
 }

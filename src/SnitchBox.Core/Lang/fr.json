@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "La règle est enregistrée, mais ne correspond pas à cette connexion (autre profil, autre destination ou autre port).",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "La règle est enregistrée, mais ne s’applique pas à cette connexion. Prioritaire :\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox est gratuit. Si vous l’appréciez, vous pouvez m’offrir un café sur Ko-fi – le bouton ouvre la page dans votre navigateur.",
- "The browser could not be opened. The address is:\n{0}": "Impossible d’ouvrir le navigateur. L’adresse est :\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "Impossible d’ouvrir le navigateur. L’adresse est :\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "{0} règles en double ou superflues sont supprimées (une règle plus large décide déjà de la même façon).",
+ "{0} rules for programs that no longer exist are removed:": "{0} règles pour des programmes qui n’existent plus sont supprimées :",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "{0} règles du même type sont regroupées en {1} (plusieurs hôtes distants dans une règle).",
+ "Clean Up…": "Nettoyer…",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "Les règles par défaut restent inchangées. Avant : {0} règles, après : {1}. Nettoyer maintenant ?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": "Chemin complet du .exe, simple nom de fichier comme chrome.exe, ou vide pour tout programme. * remplace n’importe quelle partie d’un nom de dossier ou de fichier, p. ex. C:\\Temp\\*\\setup.exe",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "Supprimer les règles en double ou superflues, regrouper les règles du même type",
+ "The rules are already tidy.": "Les règles sont déjà en ordre.",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} règles s’appliqueront à chaque copie et version de leur programme (les noms de dossier changeants, comme les dossiers temporaires aléatoires ou les numéros de version, deviennent *)."
 }

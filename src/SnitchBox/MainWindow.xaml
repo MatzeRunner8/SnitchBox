@@ -74,6 +74,8 @@
                             <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Neue Regel …', en='New Rule…'}" Click="NewRule_Click"/>
                             <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Bearbeiten …', en='Edit…'}" Click="EditRule_Click"/>
                             <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Löschen', en='Delete'}" Click="DeleteRule_Click"/>
+                            <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Aufräumen …', en='Clean Up…'}" Click="CleanupRules_Click"
+                                    ToolTip="{l:L de='Doppelte und überflüssige Regeln entfernen, gleichartige zusammenfassen', en='Remove duplicate and superfluous rules, combine rules of the same kind'}"/>
                             <Button Padding="12,5" Content="{l:L de='Importieren …', en='Import…'}" Click="ImportRules_Click" Margin="12,0,6,0"/>
                             <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Exportieren …', en='Export…'}" Click="ExportRules_Click"/>
                         </StackPanel>

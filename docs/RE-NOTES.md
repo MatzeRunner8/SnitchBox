@@ -149,5 +149,24 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
 - Ko-fi button moved next to the language selection (at the bottom of the settings it was only visible after scrolling); the hint
   text is now a tooltip, the separate section is gone.
 
+## Build 22
+- Too many rules for the same program (user report, 17 rules for BackgroundDownload.exe): the Visual Studio installer copies itself
+  to a new random folder on every start (R:\Temp\obkz3fue.blc\…\BackgroundDownload.exe), so a rule with the full path never matched
+  again; each alert (scope “host”) also created a rule of its own.
+- Process patterns: `*` in the process field stands for any part of a folder or file name (never for “\”; never matches an unknown
+  process). AlertRules.ProcessPattern turns changing folder names into `*`: the first subfolder of a temp folder (%TEMP%,
+  %SystemRoot%\Temp, …\AppData\Local\Temp; never a whole drive), version folders (2.1.325, v1.2, app-1.0.3), GUID and hash folders,
+  and the version in Store package folders (Claude_*_x64__pzs8sxrjxfjjc). Rules from the alert window and the monitor use it, so
+  they keep matching after the next start or update. Folders writable by the user stay just as protected as before (anyone who can
+  create such a folder could also have replaced the file at the old location).
+- RuleCleanup (Cleanup.cs): rules that differ only in their hosts, domains or addresses are combined into one rule (a new alert
+  answer with scope “host” adds the host to the existing rule); a rule is removed when a broader rule with the same action makes it
+  superfluous – same or wider process, remote, ports, protocol and profile, at least the same lifetime, and no rule with the opposite
+  action ranks between the two (then the decision is identical with or without it); allow rules that exempt a host from blocklists
+  are only replaced by rules that do the same. Applied when a rule is created (alert window, rule editor).
+- Rules → “Clean Up…”: shows what changes and applies it after confirmation – generalize temp/version paths, remove superfluous
+  rules, combine rules of the same kind, remove rules for programs that no longer exist (full paths only, checked outside the engine
+  lock). Factory rules stay untouched. Dry run on the test machine’s rules: 90 → 43, BackgroundDownload.exe 17 → 3.
+
 ## Open
 - Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.

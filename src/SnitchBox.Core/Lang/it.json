@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "La regola è stata salvata, ma non corrisponde a questa connessione (profilo, destinazione o porta diversi).",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "La regola è stata salvata, ma non si applica a questa connessione. Ha la precedenza:\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox è gratuito. Se ti piace, puoi offrirmi un caffè su Ko-fi – il pulsante apre la pagina nel browser.",
- "The browser could not be opened. The address is:\n{0}": "Impossibile aprire il browser. L’indirizzo è:\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "Impossibile aprire il browser. L’indirizzo è:\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "Vengono rimosse {0} regole duplicate o superflue (una regola più ampia decide già allo stesso modo).",
+ "{0} rules for programs that no longer exist are removed:": "Vengono rimosse {0} regole per programmi che non esistono più:",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "{0} regole dello stesso tipo vengono unite in {1} (più host remoti in una regola).",
+ "Clean Up…": "Riordina…",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "Le regole predefinite restano invariate. Prima: {0} regole, dopo: {1}. Riordinare ora?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": "Percorso completo del file .exe, solo un nome file come chrome.exe, o vuoto per qualsiasi programma. * sta per qualsiasi parte di un nome di cartella o file, ad es. C:\\Temp\\*\\setup.exe",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "Rimuovi regole duplicate e superflue, unisci regole dello stesso tipo",
+ "The rules are already tidy.": "Le regole sono già in ordine.",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} regole varranno per ogni copia e versione del loro programma (i nomi di cartella variabili, come cartelle temporanee casuali o numeri di versione, diventano *)."
 }

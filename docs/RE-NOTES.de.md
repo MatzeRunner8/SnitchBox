@@ -148,5 +148,26 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
 - Ko-fi-Knopf rechts neben die Sprachauswahl verlegt (unten in den Einstellungen war er erst nach Scrollen sichtbar); der Hinweistext
   ist jetzt ein Tooltip, der eigene Abschnitt entfällt.
 
+## Build 22
+- Zu viele Regeln für dasselbe Programm (Nutzer-Meldung, 17 Regeln für BackgroundDownload.exe): Der Visual-Studio-Installer kopiert
+  sich bei jedem Start in einen neuen Zufallsordner (R:\Temp\obkz3fue.blc\…\BackgroundDownload.exe), eine Regel mit vollem Pfad passte
+  also nie wieder; dazu legte jede Nachfrage (Reichweite „Host“) eine eigene Regel an.
+- Prozess-Muster: `*` in der Prozessangabe steht für einen beliebigen Teil eines Ordner- oder Dateinamens (nie für „\“; passt nie auf
+  einen unbekannten Prozess). AlertRules.ProcessPattern macht wechselnde Ordnernamen zu `*`: den ersten Unterordner eines Temp-Ordners
+  (%TEMP%, %SystemRoot%\Temp, …\AppData\Local\Temp; nie ein ganzes Laufwerk), Versionsordner (2.1.325, v1.2, app-1.0.3), GUID- und
+  Hash-Ordner sowie die Version in Store-Paketordnern (Claude_*_x64__pzs8sxrjxfjjc). Regeln aus Warnfenster und Monitor nutzen das und
+  gelten so auch nach dem nächsten Start oder Update. Vom Benutzer beschreibbare Ordner sind damit nicht schwächer geschützt als vorher
+  (wer so einen Ordner anlegen kann, hätte auch die Datei am alten Ort ersetzen können).
+- RuleCleanup (Cleanup.cs): Regeln, die sich nur in Hosts, Domains oder Adressen unterscheiden, werden zu einer zusammengefasst (eine
+  neue Antwort mit Reichweite „Host“ kommt in die bestehende Regel); eine Regel entfällt, wenn eine umfassendere mit gleicher Aktion sie
+  überflüssig macht – gleicher oder weiterer Prozess, Gegenstelle, Ports, Protokoll und Profil, mindestens gleiche Gültigkeit, und keine
+  Regel mit der Gegen-Aktion liegt in der Rangfolge dazwischen (dann entscheidet SnitchBox mit und ohne sie gleich); Erlauben-Regeln,
+  die einen Host von Blocklisten ausnehmen, ersetzt nur eine Regel, die das auch tut. Angewandt beim Anlegen einer Regel (Warnfenster,
+  Regel-Editor).
+- Regeln → „Aufräumen …“: zeigt, was sich ändert, und wendet es nach Bestätigung an – Temp- und Versionspfade verallgemeinern,
+  überflüssige Regeln entfernen, gleichartige zusammenfassen, Regeln für nicht mehr vorhandene Programme entfernen (nur volle Pfade,
+  geprüft außerhalb der Sperre der Engine). Werksregeln bleiben unberührt. Probelauf mit den Regeln des Testrechners: 90 → 43,
+  BackgroundDownload.exe 17 → 3.
+
 ## Offen
 - Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.

@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "규칙이 저장되었지만 이 연결과 일치하지 않습니다(다른 프로필, 대상 또는 포트).",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "규칙이 저장되었지만 이 연결에는 적용되지 않습니다. 우선 적용:\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox는 무료입니다. 마음에 드셨다면 Ko-fi에서 커피 한 잔 사 주세요. 버튼을 누르면 브라우저에서 페이지가 열립니다.",
- "The browser could not be opened. The address is:\n{0}": "브라우저를 열 수 없습니다. 주소:\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "브라우저를 열 수 없습니다. 주소:\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "중복되거나 불필요한 규칙 {0}개를 삭제합니다(더 넓은 규칙이 이미 같은 결정을 내립니다).",
+ "{0} rules for programs that no longer exist are removed:": "더 이상 존재하지 않는 프로그램의 규칙 {0}개를 삭제합니다:",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "같은 종류의 규칙 {0}개를 {1}개로 합칩니다(한 규칙에 여러 원격 주소).",
+ "Clean Up…": "정리…",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "기본 규칙은 그대로 유지됩니다. 이전: 규칙 {0}개, 이후: {1}개. 지금 정리할까요?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe의 전체 경로, chrome.exe 같은 파일 이름만, 또는 모든 프로그램이면 비워 둠. *는 폴더 또는 파일 이름의 임의 부분을 나타냅니다(예: C:\\Temp\\*\\setup.exe)",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "중복되거나 불필요한 규칙을 삭제하고 같은 종류의 규칙을 합칩니다",
+ "The rules are already tidy.": "규칙이 이미 정리되어 있습니다.",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "규칙 {0}개가 해당 프로그램의 모든 복사본과 버전에 적용됩니다(임의의 임시 폴더나 버전 번호처럼 바뀌는 폴더 이름은 *가 됩니다)."
 }

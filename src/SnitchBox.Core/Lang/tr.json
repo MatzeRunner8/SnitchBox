@@ -285,5 +285,14 @@
  "The rule was saved but does not match this connection (different profile, remote or port).": "Kural kaydedildi ancak bu bağlantıyla eşleşmiyor (farklı profil, hedef veya bağlantı noktası).",
  "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}": "Kural kaydedildi ancak bu bağlantıda etkili değil. Öncelikli olan:\n{0}",
  "SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.": "SnitchBox ücretsizdir. Beğendiyseniz Ko-fi üzerinden bana bir kahve ısmarlayabilirsiniz – düğme sayfayı tarayıcıda açar.",
- "The browser could not be opened. The address is:\n{0}": "Tarayıcı açılamadı. Adres:\n{0}"
+ "The browser could not be opened. The address is:\n{0}": "Tarayıcı açılamadı. Adres:\n{0}",
+ "{0} duplicate or superfluous rules are removed (a broader rule already decides the same way).": "{0} yinelenen veya gereksiz kural kaldırılır (daha kapsamlı bir kural zaten aynı kararı verir).",
+ "{0} rules for programs that no longer exist are removed:": "Artık var olmayan programlar için {0} kural kaldırılır:",
+ "{0} rules of the same kind are combined into {1} (several remotes in one rule).": "Aynı türden {0} kural {1} kurala birleştirilir (tek kuralda birden çok uzak adres).",
+ "Clean Up…": "Temizle…",
+ "Factory rules stay untouched. Before: {0} rules, after: {1}. Clean up now?": "Varsayılan kurallar değişmez. Önce: {0} kural, sonra: {1}. Şimdi temizlensin mi?",
+ "Full path of the .exe, just a file name like chrome.exe, or empty for any program. * stands for any part of a folder or file name, e.g. C:\\Temp\\*\\setup.exe": ".exe dosyasının tam yolu, yalnızca chrome.exe gibi bir dosya adı ya da tüm programlar için boş. * bir klasör veya dosya adının herhangi bir bölümünün yerini tutar, ör. C:\\Temp\\*\\setup.exe",
+ "Remove duplicate and superfluous rules, combine rules of the same kind": "Yinelenen ve gereksiz kuralları kaldır, aynı türden kuralları birleştir",
+ "The rules are already tidy.": "Kurallar zaten düzenli.",
+ "{0} rules will apply to every copy and version of their program (changing folder names such as random temp folders or version numbers become *).": "{0} kural, programının her kopyasına ve sürümüne uygulanacak (rastgele geçici klasörler veya sürüm numaraları gibi değişen klasör adları * olur)."
 }

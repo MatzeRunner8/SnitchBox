@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace SnitchBox.Core;
 
 /// <summary>Ergebnis der Regelsuche; ohne Treffer entscheidet die Betriebsart.</summary>
@@ -18,7 +20,15 @@ public sealed class RuleSet
         public AddressRange[] Ranges = [];
         public string[] Names = [];
         public bool NameOnly; // Prozess nur als Dateiname angegeben
+        public Regex? Glob;   // Prozessangabe mit * (z. B. R:\Temp\*\setup.exe)
     }
+
+    /// <summary>Prozessangabe mit „*“ als Muster: * steht für einen beliebigen Teil eines Ordner- oder Dateinamens
+    /// (nie für „\“). Ohne * null.</summary>
+    internal static Regex? ProcessGlob(string process) =>
+        process.Contains('*')
+            ? new Regex("^" + Regex.Escape(process).Replace(@"\*", @"[^\\/]*") + "$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            : null;
 
     private readonly Compiled[] _rules;
     private readonly Blocklist[] _blocklists;
@@ -45,7 +55,7 @@ public sealed class RuleSet
             // „chrome.exe“ passt auf jeden Ort, „System“ (Windows-Kern) dagegen nur genau so – nie auf C:\…\System.
             var nameOnly = r.Process.Length > 0 && r.Process.IndexOfAny(['\\', '/']) < 0
                            && !r.Process.Equals(Rule.KernelProcess, StringComparison.OrdinalIgnoreCase);
-            var c = new Compiled { Rule = r, Ports = ports, NameOnly = nameOnly };
+            var c = new Compiled { Rule = r, Ports = ports, NameOnly = nameOnly, Glob = ProcessGlob(r.Process) };
             if (r.Remote == RemoteKind.Addresses)
                 c.Ranges = r.Targets.Select(t => AddressRange.TryParse(t, out var a) ? a : (AddressRange?)null).Where(a => a != null).Select(a => a!.Value).ToArray();
             else if (r.Remote is RemoteKind.Hosts or RemoteKind.Domains)
@@ -70,7 +80,12 @@ public sealed class RuleSet
         if (r.Process.Length > 0)
         {
             var p = c.NameOnly ? Rule.NameOf(conn.ProcessPath) : conn.ProcessPath;
-            if (!p.Equals(r.Process, StringComparison.OrdinalIgnoreCase)) return false;
+            if (c.Glob != null)
+            {
+                // Ein Muster passt nie auf einen unbekannten Prozess (sonst gälte „*“ auch für ihn).
+                if (conn.ProcessPath.Length == 0 || !c.Glob.IsMatch(p)) return false;
+            }
+            else if (!p.Equals(r.Process, StringComparison.OrdinalIgnoreCase)) return false;
         }
         switch (r.Remote)
         {
@@ -109,7 +124,7 @@ public sealed class RuleSet
 
     /// <summary>Rangfolge wie im Original: hohe Priorität, dann der genauere Prozess, die genauere Gegenstelle,
     /// Port und Protokoll; bei Gleichstand gewinnt „Verbieten“.</summary>
-    private static int Score(Rule r, PortSet ports) =>
+    internal static int Score(Rule r, PortSet ports) =>
         (r.HighPriority ? 1 << 20 : 0) + (r.AnyProcess ? 0 : 1 << 16) + (Specificity(r.Remote) << 8)
         + (ports.Any ? 0 : 1 << 4) + (r.Protocol == Proto.Any ? 0 : 1 << 2) + (r.Action == RuleAction.Deny ? 1 : 0);
 
@@ -194,6 +209,58 @@ public static class AlertRules
     /// gälte für jedes Programm.</summary>
     public static bool CanRemember(Connection c) => c.ProcessPath.Length > 0;
 
+    /// <summary>Temp-Ordner (vom Aufrufer gesetzt, unter Windows %TEMP%, %SystemRoot%\Temp …). Dazu zählt jedes …\AppData\Local\Temp\.</summary>
+    public static IReadOnlyList<string> TempRoots { get; set; } = [];
+
+    private const string UserTemp = @"\AppData\Local\Temp\";
+
+    /// <summary>Der Temp-Ordner, in dem die Datei liegt (mit „\“ am Ende), sonst null.</summary>
+    public static string? TempRootOf(string path)
+    {
+        foreach (var r in TempRoots)
+        {
+            if (r.Length == 0) continue;
+            var root = r.EndsWith('\\') ? r : r + "\\";
+            if (root.Count(ch => ch == '\\') < 2) continue; // nie ein ganzes Laufwerk (falsch gesetztes TEMP=C:\)
+            if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return path[..root.Length];
+        }
+        var i = path.IndexOf(UserTemp, StringComparison.OrdinalIgnoreCase);
+        return i > 0 ? path[..(i + UserTemp.Length)] : null;
+    }
+
+    // Ordnernamen, die sich mit jeder Version ändern: 2.1.325, v1.2, app-1.0.3 (Squirrel), GUIDs, Hash-Ordner (806e0a45e6f5).
+    private static readonly Regex VersionDir = new(
+        @"^(v?\d+(\.\d+){1,3}([-+][0-9A-Za-z.]+)?|app-\d+(\.\d+)+|\{?[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}?|(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{10,})$",
+        RegexOptions.CultureInvariant);
+    // Store-Pakete: Claude_5.11492.5.0_x64__pzs8sxrjxfjjc → Claude_*_x64__pzs8sxrjxfjjc (Name und Herausgeber bleiben).
+    private static readonly Regex PackageDir = new(@"^([^_\\]+)_\d+(\.\d+){1,3}_(.+)$", RegexOptions.CultureInvariant);
+
+    /// <summary>Prozessangabe für eine Regel, die auch für die nächste Kopie oder Version des Programms gilt. Wechselnde Ordnernamen
+    /// werden zu „*“: der erste Unterordner eines Temp-Ordners (Installer wie der von Visual Studio kopieren sich bei jedem Start in
+    /// einen neuen Zufallsordner, R:\Temp\obkz3fue.blc\…\BackgroundDownload.exe), Versions-, GUID- und Hash-Ordner sowie die
+    /// Versionsnummer in Store-Paketen. Mit dem vollen Pfad passte die Regel nach dem nächsten Start oder Update nicht mehr, und jedes
+    /// Mal kämen neue Nachfragen und Regeln. Der Rest des Pfads und der Dateiname bleiben genau; wer einen passenden Ordner anlegen
+    /// kann, hätte auch die Datei am alten Ort ersetzen können.</summary>
+    public static string ProcessPattern(string path)
+    {
+        if (path.Contains('*') || path.IndexOf('\\') < 0) return path;
+        var result = path;
+        if (TempRootOf(path) is { } root)
+        {
+            var rest = path[root.Length..];
+            var slash = rest.IndexOf('\\');
+            if (slash > 0) result = root + "*" + rest[slash..];
+        }
+        var parts = result.Split('\\');
+        for (var i = 1; i < parts.Length - 1; i++) // ohne Laufwerk und Dateinamen
+        {
+            if (parts[i].Length == 0 || parts[i] == "*") continue;
+            if (VersionDir.IsMatch(parts[i])) parts[i] = "*";
+            else if (PackageDir.Match(parts[i]) is { Success: true } m) parts[i] = m.Groups[1].Value + "_*_" + m.Groups[3].Value;
+        }
+        return string.Join('\\', parts);
+    }
+
     /// <summary>Baut die Regel zur Antwort im Warnfenster; null bei „Einmal“ und bei unbekanntem Prozess
     /// (dann gilt die Antwort nur für diesen Versuch, siehe <see cref="CanRemember"/>).</summary>
     public static Rule? Create(Connection c, bool allow, AlertScope scope, AlertLifetime lifetime, string bootId, string? profile, DateTime now)
@@ -203,7 +270,7 @@ public static class AlertRules
         var r = new Rule
         {
             Action = allow ? RuleAction.Allow : RuleAction.Deny,
-            Process = c.ProcessPath, Direction = c.Direction, Profile = profile, Created = now,
+            Process = ProcessPattern(c.ProcessPath), Direction = c.Direction, Profile = profile, Created = now,
         };
         if (scope is AlertScope.Port or AlertScope.HostAndPort or AlertScope.DomainAndPort)
         {
