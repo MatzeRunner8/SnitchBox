@@ -82,6 +82,54 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
 
     private string ServiceFor(int pid, string path) => path.Equals(Svchost, StringComparison.OrdinalIgnoreCase) ? ServiceOf(pid) : "";
 
+    // Bestehende Verbindungen, die eine Regeländerung verbietet und die sich nicht über Windows trennen lassen (IPv6; IPv4, wenn
+    // SetTcpEntry scheitert): Beim nächsten Paket der Verbindung schickt der Zähl-Thread beiden Enden ein RST. Schlüssel wie
+    // FlowKey (Gegenadresse, lokaler Port, Gegenport); Ablauf nach fünf Minuten ohne Paket (dann ist die Verbindung ohnehin still).
+    private readonly Dictionary<(IpKey Remote, ushort LocalPort, ushort RemotePort), (long Expires, long LastShot, string What)> _kill = [];
+    private readonly object _killGate = new();
+    private volatile int _killPending;
+    private const long KillTtl = 5 * 60_000;
+
+    private void MarkForReset(IpKey remote, ushort localPort, ushort remotePort, string what)
+    {
+        lock (_killGate)
+        {
+            _kill[(remote, localPort, remotePort)] = (Environment.TickCount64 + KillTtl, 0, what);
+            _killPending = _kill.Count;
+        }
+    }
+
+    /// <summary>Vom Zähl-Thread für jedes TCP-Paket, solange Verbindungen zum Trennen vorgemerkt sind.</summary>
+    private void ResetIfMarked(ReadOnlySpan<byte> packet, in WinDivertAddress addr)
+    {
+        if (!Packet.TryParse(packet, out var p) || p.Protocol != Packet.Tcp) return;
+        var outbound = addr.Outbound;
+        var key = outbound ? (p.Dst, p.SrcPort, p.DstPort) : (p.Src, p.DstPort, p.SrcPort);
+        string what;
+        lock (_killGate)
+        {
+            if (!_kill.TryGetValue(key, out var entry)) return;
+            var now = Environment.TickCount64;
+            // Neuer Verbindungsaufbau auf denselben Ports oder abgelaufen: nicht (mehr) anfassen. Ein neuer Aufbau läuft durch die Regeln.
+            if ((p.Syn && !p.Ack) || now > entry.Expires)
+            {
+                _kill.Remove(key);
+                _killPending = _kill.Count;
+                return;
+            }
+            if (now - entry.LastShot < 500) return; // höchstens zweimal je Sekunde, bis die Verbindung still ist
+            _kill[key] = (now + KillTtl, now, entry.What);
+            what = entry.LastShot == 0 ? entry.What : "";
+        }
+        foreach (var (rst, toSender) in Packet.BuildFlowResets(packet))
+        {
+            // Ein RST an den Absender eines ausgehenden Pakets geht an den eigenen Rechner (eingehend einspeisen), sonst hinaus.
+            var towardsLocal = outbound ? toSender : !toSender;
+            Inject(rst, new PacketMeta(!towardsLocal, p.V6, addr.IfIdx, addr.SubIfIdx));
+        }
+        if (what.Length > 0) Log.Write("Verbindung getrennt (RST, jetzt verboten): " + what);
+    }
+
     public bool Running { get; private set; }
     /// <summary>Lesbare Ursache, wenn der Treiber nicht startet.</summary>
     public string? Error { get; private set; }
@@ -94,10 +142,10 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
         engine.RulesApplied = OnRulesApplied;
     }
 
-    /// <summary>Nach einer Regeländerung: bestehende IPv4-TCP-Verbindungen trennen, die erst die Änderung verbietet. Der Filter
-    /// sieht nur den Verbindungsaufbau – ohne das liefe etwa eine offene Browserverbindung trotz „Verbieten“ minutenlang weiter.
-    /// Schon vorher verbotene Verbindungen (vor dem Start aufgebaut) bleiben unberührt. IPv6 lässt sich so nicht trennen:
-    /// dort wirkt die Regel ab dem nächsten Verbindungsaufbau.</summary>
+    /// <summary>Nach einer Regeländerung: bestehende TCP-Verbindungen trennen, die erst die Änderung verbietet. Der Filter sieht nur
+    /// den Verbindungsaufbau – ohne das liefe etwa eine offene Browserverbindung trotz „Verbieten“ minutenlang weiter. Schon vorher
+    /// verbotene Verbindungen (vor dem Start aufgebaut) bleiben unberührt. IPv4 trennt Windows selbst (SetTcpEntry); für IPv6 gibt es
+    /// keine solche Funktion – dort (und wenn SetTcpEntry scheitert) schickt SnitchBox beim nächsten Paket der Verbindung RSTs.</summary>
     private void OnRulesApplied(RuleSet before, RuleSet after)
     {
         if (!Running || _engine is not { } engine) return;
@@ -108,26 +156,38 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                 var incomingFiltered = engine.Read(s => s.Settings.MonitorIncoming);
                 var now = DateTime.Now;
                 Dictionary<(bool V6, ushort Port), int>? listeners = null;
-                foreach (var c in Native.TcpConnectionsV4())
+                // Wird die Verbindung erst durch diese Änderung verboten? Dann die Beschreibung fürs Protokoll, sonst null.
+                string? NewlyDenied(int pid, ushort localPort, IpKey remote, ushort remotePort, bool v6)
                 {
-                    var path = PathOf(c.Pid);
-                    if (path == null || (engine.SelfPath.Length > 0 && path.Equals(engine.SelfPath, StringComparison.OrdinalIgnoreCase))) continue;
+                    var path = PathOf(pid);
+                    if (path == null || (engine.SelfPath.Length > 0 && path.Equals(engine.SelfPath, StringComparison.OrdinalIgnoreCase))) return null;
                     listeners ??= Native.ListeningTcpPorts();
-                    var incoming = listeners.TryGetValue((false, c.LocalPort), out var owner) && owner == c.Pid;
-                    if (incoming && !incomingFiltered) continue;
+                    var incoming = listeners.TryGetValue((v6, localPort), out var owner) && owner == pid;
+                    if (incoming && !incomingFiltered) return null;
                     var conn = new Connection
                     {
-                        ProcessPath = path, Pid = c.Pid, Service = ServiceFor(c.Pid, path), Protocol = Proto.Tcp, Remote = c.Remote,
+                        ProcessPath = path, Pid = pid, Service = ServiceFor(pid, path), Protocol = Proto.Tcp, Remote = remote,
                         Direction = incoming ? Direction.Incoming : Direction.Outgoing,
-                        Port = incoming ? c.LocalPort : c.RemotePort,
-                        Hostnames = engine.Hosts.Lookup(c.Remote),
+                        Port = incoming ? localPort : remotePort,
+                        Hostnames = engine.Hosts.Lookup(remote),
                     };
-                    if (after.Evaluate(conn, now).Action != RuleAction.Deny || before.Evaluate(conn, now).Action == RuleAction.Deny) continue;
-                    var rc = Native.CloseTcpV4(c);
-                    Log.Write(rc == 0
-                        ? $"Verbindung getrennt (jetzt verboten): {Rule.NameOf(path)} {conn.Host}:{c.RemotePort}"
-                        : $"Verbindung trennen fehlgeschlagen (Fehler {rc}): {Rule.NameOf(path)} {conn.Host}:{c.RemotePort}");
+                    if (after.Evaluate(conn, now).Action != RuleAction.Deny || before.Evaluate(conn, now).Action == RuleAction.Deny) return null;
+                    return $"{Rule.NameOf(path)} {conn.Host}:{remotePort}";
                 }
+                foreach (var c in Native.TcpConnectionsV4())
+                {
+                    if (NewlyDenied(c.Pid, c.LocalPort, c.Remote, c.RemotePort, false) is not { } what) continue;
+                    var rc = Native.CloseTcpV4(c);
+                    if (rc == 0) Log.Write("Verbindung getrennt (jetzt verboten): " + what);
+                    else
+                    {
+                        Log.Write($"Verbindung trennen über Windows fehlgeschlagen (Fehler {rc}), RST beim nächsten Paket: {what}");
+                        MarkForReset(c.Remote, c.LocalPort, c.RemotePort, what);
+                    }
+                }
+                foreach (var c in Native.TcpConnectionsV6())
+                    if (NewlyDenied(c.Pid, c.LocalPort, c.Remote, c.RemotePort, !c.Remote.IsV4) is { } what)
+                        MarkForReset(c.Remote, c.LocalPort, c.RemotePort, what + " (IPv6)");
             }
             catch (Exception e)
             {
@@ -504,6 +564,12 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                 {
                     var size = Packet.Measure(span[offset..], out var tcp, out var counted, out var src, out var dst);
                     if (size == 0) break;
+                    // Zum Trennen vorgemerkte Verbindung (IPv6 u. a.)? Nur dann das Paket genauer ansehen.
+                    if (tcp && _killPending > 0)
+                    {
+                        try { ResetIfMarked(span.Slice(offset, size), a[i]); }
+                        catch (Exception e) { if (Interlocked.Increment(ref _loggedErrors) <= 20) Log.Write("RST senden: " + e.Message); }
+                    }
                     offset += size;
                     if (!counted) continue;
                     var outbound = a[i].Outbound;

@@ -19,6 +19,7 @@ oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide br
 - Betriebsarten: Warnmodus, Stiller Modus „alles erlauben“ / „alles verbieten“; Netzwerkfilter ein/aus (mit Warnung vor dem Ausschalten und Beenden)
 - Windows-Dienste in svchost.exe einzeln sehen und regeln (z. B. Telemetrie „DiagTrack“ verbieten, Windows Update behalten)
 - Regeln je Programm: Erlauben/Verbieten, aus-/eingehend, Hosts, Domains, Adressbereiche, lokales Netz, DNS-Server des Systems, Ports, TCP/UDP, Priorität, Gültigkeit, Profile
+- Verbieten wirkt sofort: bestehende Verbindungen, die eine Regeländerung neu verbietet, werden getrennt (IPv4 und IPv6)
 - Netzwerkmonitor: jeder Verbindungsaufbau je Programm und Gegenstelle, Datenmengen und aktuelle Rate je Programm, Gesamtdatenrate, Regel direkt aus einer Zeile
 - Blocklisten abonnieren (.lsrules, hosts-Dateien, Domainlisten), tägliche Aktualisierung; Import/Export von .lsrules
 - Symbol im Infobereich, Start beim Anmelden über die Aufgabenplanung (ohne UAC-Rückfrage)

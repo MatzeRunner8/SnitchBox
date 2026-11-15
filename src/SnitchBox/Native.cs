@@ -132,6 +132,30 @@ internal static unsafe class Native
         return result;
     }
 
+    /// <summary>Eine bestehende IPv6-TCP-Verbindung (Windows hat zum Trennen keine Funktion; SnitchBox schickt RST-Pakete).</summary>
+    public readonly record struct TcpConnectionV6(int Pid, ushort LocalPort, IpKey Remote, ushort RemotePort);
+
+    /// <summary>Alle IPv6-TCP-Verbindungen außer Lauschern, mit Besitzer (ohne Loopback und ohne Zeilen ohne Besitzer).</summary>
+    public static List<TcpConnectionV6> TcpConnectionsV6()
+    {
+        var result = new List<TcpConnectionV6>();
+        var t = Table(true, AfInet6, TcpTableOwnerPidConnections);
+        if (t == null) return result;
+        var n = BitConverter.ToInt32(t, 0);
+        // MIB_TCP6ROW_OWNER_PID, 56 Byte: lokale Adresse 0, lokaler Port 20, Gegenadresse 24, Gegenport 44, Zustand 48, PID 52
+        for (var i = 0; i < n; i++)
+        {
+            var o = 4 + i * 56;
+            if (o + 56 > t.Length) break;
+            var pid = BitConverter.ToInt32(t, o + 52);
+            if (pid == 0) continue;
+            var remote = IpKey.FromV6(t.AsSpan(o + 24, 16));
+            if (remote.IsLoopback || remote == default) continue;
+            result.Add(new TcpConnectionV6(pid, Port(t, o + 20), remote, Port(t, o + 44)));
+        }
+        return result;
+    }
+
     /// <summary>Trennt eine IPv4-TCP-Verbindung (Windows schickt der Gegenstelle ein RST). Braucht Administratorrechte;
     /// für IPv6 gibt es keine solche Schnittstelle. Liefert den Windows-Fehlercode, 0 = getrennt.</summary>
     public static uint CloseTcpV4(TcpConnectionV4 c)

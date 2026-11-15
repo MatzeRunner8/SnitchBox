@@ -233,5 +233,18 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
   COR_PROFILER, DOTNET_DiagnosticPorts und COMPlus_EnableDiagnostics waren weg, andere Variablen (PATH, eigene Testvariable) und die
   Argumente kamen an. Die echte Startkette (UAC, Autostart) ist beim Nutzer noch ungetestet.
 
+## Build 28
+- Bestehende IPv6-TCP-Verbindungen trennen (Windows hat für IPv6 keine Funktion wie SetTcpEntry): Nach einer Regeländerung liest
+  FilterService.OnRulesApplied auch die IPv6-TCP-Tabelle (Native.TcpConnectionsV6) und merkt neu verbotene Verbindungen vor (dieselbe
+  Vorher/Nachher-Prüfung wie bei IPv4); IPv4-Verbindungen, bei denen SetTcpEntry scheitert, ebenso. Der Zähl-Thread, der ohnehin jedes
+  TCP-Paket mitliest, sieht sich ein Paket nur genauer an, solange Verbindungen vorgemerkt sind: Für eine vorgemerkte baut er aus dem
+  beobachteten Segment RSTs (Packet.BuildFlowResets: zum Empfänger des Segments mit der Folgenummer vor und nach seinen Daten, zurück an den
+  Absender mit dessen Bestätigungsnummer – genau der Nummer, die er als Nächstes erwartet; Windows nimmt so ein RST sofort an, RFC 5961) und
+  speist sie über das Netzwerk-Handle ein, ausgehend oder eingehend mit der beobachteten Schnittstelle. Höchstens zweimal je Sekunde und
+  Verbindung; ein neues SYN auf denselben Ports oder fünf Minuten ohne Paket heben die Vormerkung auf.
+- Kern-Tests: RSTs für IPv6 und IPv4 (Richtungen, Ports, Folgenummern mit Daten/FIN, nur RST-Flag, IP- und TCP-Prüfsummen, kein RST auf ein
+  RST). Live auf dem Testrechner nicht prüfbar: Dort ist IPv6 ganz abgeschaltet (keine IPv6-Verbindungen, nicht einmal Link-lokal).
+
 ## Offen
-- Datenmengen je Gegenstelle, Dienstnamen hinter svchost.exe, Signaturprüfung (WinVerifyTrust), SNI-Auswertung bei DoH, Schutz ohne laufendes Programm.
+- Datenmengen je Gegenstelle, SNI-Auswertung bei DoH, Profile automatisch je Netzwerk, Verlauf über Neustarts.
+- Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

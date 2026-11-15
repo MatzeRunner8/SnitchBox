@@ -189,6 +189,73 @@ public static class Packet
         BinaryPrimitives.WriteUInt16BigEndian(t[16..], TransportChecksum(r, i.V6, ip, Tcp));
         return r;
     }
+
+    /// <summary>RST-Pakete, die eine bestehende TCP-Verbindung an beiden Enden beenden, gebaut aus einem ihrer Segmente (für IPv6,
+    /// wo Windows keine Funktion zum Trennen hat). In Richtung des Segments zwei – Folgenummer vor und nach seinen Daten, je nachdem,
+    /// ob das Segment beim Empfänger schon angekommen ist –, zurück an den Absender eines mit dessen Bestätigungsnummer (genau die
+    /// Nummer, die er als Nächstes erwartet; Windows nimmt ein RST nur dann sofort an, RFC 5961). ToSender = an den Absender des Segments.
+    /// Leer bei einem RST (es soll keine Kette entstehen) und bei anderem als TCP.</summary>
+    public static List<(byte[] Packet, bool ToSender)> BuildFlowResets(ReadOnlySpan<byte> segment)
+    {
+        var result = new List<(byte[], bool)>();
+        if (!TryParse(segment, out var i) || i.Protocol != Tcp) return result;
+        var l4 = i.L4Offset;
+        var flags = segment[l4 + 13];
+        if ((flags & 0x04) != 0) return result;
+        var ack = BinaryPrimitives.ReadUInt32BigEndian(segment[(l4 + 8)..]);
+        var total = i.V6 ? 40 + BinaryPrimitives.ReadUInt16BigEndian(segment[4..]) : BinaryPrimitives.ReadUInt16BigEndian(segment[2..]);
+        var payload = Math.Max(0, Math.Min(total, segment.Length) - i.PayloadOffset);
+        var advance = (uint)payload + ((flags & 0x02) != 0 ? 1u : 0) + ((flags & 0x01) != 0 ? 1u : 0);
+        result.Add((Reset(i, true, i.Seq), false));
+        if (advance != 0) result.Add((Reset(i, true, i.Seq + advance), false));
+        if ((flags & 0x10) != 0) result.Add((Reset(i, false, ack), true));
+        return result;
+    }
+
+    /// <summary>Ein RST zu den Adressen und Ports eines Segments: <paramref name="forward"/> in seiner Richtung, sonst zurück.</summary>
+    private static byte[] Reset(in PacketInfo i, bool forward, uint seq)
+    {
+        var ip = i.V6 ? 40 : 20;
+        var r = new byte[ip + 20];
+        var (src, dst) = forward ? (i.Src, i.Dst) : (i.Dst, i.Src);
+        if (i.V6)
+        {
+            r[0] = 0x60;
+            BinaryPrimitives.WriteUInt16BigEndian(r.AsSpan(4), 20);
+            r[6] = Tcp;
+            r[7] = 64;
+            WriteAddress(src, true, r.AsSpan(8));
+            WriteAddress(dst, true, r.AsSpan(24));
+        }
+        else
+        {
+            r[0] = 0x45;
+            BinaryPrimitives.WriteUInt16BigEndian(r.AsSpan(2), 40);
+            r[8] = 64;
+            r[9] = Tcp;
+            WriteAddress(src, false, r.AsSpan(12));
+            WriteAddress(dst, false, r.AsSpan(16));
+            BinaryPrimitives.WriteUInt16BigEndian(r.AsSpan(10), Checksum(r.AsSpan(0, 20)));
+        }
+        var t = r.AsSpan(ip);
+        BinaryPrimitives.WriteUInt16BigEndian(t, forward ? i.SrcPort : i.DstPort);
+        BinaryPrimitives.WriteUInt16BigEndian(t[2..], forward ? i.DstPort : i.SrcPort);
+        BinaryPrimitives.WriteUInt32BigEndian(t[4..], seq);
+        t[12] = 5 << 4;
+        t[13] = 0x04; // RST
+        BinaryPrimitives.WriteUInt16BigEndian(t[16..], TransportChecksum(r, i.V6, ip, Tcp));
+        return r;
+    }
+
+    private static void WriteAddress(IpKey a, bool v6, Span<byte> target)
+    {
+        if (v6)
+        {
+            BinaryPrimitives.WriteUInt64BigEndian(target, a.Hi);
+            BinaryPrimitives.WriteUInt64BigEndian(target[8..], a.Lo);
+        }
+        else BinaryPrimitives.WriteUInt32BigEndian(target, (uint)a.Lo);
+    }
 }
 
 /// <summary>Liest aus DNS-Antworten, welcher Name zu welcher Adresse gehört.</summary>

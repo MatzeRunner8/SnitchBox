@@ -714,6 +714,35 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Rule.ServiceTitle = _ => null;
 }
 
+// ---- Bestehende Verbindung trennen (IPv6): RSTs aus einem beobachteten Segment
+{
+    byte[] Segment(byte flags, uint seq, uint ack, int payload)
+    {
+        var t = TcpSyn(50500, 443, seq, flags);
+        BinaryPrimitives.WriteUInt32BigEndian(t.AsSpan(8), ack);
+        return [.. t, .. new byte[payload]];
+    }
+    var seg6 = V6(6, "2001:db8::10", "2606:4700::1111", Segment(0x18 /*PSH|ACK*/, 1000, 77000, 100));
+    var resets = Packet.BuildFlowResets(seg6);
+    PacketInfo Info(byte[] p) { Packet.TryParse(p, out var info); return info; }
+    var f1 = Info(resets[0].Packet);
+    var f2 = Info(resets[1].Packet);
+    var toSender = Info(resets[2].Packet);
+    Check(resets.Count == 3 && !resets[0].ToSender && !resets[1].ToSender && resets[2].ToSender, "IPv6: zwei RSTs in Richtung des Segments, eins zurück");
+    Check(f1.V6 && f1.Src == IpKey.From(IPAddress.Parse("2001:db8::10")) && f1.Dst == IpKey.From(IPAddress.Parse("2606:4700::1111")) && f1.SrcPort == 50500 && f1.DstPort == 443
+          && f1.Seq == 1000 && f2.Seq == 1100,
+        "Richtung des Segments: Folgenummer vor und nach seinen 100 Bytes");
+    Check(toSender.Src == IpKey.From(IPAddress.Parse("2606:4700::1111")) && toSender.SrcPort == 443 && toSender.DstPort == 50500 && toSender.Seq == 77000,
+        "zurück an den Absender mit dessen Bestätigungsnummer, Adressen und Ports vertauscht");
+    Check(resets.All(r => r.Packet[40 + 13] == 0x04 && Packet.TransportChecksum(r.Packet, true, 40, Packet.Tcp) == 0), "nur RST-Flag, TCP-Prüfsumme stimmt");
+    Check(Packet.BuildFlowResets(V6(6, "2001:db8::10", "2606:4700::1111", Segment(0x04, 5, 0, 0))).Count == 0, "auf ein RST folgt kein RST");
+    var seg4 = V4(6, "192.168.1.10", "93.184.216.34", Segment(0x11 /*FIN|ACK*/, 4000, 9000, 0));
+    var r4 = Packet.BuildFlowResets(seg4);
+    Check(r4.Count == 3 && Info(r4[1].Packet).Seq == 4001 && Packet.Checksum(r4[0].Packet.AsSpan(0, 20)) == 0
+          && Packet.TransportChecksum(r4[2].Packet, false, 20, Packet.Tcp) == 0,
+        "IPv4: FIN zählt eine Folgenummer, IP- und TCP-Prüfsumme stimmen");
+}
+
 // ---- Sprachen: jede Tabelle vollständig, Platzhalter unverändert, string.Format scheitert nicht
 Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.Normalize("xx") == "en" && Loc.Normalize(null) == "en", "Sprachcodes");
 {

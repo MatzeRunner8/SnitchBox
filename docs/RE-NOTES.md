@@ -231,5 +231,18 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
   COR_PROFILER, DOTNET_DiagnosticPorts and COMPlus_EnableDiagnostics were gone, other variables (PATH, own test variable) and the arguments
   arrived. The real start chain (UAC, autostart) is not yet tested on the user’s machine.
 
+## Build 28
+- Cut established IPv6 TCP connections (Windows has no function like SetTcpEntry for IPv6): after a rule change, FilterService.OnRulesApplied
+  also enumerates the IPv6 TCP table (Native.TcpConnectionsV6) and marks newly denied connections (same before/after check as for IPv4);
+  IPv4 connections where SetTcpEntry fails are marked as well. The meter thread, which sniffs every TCP packet anyway, looks at a packet
+  more closely only while connections are marked: for a marked flow it builds RSTs from the observed segment
+  (Packet.BuildFlowResets: towards the segment’s receiver with the sequence number before and after its data, back to the sender with its
+  acknowledgment number – exactly the number it expects next, which Windows accepts immediately per RFC 5961) and injects them through the
+  network handle, outbound or inbound with the observed interface. At most twice per second per flow; a new SYN on the same ports or
+  five minutes without a packet remove the mark.
+- Core tests: IPv6 and IPv4 resets (directions, ports, sequence numbers with payload/FIN, RST flag only, IP and TCP checksums, no RST in
+  reply to an RST). Not testable live on the test machine: IPv6 is disabled there completely (no IPv6 connections, not even link-local).
+
 ## Open
-- Data volume per remote, service names behind svchost.exe, signature check (WinVerifyTrust), SNI evaluation with DoH, protection while the program is not running.
+- Data volume per remote, SNI evaluation with DoH, automatic profile switching per network, history across restarts.
+- Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).
