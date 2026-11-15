@@ -180,8 +180,10 @@ internal static class FolderSecurity
             var exe = new FileInfo(exePath);
             var dir = exe.Directory!;
             result.AddRange(Grants(SecurityOf(exe, AccessControlSections.Access | AccessControlSections.Owner), fileRights));
-            foreach (var dll in dir.EnumerateFiles("*.dll"))
-                result.AddRange(Grants(SecurityOf(dll, AccessControlSections.Access | AccessControlSections.Owner), fileRights));
+            // Auch jede andere .exe im Ordner: Der Starter SnitchBoxStart.exe startet SnitchBox.exe aus seinem Ordner mit
+            // Administratorrechten – ist das Ziel des Autostarts der Starter, muss auch SnitchBox.exe geschützt sein.
+            foreach (var file in dir.EnumerateFiles("*.dll").Concat(dir.EnumerateFiles("*.exe")))
+                result.AddRange(Grants(SecurityOf(file, AccessControlSections.Access | AccessControlSections.Owner), fileRights));
             result.AddRange(Grants(SecurityOf(dir, AccessControlSections.Access | AccessControlSections.Owner),
                 FileSystemRights.CreateFiles | FileSystemRights.DeleteSubdirectoriesAndFiles | FileSystemRights.ChangePermissions | FileSystemRights.TakeOwnership));
             // Ordner ersetzen: ihn (oder einen übergeordneten) umbenennen und unter altem Namen neu anlegen.

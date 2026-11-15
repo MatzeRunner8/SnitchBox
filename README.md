@@ -100,7 +100,7 @@ Going back to Build 12: Build 13 converts the factory rules into a form Build 12
 - SnitchBox runs with administrator rights, but in the user’s environment. Some environment variables make the .NET runtime load
   foreign code (profilers `CORECLR_*`/`COR_*`, `DOTNET_DiagnosticPorts`, `DOTNET_ADDITIONAL_DEPS` …), and any program may set them.
   That is why Start menu, desktop shortcut and autostart start `SnitchBoxStart.exe`, a small native starter without .NET that removes all
-  `CORECLR_*`, `COR_*`, `COMPlus_*` and `DOTNET_*` variables and then starts `SnitchBox.exe`. Started directly with such variables,
+  `CORECLR_*`, `COR_*`, `COMPlus_*`, `DOTNET_*` and `COREHOST_*` variables and then starts `SnitchBox.exe`. Started directly with such variables,
   SnitchBox warns. Keep both files together.
 
 Details on the original, the technology and the changes per build: [docs/RE-NOTES.md](docs/RE-NOTES.md).

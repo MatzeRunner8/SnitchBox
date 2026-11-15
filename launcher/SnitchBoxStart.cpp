@@ -5,7 +5,7 @@
 // (Profiler über CORECLR_*/COR_*, Diagnose-Ports, zusätzliche Abhängigkeiten über DOTNET_*). Jedes gewöhnliche Programm darf sie
 // ohne Adminrechte setzen (HKCU\Environment) und hätte so beim nächsten Anmelden eigenen Code mit Administratorrechten.
 // Dieser Starter ist ein natives Programm ohne .NET (für ihn bedeuten die Variablen nichts), entfernt alle Variablen, die mit
-// CORECLR_, COR_, COMPlus_ oder DOTNET_ beginnen, startet SnitchBox.exe und beendet sich sofort.
+// CORECLR_, COR_, COMPlus_, DOTNET_ oder COREHOST_ beginnen, startet SnitchBox.exe und beendet sich sofort.
 //
 // Er braucht selbst Administratorrechte (Manifest), damit SnitchBox.exe – das sie ebenfalls verlangt – ohne zweite Rückfrage startet.
 // Er lädt nur kernel32 und user32 (bekannte System-DLLs, nie aus dem Programmordner oder PATH).
@@ -14,7 +14,9 @@
 #include <windows.h>
 #include <wchar.h>
 
-static const wchar_t* const Blocked[] = { L"CORECLR_", L"COR_", L"COMPLUS_", L"DOTNET_" };
+// COREHOST_: die älteren Namen der Host-Ablaufverfolgung (COREHOST_TRACE, COREHOST_TRACEFILE …), die der .NET-Host weiterhin liest –
+// über TRACEFILE ließe er das mit Administratorrechten laufende SnitchBox eine Datei an beliebiger Stelle anlegen.
+static const wchar_t* const Blocked[] = { L"CORECLR_", L"COR_", L"COMPLUS_", L"DOTNET_", L"COREHOST_" };
 
 static bool IsBlocked(const wchar_t* entry)
 {

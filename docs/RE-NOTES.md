@@ -243,6 +243,25 @@ multicast/broadcast/bonjour are read as local-net), notes, denied-remote-domains
 - Core tests: IPv6 and IPv4 resets (directions, ports, sequence numbers with payload/FIN, RST flag only, IP and TCP checksums, no RST in
   reply to an RST). Not testable live on the test machine: IPv6 is disabled there completely (no IPv6 connections, not even link-local).
 
+## Build 29 – review of builds 25–28
+Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two verification rounds of the fixes. Fixed:
+- High: the starter did not remove COREHOST_TRACE/COREHOST_TRACEFILE (still read by the .NET host; TRACEFILE would let a non-admin make the
+  elevated SnitchBox create files anywhere, e.g. a fake hostfxr.dll in the program folder) – COREHOST_ is now blocked; IsRiskyVariable also
+  warns about COREHOST_*, DOTNET_HOST_* and DiagnosticPorts/ADDITIONAL_DEPS/SHARED_STORE/STARTUP_HOOKS under DOTNET_ and COMPlus_.
+- High (introduced by a first fix attempt, caught by the verification round): re-registering the content of %SystemRoot%\System32\Tasks\SnitchBox
+  when switching the autostart to the starter – non-admins may create files there, so their task definition (SYSTEM account, extra actions)
+  would have been registered with admin rights. Now the task is always recreated from the fixed template; only “disabled” is carried over.
+- Medium: a service rule with an empty program lost to the svchost factory rule (no process bonus) – a service now counts as a process
+  restriction in the score.
+- Autostart target checks also cover SnitchBox.exe (every *.exe next to the target), since the starter launches it elevated.
+- Service lookup: cache entries carry the process start time (reused PIDs), unknown PIDs are re-read immediately (at most every 100 ms in total,
+  per PID only after a real re-read), full re-read every 15 s.
+- Signature check without cache (size and modification time can be reset by the file owner after tampering).
+- IPv6 resets: marks are re-validated against the current rules, the network filter and incoming monitoring before every RST, removed only if
+  unchanged, pruned once per second after five minutes without a packet, cleared when the filter is off; an inbound SYN no longer removes a
+  mark; Stop joins all threads before closing the WinDivert handles.
+- build-windows.ps1 no longer hides compiler diagnostics of the starter.
+
 ## Open
 - Data volume per remote, SNI evaluation with DoH, automatic profile switching per network, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

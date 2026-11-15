@@ -100,7 +100,7 @@ Zurück zu Build 12: Build 13 stellt die Werksregeln um, was Build 12 nicht lese
 - SnitchBox läuft mit Administratorrechten, aber in der Umgebung des Benutzers. Manche Umgebungsvariablen lassen die .NET-Laufzeit
   fremden Code laden (Profiler `CORECLR_*`/`COR_*`, `DOTNET_DiagnosticPorts`, `DOTNET_ADDITIONAL_DEPS` …), und jedes Programm darf sie setzen.
   Deshalb starten Startmenü, Desktop-Verknüpfung und Autostart `SnitchBoxStart.exe`: einen kleinen nativen Starter ohne .NET, der alle
-  Variablen `CORECLR_*`, `COR_*`, `COMPlus_*` und `DOTNET_*` entfernt und dann `SnitchBox.exe` startet. Direkt mit solchen Variablen
+  Variablen `CORECLR_*`, `COR_*`, `COMPlus_*`, `DOTNET_*` und `COREHOST_*` entfernt und dann `SnitchBox.exe` startet. Direkt mit solchen Variablen
   gestartet, warnt SnitchBox. Beide Dateien gehören zusammen.
 
 Details zum Original, zur Technik und zu den Änderungen je Build: [docs/RE-NOTES.de.md](docs/RE-NOTES.de.md).

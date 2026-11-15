@@ -75,7 +75,7 @@ $vsPath = if (Test-Path $vswhere) { & $vswhere -latest -products * -requires Mic
 $vcvars = if ($vsPath) { Join-Path $vsPath 'VC\Auxiliary\Build\vcvars64.bat' } else { $null }
 if (-not $vcvars -or -not (Test-Path $vcvars)) { Write-Host 'C++-Compiler von Visual Studio fehlt (für SnitchBoxStart.exe)'; exit 1 }
 $v = $Version.Split('.')
-& cmd /c "`"$(Join-Path $Root 'launcher\build-launcher.cmd')`" `"$vcvars`" `"$dist`" `"$(Join-Path $B 'launcher')`" $($v[0]) $($v[1]) $($v[2]) $Build" | Where-Object { $_ -and $_ -notmatch 'vswhere|falsch geschrieben|gefunden werden|SnitchBoxStart\.cpp' }
+& cmd /c "`"$(Join-Path $Root 'launcher\build-launcher.cmd')`" `"$vcvars`" `"$dist`" `"$(Join-Path $B 'launcher')`" $($v[0]) $($v[1]) $($v[2]) $Build" | Where-Object { $_ -and $_ -notmatch 'vswhere|falsch geschrieben|gefunden werden' -and $_ -notmatch '^\s*SnitchBoxStart\.cpp\s*$' }
 if ($LASTEXITCODE -ne 0) { Write-Host 'Starter ließ sich nicht übersetzen'; exit 1 }
 Copy-Item (Join-Path $dist 'SnitchBoxStart.exe') $sa
 

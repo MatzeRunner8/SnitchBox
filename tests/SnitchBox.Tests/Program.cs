@@ -683,8 +683,11 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && srs.Evaluate(S(""), now).Action == RuleAction.Allow,
         "„DiagTrack verbieten“ geht der svchost-Werksregel vor, andere Dienste bleiben erlaubt");
     var anyProcess = new Store();
+    FactoryRules.Ensure(anyProcess, @"C:\Windows");
     anyProcess.Rules.Add(new Rule { Action = RuleAction.Deny, Service = "diagtrack" });
-    Check(RuleSet.Build(anyProcess, "boot").Evaluate(S("DiagTrack"), now).Action == RuleAction.Deny, "Dienst ohne Programmangabe, Groß/klein egal");
+    var apRules = RuleSet.Build(anyProcess, "boot");
+    Check(apRules.Evaluate(S("DiagTrack"), now).Action == RuleAction.Deny && apRules.Evaluate(S("wuauserv"), now).Action == RuleAction.Allow,
+        "Dienst ohne Programmangabe (Groß/klein egal) schlägt die svchost-Werksregel");
 
     var sp = new FakeProcs();
     var se = new FirewallEngine(ss, sp, "boot", () => now);

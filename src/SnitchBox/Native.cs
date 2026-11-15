@@ -370,6 +370,20 @@ internal static unsafe class Native
         finally { CloseHandle(h); }
     }
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);
+
+    /// <summary>Startzeit eines Prozesses (FILETIME); 0, wenn nicht lesbar. Unterscheidet einen Prozess von einem späteren mit
+    /// derselben, von Windows neu vergebenen Prozessnummer.</summary>
+    public static long ProcessStartTime(int pid)
+    {
+        if (pid is 0 or 4) return 0;
+        var h = OpenProcess(0x1000 /*PROCESS_QUERY_LIMITED_INFORMATION*/, false, pid);
+        if (h == IntPtr.Zero) return 0;
+        try { return GetProcessTimes(h, out var creation, out _, out _, out _) ? creation : 0; }
+        finally { CloseHandle(h); }
+    }
+
     public static bool IsProcessAlive(int pid)
     {
         if (pid is 0 or 4) return true;

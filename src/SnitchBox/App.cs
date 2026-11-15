@@ -191,11 +191,19 @@ public sealed class App : Application
     /// <summary>Umgebungsvariablen, über die die .NET-Laufzeit fremden Code lädt (Profiler, Diagnose-Ports, zusätzliche
     /// Abhängigkeiten). Der Starter SnitchBoxStart.exe entfernt sie; startet jemand SnitchBox.exe direkt mit ihnen, ist es womöglich
     /// schon geschehen – dann wenigstens Bescheid geben.</summary>
-    internal static bool IsRiskyVariable(string name) =>
-        name.StartsWith("CORECLR_", StringComparison.OrdinalIgnoreCase)
-        || name.StartsWith("COR_ENABLE_PROFILING", StringComparison.OrdinalIgnoreCase) || name.StartsWith("COR_PROFILER", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("DOTNET_DiagnosticPorts", StringComparison.OrdinalIgnoreCase) || name.Equals("DOTNET_ADDITIONAL_DEPS", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("DOTNET_SHARED_STORE", StringComparison.OrdinalIgnoreCase) || name.Equals("DOTNET_STARTUP_HOOKS", StringComparison.OrdinalIgnoreCase);
+    internal static bool IsRiskyVariable(string name)
+    {
+        const StringComparison ic = StringComparison.OrdinalIgnoreCase;
+        // Profiler, Host-Ablaufverfolgung mit Ausgabedatei (COREHOST_TRACEFILE, DOTNET_HOST_TRACEFILE).
+        if (name.StartsWith("CORECLR_", ic) || name.StartsWith("COREHOST_", ic) || name.StartsWith("DOTNET_HOST_", ic)
+            || name.StartsWith("COR_ENABLE_PROFILING", ic) || name.StartsWith("COR_PROFILER", ic)) return true;
+        // Diagnose-Ports, zusätzliche Abhängigkeiten, Startup-Hooks – die Laufzeit liest Einstellungen unter beiden Vorsilben.
+        foreach (var prefix in new[] { "DOTNET_", "COMPlus_" })
+            if (name.StartsWith(prefix, ic) && name[prefix.Length..] is var rest
+                && (rest.Equals("DiagnosticPorts", ic) || rest.Equals("ADDITIONAL_DEPS", ic) || rest.Equals("SHARED_STORE", ic) || rest.Equals("STARTUP_HOOKS", ic)))
+                return true;
+        return false;
+    }
 
     private void WarnAboutRiskyEnvironment()
     {
@@ -224,8 +232,8 @@ public sealed class App : Application
             // Älterer Autostart startet SnitchBox.exe direkt, der Starter liegt jetzt daneben: auf den Starter umstellen.
             if (Autostart.Starter is { } starter && command.Equals(Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
             {
-                Autostart.Enabled = true;
-                Log.Write($"Autostart startet jetzt {starter}");
+                // Aus der festen Vorlage neu anlegen; nur „abgeschaltet“ bleibt erhalten (siehe Autostart.Retarget).
+                Log.Write(Autostart.Retarget() ? $"Autostart startet jetzt {starter}" : "Autostart ließ sich nicht auf den Starter umstellen");
                 command = Autostart.Command ?? command;
             }
             string text;
@@ -466,6 +474,56 @@ internal static class Autostart
         }
     }
 
+    /// <summary>Stellt den Autostart auf <see cref="Target"/> um und behält dabei nur eines bei: ob die Aufgabe abgeschaltet ist.
+    /// Die Aufgabe wird aus der festen Vorlage neu angelegt, nie aus dem Inhalt der vorhandenen Aufgabendatei – in
+    /// %SystemRoot%\System32\Tasks dürfen auch gewöhnliche Benutzer Dateien anlegen; deren Inhalt (Konto SYSTEM, weitere Befehle)
+    /// mit Administratorrechten neu zu registrieren, öffnete jedem Programm den Weg zu SYSTEM-Rechten.</summary>
+    public static bool Retarget()
+    {
+        var enabled = true;
+        try
+        {
+            var xml = File.ReadAllText(Path.Combine(Environment.SystemDirectory, "Tasks", Task));
+            var settings = System.Text.RegularExpressions.Regex.Match(xml, "<Settings>(.*?)</Settings>", System.Text.RegularExpressions.RegexOptions.Singleline);
+            enabled = !(settings.Success && settings.Groups[1].Value.Contains("<Enabled>false</Enabled>", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception e) { Log.Write("Autostart lesen: " + e.Message); }
+        return Create(enabled);
+    }
+
+    /// <summary>Autostart-Aufgabe aus der festen Vorlage anlegen (ersetzt eine vorhandene).</summary>
+    private static bool Create(bool enabled)
+    {
+        var user = System.Security.SecurityElement.Escape(WindowsIdentity.GetCurrent().Name);
+        var exe = System.Security.SecurityElement.Escape(Target);
+        var on = enabled ? "true" : "false";
+        // Als XML, weil nur so „auch im Akkubetrieb starten“ und „nie nach Zeit beenden“ einstellbar sind.
+        var xml = $"""
+            <?xml version="1.0" encoding="UTF-16"?>
+            <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+              <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{user}</UserId></LogonTrigger></Triggers>
+              <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
+              <Settings>
+                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+                <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+                <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+                <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+                <Enabled>{on}</Enabled>
+              </Settings>
+              <Actions Context="Author"><Exec><Command>{exe}</Command><Arguments>--tray</Arguments></Exec></Actions>
+            </Task>
+            """;
+        // Im Datenordner (nur Administratoren dürfen schreiben), nicht in %TEMP%: dort könnte ein anderes Programm die
+        // Datei zwischen Schreiben und Einlesen austauschen und so eine eigene Aufgabe mit Administratorrechten anlegen.
+        var file = Path.Combine(Paths.DataDir, "autostart-task.xml");
+        try
+        {
+            File.WriteAllText(file, xml, Encoding.Unicode);
+            return Run($"/Create /F /TN \"{Task}\" /XML \"{file}\"") == 0;
+        }
+        finally { try { File.Delete(file); } catch { } }
+    }
+
     /// <summary>Warntext, wenn der Autostart eine Datei startet, die es nicht mehr gibt.</summary>
     public static string MissingText(string exe) =>
         Loc.F("Der Autostart startet eine Datei, die es nicht mehr gibt:\n{0}\n\n" +
@@ -492,33 +550,7 @@ internal static class Autostart
         set
         {
             if (!value) { Run($"/Delete /F /TN \"{Task}\""); return; }
-            var user = System.Security.SecurityElement.Escape(WindowsIdentity.GetCurrent().Name);
-            var exe = System.Security.SecurityElement.Escape(Target);
-            // Als XML, weil nur so „auch im Akkubetrieb starten“ und „nie nach Zeit beenden“ einstellbar sind.
-            var xml = $"""
-                <?xml version="1.0" encoding="UTF-16"?>
-                <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-                  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{user}</UserId></LogonTrigger></Triggers>
-                  <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
-                  <Settings>
-                    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-                    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-                    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-                    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-                    <Enabled>true</Enabled>
-                  </Settings>
-                  <Actions Context="Author"><Exec><Command>{exe}</Command><Arguments>--tray</Arguments></Exec></Actions>
-                </Task>
-                """;
-            // Im Datenordner (nur Administratoren dürfen schreiben), nicht in %TEMP%: dort könnte ein anderes Programm die
-            // Datei zwischen Schreiben und Einlesen austauschen und so eine eigene Aufgabe mit Administratorrechten anlegen.
-            var file = Path.Combine(Paths.DataDir, "autostart-task.xml");
-            try
-            {
-                File.WriteAllText(file, xml, Encoding.Unicode);
-                Run($"/Create /F /TN \"{Task}\" /XML \"{file}\"");
-            }
-            finally { try { File.Delete(file); } catch { } }
+            Create(true);
         }
     }
 }

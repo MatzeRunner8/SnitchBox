@@ -51,32 +51,54 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
     /// <summary>Markiert in PacketMeta.Raw „Flags stammen vom Treiber“ (liegt in dessen reservierten Bits).</summary>
     private const uint Captured = 0x80000000;
     private static readonly string Svchost = Path.Combine(Environment.SystemDirectory, "svchost.exe");
-    // Laufende Windows-Dienste je Prozessnummer (für svchost.exe); neu gelesen bei unbekannter Nummer (höchstens 1×/s) und jede Minute.
+    // Laufende Windows-Dienste je Prozessnummer (für svchost.exe), mit der Startzeit des Prozesses: Eine neu vergebene Nummer
+    // (anderer Prozess) gilt als unbekannt. Unbekannte Nummern lösen sofort ein Neulesen aus – gedrosselt je Nummer (höchstens 1×/s,
+    // wenn sie danach immer noch fehlt), nicht für alle gemeinsam; sonst bekäme ein gerade gestarteter Dienst, der sich im selben
+    // Augenblick wie ein anderer meldet, keinen Namen und fiele unter die svchost-Regel. Ganz neu gelesen wird alle 15 Sekunden.
     private readonly object _servicesGate = new();
-    private Dictionary<int, string[]> _servicesByPid = [];
+    private Dictionary<int, (string[] Names, long Start)> _servicesByPid = [];
+    private readonly Dictionary<int, long> _serviceMisses = [];
     private long _servicesTick = -1_000_000;
 
     /// <summary>Der Windows-Dienst in einem svchost-Prozess – nur wenn er dort allein läuft. Beherbergt ein Prozess mehrere Dienste
     /// (auf Rechnern mit viel Speicher selten, z. B. RpcSs + RpcEptMapper), lässt sich nicht sagen, welcher die Verbindung aufbaut: leer.</summary>
     private string ServiceOf(int pid)
     {
+        var start = Native.ProcessStartTime(pid);
         lock (_servicesGate)
         {
-            var age = Environment.TickCount64 - _servicesTick;
-            if (age > 60_000 || (age > 1000 && !_servicesByPid.ContainsKey(pid)))
+            var now = Environment.TickCount64;
+            var known = _servicesByPid.TryGetValue(pid, out var entry) && entry.Start == start;
+            var missedRecently = _serviceMisses.TryGetValue(pid, out var missed) && now - missed < 1000;
+            var sinceRefresh = now - _servicesTick;
+            // Neu lesen: alle 15 s (ein weiterer Dienst kann einem Prozess beitreten), bei unbekannter Nummer sofort – aber höchstens
+            // alle 100 ms insgesamt: Das Lesen läuft im Paketweg unter der Sperre der Engine, und ein Programm könnte in schneller
+            // Folge neue svchost-Prozesse starten, um den Filter auszubremsen.
+            var refreshed = false;
+            if (sinceRefresh > 15_000 || (!known && !missedRecently && sinceRefresh > 100))
             {
+                refreshed = true;
                 try
                 {
                     _servicesByPid = Native.Services(true).Where(s => s.Pid != 0).GroupBy(s => s.Pid)
-                        .ToDictionary(g => g.Key, g => g.Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+                        .ToDictionary(g => g.Key, g => (g.Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), Native.ProcessStartTime(g.Key)));
                 }
                 catch (Exception e)
                 {
                     if (Interlocked.Increment(ref _loggedErrors) <= 20) Log.Write("Dienste lesen: " + e.Message);
                 }
-                _servicesTick = Environment.TickCount64;
+                _servicesTick = now;
+                foreach (var stale in _serviceMisses.Where(m => now - m.Value > 10_000).Select(m => m.Key).ToList()) _serviceMisses.Remove(stale);
             }
-            return _servicesByPid.TryGetValue(pid, out var names) && names.Length == 1 ? names[0] : "";
+            if (_servicesByPid.TryGetValue(pid, out entry) && entry.Start == start)
+            {
+                _serviceMisses.Remove(pid);
+                return entry.Names.Length == 1 ? entry.Names[0] : "";
+            }
+            // Drosseln nur nach einem echten Neulesen, das die Nummer nicht fand – sonst schöbe jede Verbindung eines fleißigen
+            // Prozesses das nächste Neulesen immer weiter hinaus.
+            if (refreshed) _serviceMisses[pid] = now;
+            return "";
         }
     }
 
@@ -84,18 +106,44 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
 
     // Bestehende Verbindungen, die eine Regeländerung verbietet und die sich nicht über Windows trennen lassen (IPv6; IPv4, wenn
     // SetTcpEntry scheitert): Beim nächsten Paket der Verbindung schickt der Zähl-Thread beiden Enden ein RST. Schlüssel wie
-    // FlowKey (Gegenadresse, lokaler Port, Gegenport); Ablauf nach fünf Minuten ohne Paket (dann ist die Verbindung ohnehin still).
-    private readonly Dictionary<(IpKey Remote, ushort LocalPort, ushort RemotePort), (long Expires, long LastShot, string What)> _kill = [];
+    // FlowKey (Gegenadresse, lokaler Port, Gegenport). Vor jedem RST wird geprüft, ob die Regeln die Verbindung noch verbieten
+    // und der Filter (bei eingehenden: die Überwachung eingehender Verbindungen) läuft – sonst entfällt die Vormerkung. Aufgeräumt
+    // einmal je Sekunde nach fünf Minuten ohne Paket. (Nicht schon kurz nach einem RST: Wurde es verworfen, etwa weil das
+    // Segment beim Mitlesen schon veraltet war, soll das nächste Paket der Verbindung erneut eines auslösen.)
+    private readonly Dictionary<(IpKey Remote, ushort LocalPort, ushort RemotePort), (long Expires, long LastShot, string What, Connection Conn)> _kill = [];
     private readonly object _killGate = new();
     private volatile int _killPending;
     private const long KillTtl = 5 * 60_000;
 
-    private void MarkForReset(IpKey remote, ushort localPort, ushort remotePort, string what)
+    private void MarkForReset(IpKey remote, ushort localPort, ushort remotePort, string what, Connection conn)
     {
         lock (_killGate)
         {
-            _kill[(remote, localPort, remotePort)] = (Environment.TickCount64 + KillTtl, 0, what);
+            _kill[(remote, localPort, remotePort)] = (Environment.TickCount64 + KillTtl, 0, what, conn);
             _killPending = _kill.Count;
+        }
+    }
+
+    /// <summary>Abgelaufene Vormerkungen entfernen (fünf Minuten ohne Paket). Ob die Regeln eine Verbindung noch verbieten, prüft
+    /// ResetIfMarked unmittelbar vor jedem RST mit den dann geltenden Regeln.</summary>
+    private void PruneResets()
+    {
+        lock (_killGate)
+        {
+            if (_kill.Count == 0) return;
+            var now = Environment.TickCount64;
+            foreach (var (k, e) in _kill.ToList())
+                if (now > e.Expires) _kill.Remove(k);
+            _killPending = _kill.Count;
+        }
+    }
+
+    private void ClearResets()
+    {
+        lock (_killGate)
+        {
+            _kill.Clear();
+            _killPending = 0;
         }
     }
 
@@ -105,21 +153,47 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
         if (!Packet.TryParse(packet, out var p) || p.Protocol != Packet.Tcp) return;
         var outbound = addr.Outbound;
         var key = outbound ? (p.Dst, p.SrcPort, p.DstPort) : (p.Src, p.DstPort, p.SrcPort);
+        Connection conn;
         string what;
         lock (_killGate)
         {
             if (!_kill.TryGetValue(key, out var entry)) return;
             var now = Environment.TickCount64;
-            // Neuer Verbindungsaufbau auf denselben Ports oder abgelaufen: nicht (mehr) anfassen. Ein neuer Aufbau läuft durch die Regeln.
-            if ((p.Syn && !p.Ack) || now > entry.Expires)
+            if (p.Syn && !p.Ack)
+            {
+                // Ausgehendes SYN: der eigene Rechner baut auf denselben Ports eine neue Verbindung auf (die alte ist weg); sie läuft
+                // durch die Regeln. Ein eingehendes SYN dagegen beendet nichts (Windows antwortet auf einer bestehenden Verbindung nur
+                // mit einem ACK) und darf die Vormerkung nicht aufheben – sonst könnte die Gegenstelle das Trennen verhindern.
+                if (outbound)
+                {
+                    _kill.Remove(key);
+                    _killPending = _kill.Count;
+                }
+                return;
+            }
+            if (now > entry.Expires)
             {
                 _kill.Remove(key);
                 _killPending = _kill.Count;
                 return;
             }
             if (now - entry.LastShot < 500) return; // höchstens zweimal je Sekunde, bis die Verbindung still ist
-            _kill[key] = (now + KillTtl, now, entry.What);
+            _kill[key] = (now + KillTtl, now, entry.What, entry.Conn);
+            conn = entry.Conn;
             what = entry.LastShot == 0 ? entry.What : "";
+        }
+        // Noch verboten und Filter an? (Inzwischen wieder erlaubt, Netzwerkfilter aus oder – bei eingehenden – deren Überwachung
+        // abgeschaltet: nicht trennen; die Engine ließe eine solche Verbindung jetzt auch neu zu.)
+        var (filterOn, incomingOn) = _engine?.Read(s => (s.Settings.FilterEnabled, s.Settings.MonitorIncoming)) ?? (false, false);
+        if (_engine is not { } engine || !filterOn || (conn.Direction == Direction.Incoming && !incomingOn) || engine.Evaluate(conn).Action != RuleAction.Deny)
+        {
+            lock (_killGate)
+            {
+                // Nur diese Vormerkung entfernen – eine inzwischen neu angelegte für dieselben Ports (spätere Regeländerung) bleibt.
+                if (_kill.TryGetValue(key, out var current) && ReferenceEquals(current.Conn, conn)) _kill.Remove(key);
+                _killPending = _kill.Count;
+            }
+            return;
         }
         foreach (var (rst, toSender) in Packet.BuildFlowResets(packet))
         {
@@ -156,8 +230,8 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                 var incomingFiltered = engine.Read(s => s.Settings.MonitorIncoming);
                 var now = DateTime.Now;
                 Dictionary<(bool V6, ushort Port), int>? listeners = null;
-                // Wird die Verbindung erst durch diese Änderung verboten? Dann die Beschreibung fürs Protokoll, sonst null.
-                string? NewlyDenied(int pid, ushort localPort, IpKey remote, ushort remotePort, bool v6)
+                // Wird die Verbindung erst durch diese Änderung verboten? Dann die Verbindung, sonst null.
+                Connection? NewlyDenied(int pid, ushort localPort, IpKey remote, ushort remotePort, bool v6)
                 {
                     var path = PathOf(pid);
                     if (path == null || (engine.SelfPath.Length > 0 && path.Equals(engine.SelfPath, StringComparison.OrdinalIgnoreCase))) return null;
@@ -172,22 +246,23 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                         Hostnames = engine.Hosts.Lookup(remote),
                     };
                     if (after.Evaluate(conn, now).Action != RuleAction.Deny || before.Evaluate(conn, now).Action == RuleAction.Deny) return null;
-                    return $"{Rule.NameOf(path)} {conn.Host}:{remotePort}";
+                    return conn;
                 }
+                static string Describe(Connection c, ushort remotePort) => $"{Rule.NameOf(c.ProcessPath)} {c.Host}:{remotePort}";
                 foreach (var c in Native.TcpConnectionsV4())
                 {
-                    if (NewlyDenied(c.Pid, c.LocalPort, c.Remote, c.RemotePort, false) is not { } what) continue;
+                    if (NewlyDenied(c.Pid, c.LocalPort, c.Remote, c.RemotePort, false) is not { } conn) continue;
                     var rc = Native.CloseTcpV4(c);
-                    if (rc == 0) Log.Write("Verbindung getrennt (jetzt verboten): " + what);
+                    if (rc == 0) Log.Write("Verbindung getrennt (jetzt verboten): " + Describe(conn, c.RemotePort));
                     else
                     {
-                        Log.Write($"Verbindung trennen über Windows fehlgeschlagen (Fehler {rc}), RST beim nächsten Paket: {what}");
-                        MarkForReset(c.Remote, c.LocalPort, c.RemotePort, what);
+                        Log.Write($"Verbindung trennen über Windows fehlgeschlagen (Fehler {rc}), RST beim nächsten Paket: {Describe(conn, c.RemotePort)}");
+                        MarkForReset(c.Remote, c.LocalPort, c.RemotePort, Describe(conn, c.RemotePort), conn);
                     }
                 }
                 foreach (var c in Native.TcpConnectionsV6())
-                    if (NewlyDenied(c.Pid, c.LocalPort, c.Remote, c.RemotePort, !c.Remote.IsV4) is { } what)
-                        MarkForReset(c.Remote, c.LocalPort, c.RemotePort, what + " (IPv6)");
+                    if (NewlyDenied(c.Pid, c.LocalPort, c.Remote, c.RemotePort, !c.Remote.IsV4) is { } conn)
+                        MarkForReset(c.Remote, c.LocalPort, c.RemotePort, Describe(conn, c.RemotePort) + " (IPv6)", conn);
             }
             catch (Exception e)
             {
@@ -626,6 +701,13 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                     perPath[path] = (sum.Down + b.Down, sum.Up + b.Up);
                 }
                 _engine?.Traffic.Commit(perPath.Select(p => (p.Key, p.Value.Down, p.Value.Up)), seconds);
+                // Vormerkungen zum Trennen aufräumen (sonst blieben getrennte Verbindungen für immer stehen); bei abgeschaltetem
+                // Filter alle verwerfen – dann wird nichts getrennt.
+                if (_killPending > 0)
+                {
+                    if (_engine is { } e && !e.Read(s => s.Settings.FilterEnabled)) ClearResets();
+                    else PruneResets();
+                }
                 foreach (var (k, v) in _recentlyClosed)
                     if (now - v.Tick > 10_000) _recentlyClosed.TryRemove(new KeyValuePair<(bool, ushort), (int, long)>(k, v));
             }
@@ -731,12 +813,15 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
         }
         _netThread?.Join(2000);
         _sockThread?.Join(2000);
-        if (_net != WinDivert.Invalid) WinDivert.Close(_net);
+        // Erst alle Threads beenden, dann die Handles schließen: der Zähl-Thread speist über _net RSTs ein (ResetIfMarked) und
+        // dürfte nie ein schon geschlossenes Handle verwenden.
         _meterThread?.Join(2000);
         _commitThread?.Join(1500);
-        if (_sock != WinDivert.Invalid) WinDivert.Close(_sock);
-        if (_meter != WinDivert.Invalid) WinDivert.Close(_meter);
+        ClearResets();
+        var (net, sock, meter) = (_net, _sock, _meter);
         _net = _sock = _meter = WinDivert.Invalid;
+        foreach (var h in new[] { net, sock, meter })
+            if (h != WinDivert.Invalid) WinDivert.Close(h);
         Running = false;
         Log.Write("Netzwerkfilter angehalten");
     }

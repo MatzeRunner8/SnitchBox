@@ -130,9 +130,11 @@ public sealed class RuleSet
     };
 
     /// <summary>Rangfolge wie im Original: hohe Priorität, dann der genauere Prozess, ein bestimmter Windows-Dienst (genauer als
-    /// „svchost.exe“ allein), die genauere Gegenstelle, Port und Protokoll; bei Gleichstand gewinnt „Verbieten“.</summary>
+    /// „svchost.exe“ allein), die genauere Gegenstelle, Port und Protokoll; bei Gleichstand gewinnt „Verbieten“. Ein Dienst zählt
+    /// auch ohne Programmangabe als bestimmter Prozess (Dienste gibt es nur in svchost.exe) – sonst verlöre „DiagTrack verbieten“
+    /// mit leerem Programm gegen die Werksregel „svchost.exe erlauben“.</summary>
     internal static int Score(Rule r, PortSet ports) =>
-        (r.HighPriority ? 1 << 20 : 0) + (r.AnyProcess ? 0 : 1 << 16) + (r.Service.Length > 0 ? 1 << 12 : 0) + (Specificity(r.Remote) << 8)
+        (r.HighPriority ? 1 << 20 : 0) + (r.AnyProcess && r.Service.Length == 0 ? 0 : 1 << 16) + (r.Service.Length > 0 ? 1 << 12 : 0) + (Specificity(r.Remote) << 8)
         + (ports.Any ? 0 : 1 << 4) + (r.Protocol == Proto.Any ? 0 : 1 << 2) + (r.Action == RuleAction.Deny ? 1 : 0);
 
     public Decision Evaluate(Connection conn, DateTime now)

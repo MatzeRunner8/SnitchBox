@@ -245,6 +245,27 @@ multicast/broadcast/bonjour werden als local-net gelesen), notes, denied-remote-
 - Kern-Tests: RSTs für IPv6 und IPv4 (Richtungen, Ports, Folgenummern mit Daten/FIN, nur RST-Flag, IP- und TCP-Prüfsummen, kein RST auf ein
   RST). Live auf dem Testrechner nicht prüfbar: Dort ist IPv6 ganz abgeschaltet (keine IPv6-Verbindungen, nicht einmal Link-lokal).
 
+## Build 29 – Prüfung der Builds 25–28
+Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund), danach zwei Nachprüfungen der Korrekturen. Behoben:
+- Hoch: Der Starter entfernte COREHOST_TRACE/COREHOST_TRACEFILE nicht (der .NET-Host liest sie weiterhin; über TRACEFILE hätte ein Programm ohne
+  Adminrechte das erhöht laufende SnitchBox Dateien an beliebiger Stelle anlegen lassen können, etwa eine falsche hostfxr.dll im Programmordner)
+  – COREHOST_ wird jetzt entfernt; IsRiskyVariable warnt auch bei COREHOST_*, DOTNET_HOST_* und DiagnosticPorts/ADDITIONAL_DEPS/SHARED_STORE/
+  STARTUP_HOOKS unter DOTNET_ und COMPlus_.
+- Hoch (durch einen ersten Korrekturversuch entstanden, von der Nachprüfung gefunden): Beim Umstellen des Autostarts auf den Starter wurde der
+  Inhalt von %SystemRoot%\System32\Tasks\SnitchBox neu registriert – dort dürfen Nicht-Administratoren Dateien anlegen, deren Aufgabe (Konto
+  SYSTEM, weitere Befehle) wäre also mit Adminrechten registriert worden. Jetzt wird die Aufgabe immer aus der festen Vorlage neu angelegt; nur
+  „abgeschaltet“ bleibt erhalten.
+- Mittel: Eine Dienst-Regel mit leerem Programm verlor gegen die svchost-Werksregel (kein Prozess-Bonus) – ein Dienst zählt in der Rangfolge
+  jetzt als bestimmter Prozess.
+- Die Prüfung des Autostart-Ziels erfasst auch SnitchBox.exe (jede .exe neben dem Ziel), weil der Starter es mit Adminrechten startet.
+- Dienst-Zuordnung: Cache-Einträge mit Startzeit des Prozesses (neu vergebene PIDs), unbekannte PIDs werden sofort neu gelesen (insgesamt
+  höchstens alle 100 ms, je PID erst nach einem echten Neulesen gedrosselt), vollständig alle 15 s.
+- Signaturprüfung ohne Zwischenspeicher (Größe und Änderungszeit kann der Besitzer nach einer Manipulation zurücksetzen).
+- IPv6-Trennen: Vormerkungen werden vor jedem RST gegen die aktuellen Regeln, den Netzwerkfilter und die Überwachung eingehender Verbindungen
+  geprüft, nur unverändert entfernt, einmal je Sekunde nach fünf Minuten ohne Paket aufgeräumt und bei abgeschaltetem Filter verworfen; ein
+  eingehendes SYN hebt keine Vormerkung mehr auf; Stop wartet auf alle Threads, bevor es die WinDivert-Handles schließt.
+- build-windows.ps1 verschluckt keine Compiler-Meldungen des Starters mehr.
+
 ## Offen
 - Datenmengen je Gegenstelle, SNI-Auswertung bei DoH, Profile automatisch je Netzwerk, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

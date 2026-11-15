@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -13,20 +12,15 @@ internal readonly record struct SignatureInfo(SignatureState State, string Signe
 
 /// <summary>Prüft die digitale Signatur einer Datei mit Windows (WinVerifyTrust), wie es auch der Explorer tut – eingebettete
 /// Signaturen und Katalog-Signaturen (fast alle Windows-Programme sind über Kataloge signiert). Ohne Netzzugriff: keine Sperrlisten-
-/// Abfrage (sie hielte das Warnfenster auf und ginge selbst durch den Filter). Ergebnisse werden je Datei, Größe und Änderungszeit gemerkt.</summary>
+/// Abfrage (sie hielte das Warnfenster auf und ginge selbst durch den Filter). Bewusst ohne Zwischenspeicher: Größe und Änderungszeit
+/// kann der Besitzer einer Datei nach einer Manipulation zurücksetzen – ein gemerktes „gültig“ würde dann ausgerechnet die veränderte
+/// Datei als gültig zeigen. Eine Prüfung dauert höchstens einige zehn Millisekunden und läuft nur einmal je Warnfenster.</summary>
 internal static unsafe class Signature
 {
-    private static readonly ConcurrentDictionary<(string Path, long Size, long Time), SignatureInfo> Cache = new();
-
     public static SignatureInfo Check(string path)
     {
         if (path.Length == 0 || path.IndexOf('\\') < 0) return default;
-        try
-        {
-            var fi = new FileInfo(path);
-            if (!fi.Exists) return default;
-            return Cache.GetOrAdd((path.ToLowerInvariant(), fi.Length, fi.LastWriteTimeUtc.Ticks), _ => Verify(path));
-        }
+        try { return File.Exists(path) ? Verify(path) : default; }
         catch { return default; }
     }
 
