@@ -313,5 +313,15 @@
  "Invalid signature – the file was modified or the certificate is not trusted": "無効な署名 – ファイルが変更されたか、証明書が信頼されていません",
  "not signed": "署名なし",
  "could not be checked": "確認できません",
- "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox は、外部のコードを SnitchBox に読み込ませることができる環境変数付きで起動されました:\n{0}\n\n意図して設定したもの (開発ツール用など) でなければ、攻撃の可能性があります。SnitchBox は管理者権限で動作しています。\n\nSnitchBox は SnitchBoxStart.exe (スタート メニュー、自動起動) から起動してください。スターターがこれらの変数を削除します。"
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox は、外部のコードを SnitchBox に読み込ませることができる環境変数付きで起動されました:\n{0}\n\n意図して設定したもの (開発ツール用など) でなければ、攻撃の可能性があります。SnitchBox は管理者権限で動作しています。\n\nSnitchBox は SnitchBoxStart.exe (スタート メニュー、自動起動) から起動してください。スターターがこれらの変数を削除します。",
+ "  (connected)": "  (接続中)",
+ "Don't switch automatically": "自動で切り替えない",
+ "Data": "データ",
+ "Keep the current profile": "現在のプロファイルのまま",
+ "No network is connected right now.": "現在接続されているネットワークはありません。",
+ "Other networks": "その他のネットワーク",
+ "Profile per network": "ネットワークごとのプロファイル",
+ "Profile: {0}": "プロファイル: {0}",
+ "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "割り当てたネットワークに接続すると、SnitchBox がプロファイルを切り替えます。手動での切り替えも引き続き可能で、次にネットワークが変わるまで有効です。",
+ "Like other networks": "その他のネットワークと同じ"
 }

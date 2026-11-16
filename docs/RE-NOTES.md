@@ -262,6 +262,56 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
   mark; Stop joins all threads before closing the WinDivert handles.
 - build-windows.ps1 no longer hides compiler diagnostics of the starter.
 
+## Build 30 – profile per network, data volume per remote
+- Profile per network (Settings → Profiles, “Profile per network”): the connected networks come from the Windows Network List Manager
+  (COM INetworkListManager, NLM_ENUM_NETWORK_CONNECTED – the same names and network IDs as in the Windows settings; Windows recognizes a
+  network by its gateway, so the ID stays the same on reconnect). Per network: “Like other networks”, “Don't switch automatically”,
+  “No Profile” or a profile; plus a choice for all other networks (“Keep the current profile” by default). NetworkProfileWatcher listens to
+  NetworkChange (address/availability) and checks 2 s after the last event (at most 5 s after the first one of a burst), another 6 s
+  later (Windows often identifies a fresh network only then), as soon as a new network has been connected long enough, and every 30 s
+  when nothing else is scheduled; a generation counter discards a check that a newer event overtook. Only networks connected for at least
+  5 s without interruption count (StableNetworks): when connecting, Windows first reports a transitional network (“Identifying…”,
+  “Unidentified network”, with a new ID each time), which must not count as a new network; a network without a Windows network profile
+  (registry NetworkList\Profiles, i.e. not yet identified – e.g. for a minute after a router restart) counts only after 90 s. Several networks at once (docked LAN plus Wi-Fi, VPN): networks set to “Don't switch automatically” are ignored,
+  then the oldest matching assignment wins (an edited assignment keeps its place), then the profile for other networks.
+  What counts as a network change (NetworkProfiles.Observe): SnitchBox remembers the “place” (the networks that decided at the last change,
+  Settings.NetworkPlace) and networks that merely joined later (Settings.NetworkExtras, e.g. a VPN). It switches when a newly connected
+  network decides (it is assigned and has precedence, e.g. a company VPN), when a new network appears while nothing of the place is
+  connected any more, or when the place has been missing for 60 s while other networks stay connected. Networks that drop out briefly
+  (waking up, Wi-Fi hiccup, VPN reconnect) never switch, so a profile chosen by hand lasts until you really enter another network – also
+  across a restart of SnitchBox. Only newly appeared networks or the deciding assigned one ever become the place, never networks that
+  were already connected (an always-on virtual adapter of WSL/Hyper-V stays an extra); if the place is gone and no new network appears,
+  the place stays empty and the next new network counts. For a place of several unassigned networks, a new network counts as soon as one
+  of them is missing. If only “Don't switch automatically” networks are connected for longer than 60 s, the place (and the extras) is
+  forgotten (without switching), so returning counts again. A profile picked by hand while away from the remembered place applies to the
+  network you are on: the place is forgotten, so returning to it switches again. Time in standby does not count towards the 60 s
+  (PowerModeChanged/Resume, and a gap of more than 70 s between checks); a place network that is back but not yet confirmed does not count
+  as missing. While “on the go” (empty place), remembered networks that drop out are forgotten only after the 60 s as well. Once a network of the place decides by assignment, the place shrinks to it. Changing an
+  assignment switches only if it changes the result for the connected networks and brings the remembered place up to date
+  (NetworkProfiles.ChangeBindings – unless a network change is still pending; during a running 60 s grace it decides as if the missing
+  place were still there); while no counting network is connected
+  (none, or only “Don't switch automatically”), a change that affects the remembered place makes the next connection decide anew.
+  In the settings, a choice from the opened list applies at once; with the arrow keys in a closed list it applies on Enter or when the
+  field loses focus (no intermediate entries); the mouse wheel over a closed list scrolls the page; the rows are not rebuilt while a list
+  is open, and the focus returns to the same field. The tray tooltip shows the active profile.
+- Data volume per remote: the meter thread (WinDivert sniff handle) now also counts per flow (remote address, local port, remote port,
+  protocol); every connection that SnitchBox itself allowed (directly or after an alert) is mapped to its Network Monitor row
+  (ConnectionLog, up to 50,000 flows; when full, the tenth that has been idle longest is dropped, rows with current traffic are kept and
+  dropped rows take their flows with them; at most 65,536 new flows per one-second interval). New column “Data” with the totals, the
+  current rate as tooltip; service rows in the program list sum their remotes. Denied connections are not mapped (the meter would
+  otherwise count SnitchBox's own RST). Connections that were already open before SnitchBox started count only per program.
+- Network Monitor columns re-measured (Segoe UI 14, all 12 languages) so that everything fits at the default window size of 1280 px;
+  long headers end with “…” and a tooltip; shorter headers in es/pt/it/ru (“Veces”, “Última”, “Volte”, “Кол-во”, “Время”); data sizes
+  use at most five characters before the unit (“999.9 MB”, “12.3 GB”, “1000 GB”, “1.23 TB”).
+- Adversarial multi-agent review of both features (16 confirmed findings, all fixed – among them “don't switch” being overridden by the
+  profile for other networks, a manual choice being reset by unrelated edits, FIFO eviction of long-lived flows, and the column width at
+  the default window size), then six verification rounds of the fixes (simulators with day-in-the-life sequences and fuzzing against the real
+  code; 35 more findings fixed, among them precedence lost on edit, VPN,
+  transitional network or a brief drop-out counted as a network change, an always-on virtual adapter blocking later changes, a
+  “don't switch” network in between not counting as leaving, edits made offline or during the grace period, intermediate keyboard choices,
+  the mouse wheel changing a choice, network events in quick succession postponing the check indefinitely, the periodic check displacing
+  the second check, clipped cells and headers).
+
 ## Open
-- Data volume per remote, SNI evaluation with DoH, automatic profile switching per network, history across restarts.
+- SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

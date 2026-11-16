@@ -168,8 +168,8 @@
  "Remote": "Удаленный узел",
  "Port": "Порт",
  "Direction": "Направление",
- "Count": "Количество",
- "Last": "Последнее",
+ "Count": "Кол-во",
+ "Last": "Время",
  "Allow…": "Разрешить…",
  "Create a rule that allows the selected connection": "Создать правило, разрешающее выбранное подключение",
  "Deny…": "Запретить…",
@@ -313,5 +313,15 @@
  "Invalid signature – the file was modified or the certificate is not trusted": "Недействительная подпись – файл изменен или сертификат не является доверенным",
  "not signed": "без подписи",
  "could not be checked": "проверить не удалось",
- "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox запущен с переменными среды, через которые в SnitchBox можно загрузить чужой код:\n{0}\n\nЕсли вы не задавали их намеренно (например, для инструмента разработчика), это может быть атака – SnitchBox работает с правами администратора.\n\nЗапускайте SnitchBox через SnitchBoxStart.exe (меню «Пуск», автозапуск): средство запуска удаляет эти переменные."
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox запущен с переменными среды, через которые в SnitchBox можно загрузить чужой код:\n{0}\n\nЕсли вы не задавали их намеренно (например, для инструмента разработчика), это может быть атака – SnitchBox работает с правами администратора.\n\nЗапускайте SnitchBox через SnitchBoxStart.exe (меню «Пуск», автозапуск): средство запуска удаляет эти переменные.",
+ "  (connected)": "  (подключена)",
+ "Don't switch automatically": "Не переключать автоматически",
+ "Data": "Данные",
+ "Keep the current profile": "Оставить текущий профиль",
+ "No network is connected right now.": "Сейчас нет подключенной сети.",
+ "Other networks": "Другие сети",
+ "Profile per network": "Профиль для сети",
+ "Profile: {0}": "Профиль: {0}",
+ "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "При подключении к назначенной сети SnitchBox переключает профиль. Переключать вручную по-прежнему можно; такой выбор действует до следующей смены сети.",
+ "Like other networks": "Как другие сети"
 }

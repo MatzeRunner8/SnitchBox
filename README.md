@@ -19,8 +19,9 @@ or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both nee
 - Modes: Alert Mode, Silent Mode “allow all” / “deny all”; network filter on/off (with a warning before turning it off or quitting)
 - Windows services in svchost.exe shown and ruled individually (e.g. deny telemetry “DiagTrack”, keep Windows Update)
 - Per-program rules: allow/deny, outgoing/incoming, hosts, domains, address ranges, local network, system DNS servers, ports, TCP/UDP, priority, lifetime, profiles
+- Profiles switch automatically per network (e.g. “Home” on your router, “On the go” everywhere else); a profile chosen by hand lasts until the next network change
 - Denying takes effect immediately: established connections that a rule change newly denies are cut (IPv4 and IPv6)
-- Network Monitor: every connection attempt per program and remote, data volume and current rate per program, total data rate, create a rule straight from a row
+- Network Monitor: every connection attempt per program and remote, data volume and current rate per program, data volume per remote (rate in a tooltip), total data rate, create a rule straight from a row
 - Subscribe to blocklists (.lsrules, hosts files, domain lists) with daily updates; import/export of .lsrules
 - Tray icon; starts at sign-in via Task Scheduler (no UAC prompt)
 - While nothing is being filtered (network filter off or driver not running), the tray and the taskbar show a red shield with a white cross

@@ -168,8 +168,8 @@
  "Remote": "Remoto",
  "Port": "Porta",
  "Direction": "Direção",
- "Count": "Contagem",
- "Last": "Última vez",
+ "Count": "Vezes",
+ "Last": "Última",
  "Allow…": "Permitir…",
  "Create a rule that allows the selected connection": "Criar uma regra que permita a conexão selecionada",
  "Deny…": "Bloquear…",
@@ -313,5 +313,15 @@
  "Invalid signature – the file was modified or the certificate is not trusted": "Assinatura inválida – o arquivo foi modificado ou o certificado não é confiável",
  "not signed": "não assinado",
  "could not be checked": "não foi possível verificar",
- "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "O SnitchBox foi iniciado com variáveis de ambiente que permitem carregar código estranho no SnitchBox:\n{0}\n\nSe você não as definiu de propósito (p. ex. para uma ferramenta de desenvolvimento), pode ser um ataque – o SnitchBox é executado com direitos de administrador.\n\nInicie o SnitchBox pelo SnitchBoxStart.exe (menu Iniciar, inicialização automática): o inicializador remove essas variáveis."
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "O SnitchBox foi iniciado com variáveis de ambiente que permitem carregar código estranho no SnitchBox:\n{0}\n\nSe você não as definiu de propósito (p. ex. para uma ferramenta de desenvolvimento), pode ser um ataque – o SnitchBox é executado com direitos de administrador.\n\nInicie o SnitchBox pelo SnitchBoxStart.exe (menu Iniciar, inicialização automática): o inicializador remove essas variáveis.",
+ "  (connected)": "  (conectada)",
+ "Don't switch automatically": "Não trocar automaticamente",
+ "Data": "Dados",
+ "Keep the current profile": "Manter o perfil atual",
+ "No network is connected right now.": "Nenhuma rede está conectada no momento.",
+ "Other networks": "Outras redes",
+ "Profile per network": "Perfil por rede",
+ "Profile: {0}": "Perfil: {0}",
+ "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "Quando você se conecta a uma rede atribuída, o SnitchBox troca o perfil. Você ainda pode trocar manualmente; essa escolha vale até a próxima troca de rede.",
+ "Like other networks": "Como as outras redes"
 }

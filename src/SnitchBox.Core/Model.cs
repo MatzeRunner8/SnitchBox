@@ -137,6 +137,20 @@ public sealed class Settings
     public bool MonitorIncoming { get; set; } = true;
     public string? ActiveProfile { get; set; }
     public List<string> Profiles { get; set; } = [];
+    /// <summary>Profil je Netzwerk: beim Verbinden mit einem dieser Netzwerke schaltet SnitchBox das Profil um
+    /// (Reihenfolge = Vorrang, falls mehrere zugleich verbunden sind; eine geänderte Zuordnung behält ihre Stelle).</summary>
+    public List<NetworkProfile> NetworkProfiles { get; set; } = [];
+    /// <summary>In Netzwerken ohne Zuordnung auf <see cref="UnknownNetworkProfile"/> umschalten (sonst das Profil lassen).</summary>
+    public bool SwitchOnUnknownNetwork { get; set; }
+    /// <summary>Profil für Netzwerke ohne Zuordnung; null = „Kein Profil“.</summary>
+    public string? UnknownNetworkProfile { get; set; }
+    /// <summary>Kennungen der Netze, die beim letzten Netzwerkwechsel den Ausschlag gaben (<see cref="NetworkProfiles.Observe"/>):
+    /// Nach einem Neustart von SnitchBox im selben Netz bleibt ein von Hand gewähltes Profil so erhalten.</summary>
+    public List<string> NetworkPlace { get => _networkPlace; set => _networkPlace = value ?? []; }
+    private List<string> _networkPlace = [];
+    /// <summary>Netze, die danach nur dazukamen (VPN, zweiter Adapter) – sie lösen keinen Wechsel aus.</summary>
+    public List<string> NetworkExtras { get => _networkExtras; set => _networkExtras = value ?? []; }
+    private List<string> _networkExtras = [];
     public bool BlocklistAutoUpdate { get; set; } = true;
     /// <summary>Oberflächensprache (zweibuchstabiger Code); null = wie Windows.</summary>
     public string? Language { get; set; }

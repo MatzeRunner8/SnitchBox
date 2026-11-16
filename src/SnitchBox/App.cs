@@ -51,6 +51,19 @@ public sealed class App : Application
 
     internal static FirewallEngine Engine { get; private set; } = null!;
     internal static FilterService Service { get; private set; } = null!;
+    /// <summary>Schaltet das Profil je Netzwerk um (Einstellungen → Profile).</summary>
+    internal static NetworkProfileWatcher? NetworkWatcher { get; private set; }
+
+    /// <summary>Profil von Hand wählen (Kopfzeile, Infobereich, neues Profil); siehe <see cref="NetworkProfiles.ChooseByHand"/>.</summary>
+    internal static void ChooseProfileByHand(string? profile, Action<Store>? alsoChange = null)
+    {
+        var connected = NetworkWatcher?.Current ?? [];
+        Engine.Mutate(s =>
+        {
+            alsoChange?.Invoke(s);
+            NetworkProfiles.ChooseByHand(connected, s.Settings, profile);
+        });
+    }
     internal static bool DemoMode { get; private set; }
 
     /// <summary>Wird gerade gefiltert? Nein, wenn der Netzwerkfilter aus ist oder der Treiber nicht läuft (im Demo-Modus
@@ -170,6 +183,7 @@ public sealed class App : Application
         _tray = new Tray(ShowMain, ShowAlert, QuitAsked);
         Engine.AlertsChanged += () => Dispatcher.BeginInvoke(UpdateAlert);
         Engine.RulesChanged += () => Dispatcher.BeginInvoke(() => _tray?.Refresh());
+        NetworkWatcher = new NetworkProfileWatcher(Engine);
 
         // Stündlich: Blocklisten, die älter als ein Tag sind, neu laden.
         _housekeeping = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
@@ -357,6 +371,7 @@ public sealed class App : Application
         _housekeeping?.Stop();
         _demo?.Stop();
         Service.Dispose();
+        NetworkWatcher?.Dispose();
         _tray?.Dispose();
         Log.Write("Beendet");
         Shutdown();
@@ -601,14 +616,15 @@ internal sealed class Tray : IDisposable
 
     private void Refresh(bool send)
     {
-        var (mode, on) = App.Engine.Read(s => (s.Settings.Mode, s.Settings.FilterEnabled));
+        var (mode, on, profile) = App.Engine.Read(s => (s.Settings.Mode, s.Settings.FilterEnabled, s.Settings.ActiveProfile));
         var waiting = App.Engine.Alerts.Count;
         var filtering = App.Filtering(on);
         _icon = filtering ? _iconOn : _iconOff;
         var state = !on ? Loc.T("Netzwerkfilter aus", "Network filter off")
             : !filtering ? Loc.T("Treiber läuft nicht – es wird nicht gefiltert", "Driver not running – nothing is filtered")
             : ModeTitle(mode);
-        _tip = App.Title + "\n" + state + (waiting > 0 ? "\n" + Loc.F("{0} offene Nachfragen", "{0} pending alerts", waiting) : "");
+        _tip = App.Title + "\n" + state + (profile != null ? "\n" + Loc.F("Profil: {0}", "Profile: {0}", profile) : "")
+               + (waiting > 0 ? "\n" + Loc.F("{0} offene Nachfragen", "{0} pending alerts", waiting) : "");
         if (_tip.Length > 127) _tip = _tip[..127];
         if (send) Send(1 /*NIM_MODIFY*/, 0x2 | 0x4);
     }
@@ -659,9 +675,9 @@ internal sealed class Tray : IDisposable
         if (settings.Profiles.Count > 0)
         {
             var profiles = new MenuItem { Header = Loc.T("Profil", "Profile") };
-            Item(profiles, Loc.T("Kein Profil", "No Profile"), () => App.Engine.Mutate(s => s.Settings.ActiveProfile = null), settings.ActiveProfile == null);
+            Item(profiles, Loc.T("Kein Profil", "No Profile"), () => App.ChooseProfileByHand(null), settings.ActiveProfile == null);
             foreach (var p in settings.Profiles)
-                Item(profiles, p, () => App.Engine.Mutate(s => s.Settings.ActiveProfile = p), settings.ActiveProfile == p);
+                Item(profiles, p, () => App.ChooseProfileByHand(p), settings.ActiveProfile == p);
             menu.Items.Add(profiles);
         }
         menu.Items.Add(new Separator());
@@ -769,6 +785,7 @@ internal sealed class Demo : IProcessLookup
         if (s.Host.Length > 0) engine.Hosts.Add(s.Host, [IpKey.From(ip)]);
         _port++;
         _ports[_port] = index;
+        _latest[index] = _port;
         var l4 = s.Tcp ? 20 : 8;
         var p = new byte[20 + l4];
         p[0] = 0x45; p[3] = (byte)p.Length; p[8] = 64; p[9] = (byte)(s.Tcp ? 6 : 17);
@@ -784,8 +801,16 @@ internal sealed class Demo : IProcessLookup
     {
         var allowed = engine.History.Snapshot().Where(r => r.Allowed == true).Select(r => r.ProcessPath).Distinct().ToList();
         engine.Traffic.Commit(allowed.Select(path => (path, (long)_random.Next(2_000, 900_000), (long)_random.Next(500, 60_000))), 1);
+        // Auch je Gegenstelle (die Engine ordnet nur Verbindungen zu, die sie selbst entschieden hat; verbotene bekommen nichts).
+        // Je Beispiel nur die jüngste Verbindung – sonst stiege die Menge mit jeder neuen Verbindung immer weiter.
+        engine.History.AddVolumes(Enumerable.Range(0, Samples.Length).Where(i => _latest[i] != 0).Select(i => (
+            new FlowId(SampleIps[i], _latest[i], Samples[i].Port, Samples[i].Tcp ? Packet.Tcp : Packet.Udp),
+            (long)_random.Next(0, 200_000), (long)_random.Next(0, 20_000))), 1);
     }
 
+    private static readonly IpKey[] SampleIps = Samples.Select(s => IpKey.From(System.Net.IPAddress.Parse(s.Ip))).ToArray();
+    // Lokaler Port der jüngsten Verbindung je Beispiel (0 = noch keine).
+    private readonly ushort[] _latest = new ushort[Samples.Length];
     private readonly Random _random = new();
     private DispatcherTimer? _trafficTimer;
 

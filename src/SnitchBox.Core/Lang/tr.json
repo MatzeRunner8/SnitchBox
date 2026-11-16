@@ -313,5 +313,15 @@
  "Invalid signature – the file was modified or the certificate is not trusted": "Geçersiz imza – dosya değiştirilmiş veya sertifika güvenilir değil",
  "not signed": "imzasız",
  "could not be checked": "denetlenemedi",
- "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox, SnitchBox'a yabancı kod yüklenmesine izin veren ortam değişkenleriyle başlatıldı:\n{0}\n\nBunları bilerek ayarlamadıysan (ör. bir geliştirici aracı için), bu bir saldırı olabilir – SnitchBox yönetici haklarıyla çalışır.\n\nSnitchBox'ı SnitchBoxStart.exe ile başlat (Başlat menüsü, otomatik başlatma): başlatıcı bu değişkenleri kaldırır."
+ "SnitchBox was started with environment variables that can load foreign code into SnitchBox:\n{0}\n\nIf you did not set them on purpose (e.g. for a developer tool), this may be an attack – SnitchBox runs with administrator rights.\n\nStart SnitchBox via SnitchBoxStart.exe (Start menu, autostart): the starter removes these variables.": "SnitchBox, SnitchBox'a yabancı kod yüklenmesine izin veren ortam değişkenleriyle başlatıldı:\n{0}\n\nBunları bilerek ayarlamadıysan (ör. bir geliştirici aracı için), bu bir saldırı olabilir – SnitchBox yönetici haklarıyla çalışır.\n\nSnitchBox'ı SnitchBoxStart.exe ile başlat (Başlat menüsü, otomatik başlatma): başlatıcı bu değişkenleri kaldırır.",
+ "  (connected)": "  (bağlı)",
+ "Don't switch automatically": "Otomatik değiştirme",
+ "Data": "Veri",
+ "Keep the current profile": "Geçerli profili koru",
+ "No network is connected right now.": "Şu anda bağlı bir ağ yok.",
+ "Other networks": "Diğer ağlar",
+ "Profile per network": "Ağa göre profil",
+ "Profile: {0}": "Profil: {0}",
+ "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "Atanmış bir ağa bağlandığında SnitchBox profili değiştirir. Elle değiştirmeye devam edebilirsin; bu seçim bir sonraki ağ değişikliğine kadar geçerlidir.",
+ "Like other networks": "Diğer ağlar gibi"
 }

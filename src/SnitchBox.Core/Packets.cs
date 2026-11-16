@@ -92,10 +92,15 @@ public static class Packet
 
     /// <summary>Schnelle Vermessung für die Datenmengen: Gesamtlänge des IP-Pakets und, bei TCP/UDP, die Ports.
     /// Gibt 0 zurück, wenn am Anfang kein gültiges IP-Paket steht (dann lässt sich ein Stapel nicht weiter zerlegen).</summary>
-    public static int Measure(ReadOnlySpan<byte> p, out bool tcp, out bool counted, out ushort srcPort, out ushort dstPort)
+    public static int Measure(ReadOnlySpan<byte> p, out bool tcp, out bool counted, out ushort srcPort, out ushort dstPort) =>
+        Measure(p, out tcp, out counted, out srcPort, out dstPort, out _, out _);
+
+    /// <summary>Wie oben, dazu Absender- und Zieladresse (für die Datenmengen je Gegenstelle); bei ungültigem Paket default.</summary>
+    public static int Measure(ReadOnlySpan<byte> p, out bool tcp, out bool counted, out ushort srcPort, out ushort dstPort, out IpKey src, out IpKey dst)
     {
         tcp = counted = false;
         srcPort = dstPort = 0;
+        src = dst = default;
         if (p.Length < 20) return 0;
         int total, l4;
         byte proto;
@@ -106,6 +111,8 @@ public static class Packet
             l4 = (p[0] & 0xF) * 4;
             proto = p[9];
             if (l4 < 20 || total < l4) return 0;
+            src = IpKey.FromV4(p[12..]);
+            dst = IpKey.FromV4(p[16..]);
             // Folgefragmente haben keine Ports.
             if ((BinaryPrimitives.ReadUInt16BigEndian(p[6..]) & 0x1FFF) != 0) return total <= p.Length ? total : 0;
         }
@@ -115,6 +122,8 @@ public static class Packet
             total = 40 + BinaryPrimitives.ReadUInt16BigEndian(p[4..]);
             l4 = 40;
             proto = p[6];
+            src = IpKey.FromV6(p[8..]);
+            dst = IpKey.FromV6(p[24..]);
         }
         else return 0;
         if (total > p.Length) return 0;

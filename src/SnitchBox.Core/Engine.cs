@@ -64,17 +64,110 @@ public sealed class ConnectionRecord
     public bool Pending { get; set; }
     public string Reason { get; set; } = "";
     public Connection Template { get; set; } = null!;
+    /// <summary>Empfangene/gesendete Bytes aller Verbindungen dieser Zeile seit dem Start (nur Verbindungen, die SnitchBox selbst
+    /// entschieden hat; ältere zählen nur beim Programm) und die Rate der letzten Sekunde.</summary>
+    public long Down { get; internal set; }
+    public long Up { get; internal set; }
+    public double RateDown { get; internal set; }
+    public double RateUp { get; internal set; }
+    /// <summary>Zuletzt entschieden oder Verkehr gezählt (Zählerstand von <see cref="ConnectionLog"/>): Zeilen mit laufenden
+    /// Verbindungen werden so nicht als „alt“ verdrängt.</summary>
+    internal long Activity { get; set; }
+}
+
+/// <summary>Eine Verbindung aus Sicht der Datenzählung: Gegenadresse, lokaler Port, Gegenport, Protokoll (6/17).</summary>
+public readonly record struct FlowId(IpKey Remote, ushort LocalPort, ushort RemotePort, byte Protocol)
+{
+    public static FlowId Of(FlowKey k) => new(k.Remote, k.LocalPort, k.RemotePort, k.Protocol);
 }
 
 /// <summary>Verlauf für den Netzwerkmonitor; je Prozess und Gegenstelle eine Zeile.</summary>
 public sealed class ConnectionLog
 {
-    private const int Max = 4000;
+    public const int Max = 4000, MaxFlows = 50_000;
     private readonly Dictionary<(string, string, string, ushort, Proto, Direction), ConnectionRecord> _records = [];
     private readonly object _gate = new();
+    // Verbindung → Zeile, für die Datenmengen je Gegenstelle. Ab MaxFlows fallen die am längsten untätigen Verbindungen heraus.
+    private sealed class FlowEntry
+    {
+        public required ConnectionRecord Record;
+        public long Activity;
+    }
+    private readonly Dictionary<FlowId, FlowEntry> _flows = [];
+    // Zeilen mit einer Rate ungleich 0 (werden beim nächsten Abschnitt auf 0 gesetzt, wenn nichts mehr kommt).
+    private readonly HashSet<ConnectionRecord> _active = [];
+    // Steigt mit jeder Entscheidung und jedem Messabschnitt; ersetzt eine Uhrzeit beim Verdrängen untätiger Einträge.
+    private long _clock;
     public long Version { get; private set; }
+    /// <summary>Erhöht sich, wenn sich Datenmengen der Zeilen ändern (eigener Zähler: sonst würde die Verbindungsliste jede
+    /// Sekunde neu aufgebaut und verlöre Rollposition und Auswahl).</summary>
+    public long VolumeVersion { get; private set; }
 
-    internal void Add(Connection c, bool? allowed, string reason, DateTime now)
+    /// <summary>Wie <see cref="Add(Connection, bool?, string, DateTime)"/>; die Verbindungen <paramref name="flows"/> werden dieser Zeile
+    /// zugeordnet (Datenmengen je Gegenstelle).</summary>
+    internal void Add(Connection c, bool? allowed, string reason, DateTime now, IEnumerable<FlowKey> flows)
+    {
+        lock (_gate)
+        {
+            var r = Add(c, allowed, reason, now);
+            foreach (var f in flows)
+            {
+                var id = FlowId.Of(f);
+                if (_flows.TryGetValue(id, out var entry))
+                {
+                    entry.Record = r; // dieselben Ports später neu: gilt für die neue Verbindung
+                    entry.Activity = _clock;
+                    continue;
+                }
+                if (_flows.Count >= MaxFlows)
+                {
+                    // Gleich ein Zehntel der am längsten untätigen Verbindungen entfernen, damit das nicht bei jeder neuen anfällt.
+                    foreach (var old in _flows.OrderBy(p => p.Value.Activity).Take(MaxFlows / 10).Select(p => p.Key).ToList())
+                        _flows.Remove(old);
+                }
+                _flows[id] = new FlowEntry { Record = r, Activity = _clock };
+            }
+        }
+    }
+
+    /// <summary>Bytes eines Messabschnitts (je Verbindung) den Zeilen zuschreiben; Zeilen ohne Verkehr in diesem Abschnitt fallen auf Rate 0.</summary>
+    public void AddVolumes(IEnumerable<(FlowId Flow, long Down, long Up)> volumes, double seconds)
+    {
+        if (seconds <= 0) seconds = 1;
+        lock (_gate)
+        {
+            var changed = false;
+            foreach (var r in _active)
+            {
+                changed |= r.RateDown != 0 || r.RateUp != 0;
+                r.RateDown = r.RateUp = 0;
+            }
+            _active.Clear();
+            var clock = ++_clock;
+            foreach (var (flow, down, up) in volumes)
+            {
+                if ((down == 0 && up == 0) || !_flows.TryGetValue(flow, out var entry)) continue;
+                entry.Activity = clock;
+                var r = entry.Record;
+                r.Activity = clock;
+                r.Down += down;
+                r.Up += up;
+                r.RateDown += down / seconds;
+                r.RateUp += up / seconds;
+                _active.Add(r);
+                changed = true;
+            }
+            if (changed) VolumeVersion++;
+        }
+    }
+
+    /// <summary>Wie viele Verbindungen gerade einer Zeile zugeordnet sind (für Tests).</summary>
+    public int FlowCount
+    {
+        get { lock (_gate) return _flows.Count; }
+    }
+
+    internal ConnectionRecord Add(Connection c, bool? allowed, string reason, DateTime now)
     {
         lock (_gate)
         {
@@ -83,15 +176,24 @@ public sealed class ConnectionLog
             {
                 if (_records.Count >= Max)
                 {
-                    // Gleich ein Zehntel der ältesten Zeilen entfernen, damit das nicht bei jeder neuen Zeile anfällt.
-                    foreach (var old in _records.OrderBy(p => p.Value.LastSeen).Take(Max / 10).Select(p => p.Key).ToList())
-                        _records.Remove(old);
+                    // Gleich ein Zehntel der am längsten untätigen Zeilen entfernen, damit das nicht bei jeder neuen Zeile anfällt.
+                    // Ihre Verbindungen fallen mit heraus – sonst zählten sie weiter auf eine Zeile, die niemand mehr sieht.
+                    var removed = new HashSet<ConnectionRecord>();
+                    foreach (var old in _records.OrderBy(p => p.Value.Activity).Take(Max / 10).ToList())
+                    {
+                        _records.Remove(old.Key);
+                        removed.Add(old.Value);
+                    }
+                    foreach (var flow in _flows.Where(p => removed.Contains(p.Value.Record)).Select(p => p.Key).ToList())
+                        _flows.Remove(flow);
+                    _active.ExceptWith(removed);
                 }
                 _records[key] = r = new ConnectionRecord
                 {
                     ProcessPath = c.ProcessPath, Service = c.Service, Host = c.Host, Remote = c.Remote, Port = c.Port, Protocol = c.Protocol, Direction = c.Direction,
                 };
             }
+            r.Activity = ++_clock;
             r.LastSeen = now;
             r.Count++;
             r.Allowed = allowed;
@@ -99,6 +201,7 @@ public sealed class ConnectionLog
             r.Reason = reason;
             r.Template = c;
             Version++;
+            return r;
         }
     }
 
@@ -132,7 +235,14 @@ public sealed class ConnectionLog
 
     public void Clear()
     {
-        lock (_gate) { _records.Clear(); Version++; }
+        lock (_gate)
+        {
+            _records.Clear();
+            _flows.Clear();
+            _active.Clear();
+            Version++;
+            VolumeVersion++;
+        }
     }
 }
 
@@ -430,7 +540,8 @@ public sealed class FirewallEngine
                     if (d.Action == null && allow != null)
                         reason = allow == true ? Loc.T("Stiller Modus: alles erlauben", "Silent mode: allow all") : Loc.T("Stiller Modus: alles verbieten", "Silent mode: deny all");
                 }
-                History.Add(conn, allow, reason, now);
+                // Nur erlaubte Verbindungen zählen bei der Gegenstelle (bei verbotenen sähe der Zähler sonst das eigene RST).
+                History.Add(conn, allow, reason, now, allow == true ? [key] : []);
                 if (allow is { } a)
                 {
                     _flows[key] = new Flow { Allow = a, Generation = _generation, Expires = now + (tcp ? TcpTtl : UdpTtl) };
@@ -537,7 +648,7 @@ public sealed class FirewallEngine
                 inject.Add((rst, meta with { Outbound = false, Raw = 0 }));
         }
         _alerts.Remove(alert);
-        History.Add(alert.Connection, allow, reason, now);
+        History.Add(alert.Connection, allow, reason, now, allow ? alert.Keys : []);
     }
 
     /// <summary>Nach einer Regeländerung: offene Nachfragen, die jetzt eine Regel beantwortet, erledigen sich von selbst.</summary>

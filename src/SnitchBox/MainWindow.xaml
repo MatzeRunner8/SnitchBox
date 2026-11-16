@@ -179,7 +179,14 @@
                     <GridSplitter Grid.Row="1" Grid.Column="1" Width="8" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
                     <ListView x:Name="ConnectionList" Grid.Row="1" Grid.Column="2" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListView.View>
+                            <!-- Breiten gemessen (Segoe UI 14, Zellrand 6+6, Kopfrand 12+12): Sie passen zusammen mit 160 px für die
+                                 Gegenstelle in das Fenster in Standardgröße (1280). Ein zu langer Spaltenkopf endet mit „…“ und Tooltip. -->
                             <GridView>
+                                <GridView.ColumnHeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" ToolTip="{Binding}" TextTrimming="CharacterEllipsis"/>
+                                    </DataTemplate>
+                                </GridView.ColumnHeaderTemplate>
                                 <GridViewColumn Header="{l:L de='Zustand', en='State'}" Width="112">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
@@ -189,7 +196,13 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="{l:L de='Prozess', en='Process'}" Width="165" DisplayMemberBinding="{Binding Process}"/>
+                                <GridViewColumn Header="{l:L de='Prozess', en='Process'}" Width="106">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Process}" ToolTip="{Binding Process}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
                                 <GridViewColumn Header="{l:L de='Gegenstelle', en='Remote'}" Width="270">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
@@ -197,10 +210,17 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="{l:L de='Port', en='Port'}" Width="92" DisplayMemberBinding="{Binding PortText}"/>
-                                <GridViewColumn Header="{l:L de='Richtung', en='Direction'}" Width="122" DisplayMemberBinding="{Binding DirectionText}"/>
-                                <GridViewColumn Header="{l:L de='Anzahl', en='Count'}" Width="80" DisplayMemberBinding="{Binding Count}"/>
-                                <GridViewColumn Header="{l:L de='Zuletzt', en='Last'}" Width="95" DisplayMemberBinding="{Binding Last}"/>
+                                <GridViewColumn Header="{l:L de='Port', en='Port'}" Width="82" DisplayMemberBinding="{Binding PortText}"/>
+                                <GridViewColumn Header="{l:L de='Richtung', en='Direction'}" Width="116" DisplayMemberBinding="{Binding DirectionText}"/>
+                                <GridViewColumn Header="{l:L de='Anzahl', en='Count'}" Width="77" DisplayMemberBinding="{Binding Count}"/>
+                                <GridViewColumn Header="{l:L de='Daten', en='Data'}" Width="148">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding VolumeText}" ToolTip="{Binding VolumeTip}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="{l:L de='Zuletzt', en='Last'}" Width="80" DisplayMemberBinding="{Binding Last}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -277,6 +297,11 @@
                             <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Profil anlegen', en='Add Profile'}" Click="ProfileAdd_Click"/>
                             <Button Padding="12,5" Margin="0,0,6,0" Content="{l:L de='Aktives Profil löschen', en='Delete Active Profile'}" Click="ProfileDelete_Click"/>
                         </StackPanel>
+                        <TextBlock Text="{l:L de='Profil je Netzwerk', en='Profile per network'}" FontWeight="SemiBold" Margin="0,16,0,4"/>
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource Dim}" Margin="0,0,0,6"
+                                   Text="{l:L de='Verbindest du dich mit einem zugeordneten Netzwerk, schaltet SnitchBox das Profil um. Von Hand umschalten geht weiterhin; das gilt dann bis zum nächsten Netzwerkwechsel.', en='When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.'}"/>
+                        <!-- Je Netzwerk eine Zeile (verbundene und schon zugeordnete), darunter „Andere Netzwerke“; aufgebaut im Code. -->
+                        <StackPanel x:Name="NetworkProfilesPanel"/>
 
                         <TextBlock Style="{StaticResource Section}" Text="{l:L de='Netzwerkfilter', en='Network Filter'}"/>
                         <TextBlock x:Name="DriverText" TextWrapping="Wrap" Margin="0,0,0,8"/>

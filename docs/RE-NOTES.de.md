@@ -266,6 +266,62 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   eingehendes SYN hebt keine Vormerkung mehr auf; Stop wartet auf alle Threads, bevor es die WinDivert-Handles schließt.
 - build-windows.ps1 verschluckt keine Compiler-Meldungen des Starters mehr.
 
+## Build 30 – Profil je Netzwerk, Datenmengen je Gegenstelle
+- Profil je Netzwerk (Einstellungen → Profile, „Profil je Netzwerk“): Die verbundenen Netzwerke kommen aus der Netzwerkliste von Windows
+  (COM INetworkListManager, NLM_ENUM_NETWORK_CONNECTED – dieselben Namen und Netzwerkkennungen wie in den Windows-Einstellungen; Windows
+  erkennt ein Netz am Gateway wieder, die Kennung bleibt also beim nächsten Verbinden gleich). Je Netzwerk: „Wie andere Netzwerke“,
+  „Nicht automatisch wechseln“, „Kein Profil“ oder ein Profil; dazu eine Auswahl für alle anderen Netzwerke (Standard „Profil unverändert
+  lassen“). NetworkProfileWatcher hört auf NetworkChange (Adressen/Verfügbarkeit) und prüft 2 s nach dem letzten Ereignis (spätestens
+  5 s nach dem ersten eines Schubs), weitere 6 s später (Windows erkennt ein frisch verbundenes Netz oft erst dann), sobald ein neues Netz
+  lange genug verbunden ist, und alle 30 s, wenn sonst nichts ansteht; ein Generationszähler verwirft eine Prüfung, die ein neueres
+  Ereignis überholt hat. Es zählen nur Netze, die seit mindestens 5 s ohne Unterbrechung verbunden sind (StableNetworks): Beim Verbinden
+  meldet Windows zuerst ein Übergangsnetz („Netzwerkidentifizierung…“, „Nicht identifiziertes Netzwerk“, jedes Mal mit neuer Kennung),
+  das nicht als neues Netz gelten darf; ein Netz ohne Netzwerkprofil von Windows (Registry NetworkList\Profiles, also noch nicht
+  identifiziert – etwa eine Minute lang nach einem Neustart des Routers) zählt erst nach 90 s. Mehrere Netze zugleich (LAN an der
+  Dockingstation und WLAN, VPN): Netze mit „Nicht automatisch wechseln“ zählen nicht, dann gewinnt die älteste passende Zuordnung (eine
+  geänderte behält ihre Stelle), dann das Profil für andere Netzwerke.
+  Was als Netzwerkwechsel zählt (NetworkProfiles.Observe): SnitchBox merkt sich den „Ort“ (die Netze, die beim letzten Wechsel den
+  Ausschlag gaben, Settings.NetworkPlace) und Netze, die danach nur dazukamen (Settings.NetworkExtras, etwa ein VPN). Umgeschaltet wird,
+  wenn ein neu verbundenes Netz entscheidet (es ist zugeordnet und hat Vorrang, etwa ein Firmen-VPN), wenn ein neues Netz kommt, während
+  vom Ort keines mehr verbunden ist, oder wenn der Ort 60 s lang fehlt, während andere Netze verbunden bleiben. Netze, die nur kurz
+  wegfallen (Aufwachen, WLAN-Aussetzer, VPN verbindet neu), schalten nie um – ein von Hand gewähltes Profil gilt also, bis du wirklich ein
+  anderes Netz betrittst, auch über einen Neustart von SnitchBox hinweg. Zum Ort werden nur neu erschienene Netze oder das entscheidende
+  zugeordnete, nie schon vorher verbundene (ein dauerhaft verbundener virtueller Adapter von WSL/Hyper-V bleibt ein Extra); fehlt der Ort
+  und kommt kein neues Netz, bleibt er leer, und das nächste neue Netz zählt. Bei einem Ort aus mehreren nicht zugeordneten Netzen zählt
+  ein neues Netz, sobald eines davon fehlt. Sind länger als 60 s nur Netze mit „Nicht automatisch wechseln“ verbunden, werden Ort und
+  Extras vergessen (ohne umzuschalten), damit die Rückkehr wieder zählt. Ein Profil, das man von Hand wählt, während man nicht am
+  gemerkten Ort ist, gilt dem Netz, in dem man gerade ist: Der Ort wird vergessen, die Rückkehr schaltet wieder um. Zeit im Standby
+  zählt nicht zu den 60 s (PowerModeChanged/Resume und eine Lücke von über 70 s zwischen zwei Prüfungen); ein Netz des Orts, das wieder
+  da, aber noch nicht bestätigt ist, gilt nicht als fehlend. Im Zustand „unterwegs“ (leerer Ort) werden gemerkte Netze, die wegfallen,
+  ebenfalls erst nach den 60 s vergessen. Entscheidet ein Netz des Orts per Zuordnung, schrumpft der Ort auf
+  dieses. Eine geänderte Zuordnung schaltet nur um, wenn sie das Ergebnis für die verbundenen Netzwerke ändert, und zieht den gemerkten
+  Ort nach (NetworkProfiles.ChangeBindings – außer ein Netzwechsel steht noch aus; während einer laufenden 60-s-Frist entscheidet sie,
+  als wäre der fehlende Ort noch da); solange kein zählendes
+  Netz verbunden ist (keins oder nur „Nicht automatisch wechseln“), sorgt eine Änderung, die den
+  gemerkten Ort betrifft, dafür, dass beim nächsten Verbinden neu entschieden wird. In den Einstellungen gilt eine Auswahl aus der aufgeklappten Liste sofort, mit
+  den Pfeiltasten im zugeklappten Feld erst mit der Eingabetaste oder beim Verlassen des Feldes (keine Zwischenwerte); das Mausrad über
+  einem zugeklappten Feld rollt die Seite; solange eine Liste offen ist, werden die Zeilen nicht neu aufgebaut, und der Fokus kehrt auf
+  dasselbe Feld zurück. Der Tooltip im Infobereich zeigt das aktive Profil.
+- Datenmengen je Gegenstelle: Der Zähl-Thread (WinDivert-Sniff-Handle) zählt jetzt auch je Verbindung (Gegenadresse, lokaler Port,
+  Gegenport, Protokoll); jede Verbindung, die SnitchBox selbst erlaubt hat (gleich oder nach einer Nachfrage), wird ihrer Zeile im
+  Netzwerkmonitor zugeordnet (ConnectionLog, bis 50.000 Verbindungen; ist es voll, fällt das am längsten untätige Zehntel heraus, Zeilen mit
+  laufendem Verkehr bleiben, verdrängte Zeilen nehmen ihre Verbindungen mit; höchstens 65.536 neue Verbindungen je Sekundenabschnitt).
+  Neue Spalte „Daten“ mit den Summen, die aktuelle Rate als Tooltip; Dienst-Zeilen in der Programmliste summieren ihre Gegenstellen.
+  Verbotene Verbindungen werden nicht zugeordnet (sonst zählte der Zähler das eigene RST). Verbindungen, die schon vor dem Start von
+  SnitchBox bestanden, zählen nur beim Programm.
+- Spalten des Netzwerkmonitors neu vermessen (Segoe UI 14, alle 12 Sprachen), damit bei Standardgröße des Fensters (1280 px) alles
+  hineinpasst; zu lange Spaltenköpfe enden mit „…“ und Tooltip; kürzere Köpfe in es/pt/it/ru („Veces“, „Última“, „Volte“, „Кол-во“, „Время“);
+  Datenmengen mit höchstens fünf Zeichen vor der Einheit („999,9 MB“, „12,3 GB“, „1000 GB“, „1,23 TB“).
+- Mehragenten-Prüfung beider Funktionen (16 bestätigte Befunde, alle behoben – darunter „Nicht automatisch wechseln“, das vom Profil für
+  andere Netzwerke übergangen wurde, eine Wahl von Hand, die unbeteiligte Änderungen zurücksetzten, FIFO-Verdrängung langlebiger
+  Verbindungen und die Spaltenbreite bei Standardgröße des Fensters), danach sechs Prüfrunden der Korrekturen (Simulatoren mit
+  Tagesabläufen und Fuzzing gegen den echten Code; 35 weitere Befunde
+  behoben, darunter: Vorrang ging beim Ändern verloren, VPN, Übergangsnetz oder kurzer Aussetzer zählte als Netzwechsel, ein dauerhaft
+  verbundener virtueller Adapter verhinderte spätere Wechsel, ein „Nicht wechseln“-Netz dazwischen zählte nicht als Verlassen,
+  Änderungen ohne Netz oder während der Frist, Zwischenwerte bei Tastaturauswahl, Mausrad änderte
+  die Auswahl, Netzwerkereignisse in schneller Folge schoben die Prüfung beliebig auf, die 30-s-Prüfung verdrängte die zweite Prüfung,
+  abgeschnittene Zellen und Köpfe).
+
 ## Offen
-- Datenmengen je Gegenstelle, SNI-Auswertung bei DoH, Profile automatisch je Netzwerk, Verlauf über Neustarts.
+- SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

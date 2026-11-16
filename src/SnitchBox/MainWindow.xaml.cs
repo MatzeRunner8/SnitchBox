@@ -110,10 +110,15 @@ internal static class Ui
         catch { return null; }
     }
 
+    // Höchstens fünf Zeichen vor der Einheit (die Grenzen liegen dort, wo die Rundung in die nächste Stufe springt), damit die
+    // Spalte „Daten“ des Netzwerkmonitors reicht.
     public static string Size(long bytes) => bytes switch
     {
-        >= 1_000_000_000 => $"{bytes / 1_000_000_000.0:0.00} GB",
-        >= 1_000_000 => $"{bytes / 1_000_000.0:0.0} MB",
+        >= 999_500_000_000 => $"{bytes / 1_000_000_000_000.0:0.00} TB",
+        >= 99_950_000_000 => $"{bytes / 1_000_000_000.0:0} GB",
+        >= 9_995_000_000 => $"{bytes / 1_000_000_000.0:0.0} GB",
+        >= 999_950_000 => $"{bytes / 1_000_000_000.0:0.00} GB",
+        >= 999_950 => $"{bytes / 1_000_000.0:0.0} MB",
         >= 1_000 => $"{bytes / 1_000.0:0} kB",
         _ => $"{bytes} B",
     };
@@ -179,8 +184,21 @@ internal sealed class ProcessRow : INotifyPropertyChanged
     }
 }
 
-internal sealed class ConnectionRow(ConnectionRecord record)
+internal sealed class ConnectionRow(ConnectionRecord record) : INotifyPropertyChanged
 {
+    /// <summary>Datenmenge dieser Gegenstelle (die aktuelle Rate steht im Tooltip, sonst würde die Spalte zu breit); leer, solange
+    /// nichts gezählt wurde.</summary>
+    public string VolumeText => Record.Down == 0 && Record.Up == 0 ? "" : $"↓{Ui.Size(Record.Down)} ↑{Ui.Size(Record.Up)}";
+    public string? VolumeTip => Record.Down == 0 && Record.Up == 0 ? null
+        : Ui.Volume("↓", Record.Down, Record.RateDown) + "\n" + Ui.Volume("↑", Record.Up, Record.RateUp);
+    public event PropertyChangedEventHandler? PropertyChanged;
+    /// <summary>Neue Datenmengen anzeigen, ohne die Liste neu aufzubauen (das verlöre Auswahl und Rollposition).</summary>
+    public void RefreshVolume()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VolumeText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VolumeTip)));
+    }
+
     private ConnectionRecord r => Record;
     public ConnectionRecord Record { get; } = record;
     public string StateText => r.Allowed switch
@@ -223,7 +241,7 @@ public partial class MainWindow : Window
     private readonly List<double> _down = [], _up = [];
     private bool _loading, _reloadQueued;
     private readonly ObservableCollection<ProcessRow> _processRows = [];
-    private long _historyVersion = -1, _trafficVersion = -1, _lastRx = -1, _lastTx;
+    private long _historyVersion = -1, _trafficVersion = -1, _volumeVersion = -1, _lastRx = -1, _lastTx;
     private string? _selectedProcess;
     // Die Abfrage der Aufgabenplanung startet ein Hilfsprogramm; deshalb nur einmal je Fenster.
     private bool? _autostart;
@@ -253,9 +271,12 @@ public partial class MainWindow : Window
         FitColumn(ConnectionList, 2, 160);
         FitColumn(BlocklistList, 4, 200);
         App.Engine.RulesChanged += OnRulesChanged;
+        if (App.NetworkWatcher != null) App.NetworkWatcher.Checked += OnNetworksChecked;
         Closed += (_, _) =>
         {
             App.Engine.RulesChanged -= OnRulesChanged;
+            if (App.NetworkWatcher != null) App.NetworkWatcher.Checked -= OnNetworksChecked;
+            CommitNetworkChoice(); // eine gerade erst getroffene Auswahl gilt auch, wenn das Fenster gleich zugeht
             _timer.Stop();
         };
         _timer.Tick += (_, _) => Tick();
@@ -277,6 +298,10 @@ public partial class MainWindow : Window
         list.SizeChanged += (_, _) => Apply();
         list.Loaded += (_, _) => Apply();
     }
+
+    /// <summary>Nach jeder Netzwerkprüfung; neu aufgebaut wird nur, wenn sich etwas Sichtbares geändert hat (siehe
+    /// <see cref="ReloadNetworkProfiles"/>).</summary>
+    private void OnNetworksChecked(IReadOnlyList<ConnectedNetwork> connected) => Dispatcher.BeginInvoke(ReloadNetworkProfiles);
 
     private void OnRulesChanged()
     {
@@ -338,7 +363,7 @@ public partial class MainWindow : Window
     {
         if (_loading || ProfileBox.SelectedIndex < 0) return;
         var profile = ProfileBox.SelectedIndex == 0 ? null : ProfileBox.SelectedItem as string;
-        App.Engine.Mutate(s => s.Settings.ActiveProfile = profile);
+        App.ChooseProfileByHand(profile);
     }
 
     private void Nav_Checked(object sender, RoutedEventArgs e)
@@ -349,7 +374,7 @@ public partial class MainWindow : Window
 
     private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (e.OriginalSource == Tabs && Tabs.SelectedIndex == 1) { _historyVersion = _trafficVersion = -1; Tick(); }
+        if (e.OriginalSource == Tabs && Tabs.SelectedIndex == 1) { _historyVersion = _trafficVersion = _volumeVersion = -1; Tick(); }
     }
 
     // ---------------------------------------------------------------- Regeln
@@ -559,12 +584,17 @@ public partial class MainWindow : Window
         SampleTraffic();
         if (Tabs.SelectedIndex != 1) return;
         DrawChart();
-        long history = App.Engine.History.Version, traffic = App.Engine.Traffic.Version;
-        if (history == _historyVersion && traffic == _trafficVersion) return;
+        long history = App.Engine.History.Version, traffic = App.Engine.Traffic.Version, volume = App.Engine.History.VolumeVersion;
+        if (history == _historyVersion && traffic == _trafficVersion && volume == _volumeVersion) return;
         var connectionsChanged = history != _historyVersion;
+        var volumesChanged = volume != _volumeVersion;
         _historyVersion = history;
         _trafficVersion = traffic;
+        _volumeVersion = volume;
         ReloadMonitor(connectionsChanged);
+        // Neu aufgebaute Zeilen zeigen die Datenmengen ohnehin; bestehende nur auffrischen.
+        if (volumesChanged && !connectionsChanged && ConnectionList.ItemsSource is IEnumerable<ConnectionRow> shown)
+            foreach (var row in shown) row.RefreshVolume();
     }
 
     private void SampleTraffic()
@@ -664,12 +694,22 @@ public partial class MainWindow : Window
         var serviceHosts = groups.Keys.Where(k => k.Contains('|')).Select(k => k[..k.IndexOf('|')]).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var row in _processRows.Skip(1))
         {
-            // Datenmengen zählt SnitchBox je Programm; ein einzelner Dienst hat daher keine eigenen Zahlen.
+            // Datenmengen: je Programm aus der Programmzählung; ein einzelner Windows-Dienst aus den Summen seiner Gegenstellen
+            // (nur Verbindungen, die SnitchBox entschieden hat).
             var isService = row.Path!.Contains('|');
             traffic.TryGetValue(row.Path!, out var t);
-            row.DownText = isService ? "" : Ui.Volume("↓", t.Down, t.RateDown);
-            row.UpText = isService ? "" : Ui.Volume("↑", t.Up, t.RateUp);
-            if (groups.TryGetValue(row.Path!, out var g))
+            groups.TryGetValue(row.Path!, out var g);
+            if (isService && g != null)
+            {
+                row.DownText = Ui.Volume("↓", g.Sum(r => r.Down), g.Sum(r => r.RateDown));
+                row.UpText = Ui.Volume("↑", g.Sum(r => r.Up), g.Sum(r => r.RateUp));
+            }
+            else
+            {
+                row.DownText = Ui.Volume("↓", t.Down, t.RateDown);
+                row.UpText = Ui.Volume("↑", t.Up, t.RateUp);
+            }
+            if (g != null)
             {
                 row.Summary = Loc.F("{0} Gegenstellen · zuletzt {1:HH:mm:ss}", "{0} remotes · last {1:HH:mm:ss}", g.Count, g.Max(r => r.LastSeen));
                 row.StateBrush = State(g);
@@ -799,6 +839,7 @@ public partial class MainWindow : Window
 
     private void ReloadSettings()
     {
+        ReloadNetworkProfiles();
         var s = App.Engine.Read(st => (st.Settings.MonitorIncoming, st.Settings.BlocklistAutoUpdate));
         IncomingBox.IsChecked = s.MonitorIncoming;
         AutoUpdateBox.IsChecked = s.BlocklistAutoUpdate;
@@ -900,26 +941,199 @@ public partial class MainWindow : Window
     {
         var name = ProfileNameBox.Text.Trim();
         if (name.Length == 0) return;
-        App.Engine.Mutate(s =>
+        App.ChooseProfileByHand(name, s =>
         {
             if (!s.Settings.Profiles.Contains(name)) s.Settings.Profiles.Add(name);
-            s.Settings.ActiveProfile = name;
         });
         ProfileNameBox.Text = "";
     }
 
     private void ProfileDelete_Click(object sender, RoutedEventArgs e)
     {
+        CommitNetworkChoice(); // eine noch wartende Zuordnung nicht erst nach dem Löschen (womöglich auf das gelöschte Profil) anwenden
         var active = App.Engine.Read(s => s.Settings.ActiveProfile);
         if (active == null) return;
         var count = App.Engine.Read(s => s.Rules.Count(r => r.Profile == active));
         if (MessageBox.Show(this, Loc.F("Profil „{0}“ samt seinen {1} Regeln löschen?", "Delete profile “{0}” and its {1} rules?", active, count),
                 App.Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        var connected = App.NetworkWatcher?.Current ?? [];
         App.Engine.Mutate(s =>
         {
             s.Rules.RemoveAll(r => r.Profile == active);
-            s.Settings.Profiles.Remove(active);
+            // Das Profil und seine Zuordnungen entfallen; ändert das die Wahl für das verbundene Netz, gilt die neue.
+            NetworkProfiles.ChangeBindings(connected, s.Settings, st =>
+            {
+                st.Profiles.Remove(active);
+                st.NetworkProfiles.RemoveAll(b => !b.NoSwitch && b.Profile == active);
+                if (st.UnknownNetworkProfile != active) return;
+                st.UnknownNetworkProfile = null;
+                st.SwitchOnUnknownNetwork = false;
+            });
+            // Hat inzwischen schon das Netzwerk ein anderes Profil gewählt, bleibt es; sonst gilt wieder, was zum Netz gehört
+            // (ohne verbundenes Netz beim nächsten Verbinden).
+            if (s.Settings.ActiveProfile != active) return;
             s.Settings.ActiveProfile = null;
+            if (!NetworkProfiles.HasRelevant(connected, s.Settings)) NetworkProfiles.Forget(s.Settings);
+            else if (NetworkProfiles.ChooseHere(connected, s.Settings) is (true, var profile, _)) s.Settings.ActiveProfile = profile;
+        });
+    }
+
+    /// <summary>Was zuletzt in „Profil je Netzwerk“ gezeichnet wurde – neu aufgebaut wird nur bei einer sichtbaren Änderung, sonst
+    /// schlösse jede Regeländerung ein gerade offenes Auswahlfeld.</summary>
+    private string _networkPanelShown = "";
+
+    /// <summary>Zeilen „Profil je Netzwerk“: erst die verbundenen Netzwerke, dann die übrigen schon zugeordneten, zuletzt „Andere
+    /// Netzwerke“. Je Netzwerk eine Auswahl: wie andere Netzwerke / nicht automatisch wechseln / kein Profil / ein Profil.</summary>
+    private void ReloadNetworkProfiles()
+    {
+        if (_pendingNetworkChoice != null) return; // die Auswahl des Nutzers nicht überzeichnen; CommitNetworkChoice holt es nach
+        var connected = App.NetworkWatcher?.Current ?? [];
+        var s = App.Engine.Read(st => (
+            Bindings: st.Settings.NetworkProfiles.Select(b => (b.NetworkId, b.Name, b.Profile, b.NoSwitch)).ToList(),
+            Profiles: st.Settings.Profiles.ToList(), st.Settings.SwitchOnUnknownNetwork, st.Settings.UnknownNetworkProfile));
+        var shown = string.Join("\n", Loc.Language, string.Join("|", connected.Select(c => c.Id + "=" + c.Name)), string.Join("|", s.Bindings),
+            string.Join("|", s.Profiles), s.SwitchOnUnknownNetwork, s.UnknownNetworkProfile);
+        if (shown == _networkPanelShown) return;
+        // Eine gerade aufgeklappte Liste nicht unter dem Nutzer wegziehen; DropDownClosed holt den Neuaufbau nach.
+        if (NetworkProfilesPanel.Children.OfType<StackPanel>().SelectMany(l => l.Children.OfType<ComboBox>()).Any(c => c.IsDropDownOpen)) return;
+        _networkPanelShown = shown;
+
+        var rows = connected.Select(c => (c.Id, c.Name, Connected: true)).ToList();
+        foreach (var b in s.Bindings)
+            if (!rows.Any(r => r.Id.Equals(b.NetworkId, StringComparison.OrdinalIgnoreCase))) rows.Add((b.NetworkId, b.Name, false));
+
+        ComboBox Choice(IEnumerable<string> fixedItems, int selected, object tag)
+        {
+            // 265: Platz für den längsten festen Eintrag („Ne pas changer automatiquement“, gemessen mit Segoe UI 14).
+            var combo = new ComboBox { Width = 265, VerticalAlignment = VerticalAlignment.Center, Tag = tag };
+            foreach (var item in fixedItems) combo.Items.Add(item);
+            combo.Items.Add(Loc.T("Kein Profil", "No Profile"));
+            foreach (var p in s.Profiles) combo.Items.Add(p);
+            combo.SelectedIndex = selected;
+            WireNetworkChoice(combo);
+            return combo;
+        }
+        // Index in der Auswahl: nach den festen Einträgen „Kein Profil“, dann die Profile. Ein unbekanntes Profil gibt den ersten Eintrag.
+        int IndexOf(string? profile, int fixedCount) =>
+            profile == null ? fixedCount : s.Profiles.IndexOf(profile) is >= 0 and var i ? fixedCount + 1 + i : 0;
+        StackPanel Line(string label, string? tooltip, ComboBox combo)
+        {
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+            line.Children.Add(new TextBlock { Text = label, ToolTip = tooltip, Width = 330, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
+            line.Children.Add(combo);
+            return line;
+        }
+
+        // Hatte eine der Auswahlen den Fokus, bekommt ihn die neue an derselben Stelle wieder – auch den logischen Fokus eines gerade
+        // inaktiven Fensters (nach dem Zurückwechseln steht er sonst auf dem Fenster selbst).
+        var logical = FocusManager.GetFocusedElement(this) as DependencyObject;
+        var focused = NetworkProfilesPanel.Children.OfType<StackPanel>().SelectMany(l => l.Children.OfType<ComboBox>())
+            .FirstOrDefault(c => c.IsKeyboardFocusWithin || (logical != null && (logical == c || c.IsAncestorOf(logical))))?.Tag;
+        NetworkProfilesPanel.Children.Clear();
+        if (connected.Count == 0)
+            NetworkProfilesPanel.Children.Add(new TextBlock { Text = Loc.T("Gerade ist kein Netzwerk verbunden.", "No network is connected right now."), Style = (Style)FindResource("Dim"), Margin = new Thickness(0, 2, 0, 2) });
+        string[] networkItems = [Loc.T("Wie andere Netzwerke", "Like other networks"), Loc.T("Nicht automatisch wechseln", "Don't switch automatically")];
+        ComboBox? refocus = null;
+        foreach (var row in rows)
+        {
+            var binding = s.Bindings.FirstOrDefault(b => b.NetworkId.Equals(row.Id, StringComparison.OrdinalIgnoreCase));
+            var selected = binding.NetworkId == null ? 0 : binding.NoSwitch ? 1 : IndexOf(binding.Profile, networkItems.Length);
+            var combo = Choice(networkItems, selected, (row.Id, row.Name));
+            combo.SelectionChanged += NetworkProfile_Changed; // erst nach dem Vorbelegen, sonst feuert es beim Aufbau
+            NetworkProfilesPanel.Children.Add(Line(row.Name + (row.Connected ? Loc.T("  (verbunden)", "  (connected)") : ""), row.Name, combo));
+            if (Equals(focused, combo.Tag)) refocus = combo;
+        }
+        var other = Choice([Loc.T("Profil unverändert lassen", "Keep the current profile")],
+            s.SwitchOnUnknownNetwork ? IndexOf(s.UnknownNetworkProfile, 1) : 0, "other");
+        other.SelectionChanged += UnknownNetworkProfile_Changed;
+        NetworkProfilesPanel.Children.Add(Line(Loc.T("Andere Netzwerke", "Other networks"), null, other));
+        if (Equals(focused, other.Tag)) refocus = other;
+        if (refocus == null) return;
+        if (IsActive) refocus.Focus();
+        else FocusManager.SetFocusedElement(this, refocus);
+    }
+
+    private (ComboBox Combo, Action<Settings> Change)? _pendingNetworkChoice;
+
+    /// <summary>Auswahl übernehmen: aus der aufgeklappten Liste (Klick, Eingabetaste, Alt+Pfeil) sofort; mit den Pfeiltasten oder
+    /// Buchstaben im zugeklappten Feld erst mit der Eingabetaste oder wenn das Feld den Fokus verliert – sonst schaltete jeder
+    /// Zwischenwert (etwa „Kein Profil“ auf dem Weg nach oben) das Profil um, auch mit Pausen (Sprachausgabe).</summary>
+    private void QueueNetworkChoice(ComboBox combo, Action<Settings> change)
+    {
+        if (_pendingNetworkChoice is { } pending && pending.Combo != combo) CommitNetworkChoice();
+        _pendingNetworkChoice = (combo, change);
+        if (combo.IsDropDownOpen || !combo.IsKeyboardFocusWithin || Keyboard.IsKeyDown(Key.Enter) || Keyboard.IsKeyDown(Key.F4)
+            || (Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+            CommitNetworkChoice();
+    }
+
+    /// <summary>Netzwerk-Auswahlfeld: übernimmt eine wartende Auswahl mit der Eingabetaste oder beim Verlassen; das Mausrad über dem
+    /// zugeklappten Feld rollt die Seite, statt die Auswahl zu ändern.</summary>
+    private void WireNetworkChoice(ComboBox combo)
+    {
+        combo.IsKeyboardFocusWithinChanged += (_, e) =>
+        {
+            if (e.NewValue is false && _pendingNetworkChoice?.Combo == combo) CommitNetworkChoice();
+        };
+        combo.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter && !combo.IsDropDownOpen && _pendingNetworkChoice?.Combo == combo) CommitNetworkChoice();
+        };
+        // Während die Liste offen war, ausgelassenen Neuaufbau nachholen.
+        combo.DropDownClosed += (_, _) => Dispatcher.BeginInvoke(ReloadNetworkProfiles);
+        combo.PreviewMouseWheel += (_, e) =>
+        {
+            if (combo.IsDropDownOpen || combo.Parent is not UIElement parent) return;
+            e.Handled = true;
+            parent.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = MouseWheelEvent, Source = combo });
+        };
+        combo.SetBinding(ToolTipProperty, new System.Windows.Data.Binding(nameof(ComboBox.SelectedItem)) { RelativeSource = System.Windows.Data.RelativeSource.Self });
+    }
+
+    private void CommitNetworkChoice()
+    {
+        if (_pendingNetworkChoice is not { } pending) return;
+        _pendingNetworkChoice = null;
+        _networkPanelShown = ""; // während der Wartezeit ausgelassenen Neuaufbau nachholen
+        ChangeNetworkProfiles(pending.Change);
+    }
+
+    /// <summary>Zuordnungen ändern; umgeschaltet wird nur, wenn das die verbundenen Netzwerke betrifft (ein von Hand gewähltes Profil
+    /// bleibt sonst bis zum nächsten Netzwerkwechsel).</summary>
+    private static void ChangeNetworkProfiles(Action<Settings> change)
+    {
+        var connected = App.NetworkWatcher?.Current ?? [];
+        string? switchedTo = null;
+        var switched = false;
+        App.Engine.Mutate(s =>
+        {
+            switched = NetworkProfiles.ChangeBindings(connected, s.Settings, change);
+            switchedTo = s.Settings.ActiveProfile;
+        });
+        if (switched) Log.Write($"Profil je Netzwerk: „{switchedTo ?? "Kein Profil"}“ nach geänderter Zuordnung");
+    }
+
+    private void NetworkProfile_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { Tag: ValueTuple<string, string> tag } combo || combo.SelectedIndex < 0) return;
+        var (id, name) = tag;
+        // 0 = wie andere Netzwerke (keine Zuordnung), 1 = nicht automatisch wechseln, 2 = kein Profil, ab 3 die Profile.
+        var index = combo.SelectedIndex;
+        var profile = index >= 3 ? combo.SelectedItem as string : null;
+        QueueNetworkChoice(combo, s => NetworkProfiles.SetBinding(s, id,
+            index == 0 ? null : new NetworkProfile { NetworkId = id, Name = name, Profile = profile, NoSwitch = index == 1 }));
+    }
+
+    private void UnknownNetworkProfile_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox combo || combo.SelectedIndex < 0) return;
+        // 0 = Profil unverändert lassen, 1 = kein Profil, ab 2 die Profile.
+        var index = combo.SelectedIndex;
+        var profile = index >= 2 ? combo.SelectedItem as string : null;
+        QueueNetworkChoice(combo, s =>
+        {
+            s.SwitchOnUnknownNetwork = index >= 1;
+            s.UnknownNetworkProfile = profile;
         });
     }
 

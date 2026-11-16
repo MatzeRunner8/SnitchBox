@@ -43,6 +43,9 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
     private Thread? _netThread, _sockThread, _meterThread, _commitThread;
     // Bytes je lokalem Port seit der letzten Auswertung (Down, Up); der Zähl-Thread füllt, der Auswerte-Thread leert.
     private Dictionary<(bool Tcp, ushort Port), (long Down, long Up)> _portBytes = [];
+    // Dasselbe je Verbindung (Gegenadresse, lokaler Port, Gegenport, Protokoll) für die Datenmengen je Gegenstelle.
+    private Dictionary<FlowId, (long Down, long Up)> _flowBytes = [];
+    private const int MaxFlowsPerInterval = 65536;
     private readonly object _meterGate = new();
     private volatile bool _stop;
     private FirewallEngine? _engine;
@@ -618,6 +621,7 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
         var buffer = new byte[2 * 1024 * 1024];
         var addrs = new WinDivertAddress[MaxBatch];
         var local = new Dictionary<(bool, ushort), (long Down, long Up)>();
+        var localFlows = new Dictionary<FlowId, (long Down, long Up)>();
         fixed (byte* p = buffer)
         fixed (WinDivertAddress* a = addrs)
         {
@@ -637,7 +641,7 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                 var offset = 0;
                 for (var i = 0; i < count && offset < span.Length; i++)
                 {
-                    var size = Packet.Measure(span[offset..], out var tcp, out var counted, out var src, out var dst);
+                    var size = Packet.Measure(span[offset..], out var tcp, out var counted, out var src, out var dst, out var srcIp, out var dstIp);
                     if (size == 0) break;
                     // Zum Trennen vorgemerkte Verbindung (IPv6 u. a.)? Nur dann das Paket genauer ansehen.
                     if (tcp && _killPending > 0)
@@ -651,6 +655,12 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                     var key = (tcp, outbound ? src : dst);
                     local.TryGetValue(key, out var b);
                     local[key] = outbound ? (b.Down, b.Up + size) : (b.Down + size, b.Up);
+                    // Je Verbindung (Gegenadresse, lokaler Port, Gegenport) für die Datenmengen je Gegenstelle.
+                    var flow = outbound
+                        ? new FlowId(dstIp, src, dst, tcp ? Packet.Tcp : Packet.Udp)
+                        : new FlowId(srcIp, dst, src, tcp ? Packet.Tcp : Packet.Udp);
+                    localFlows.TryGetValue(flow, out var fb);
+                    localFlows[flow] = outbound ? (fb.Down, fb.Up + size) : (fb.Down + size, fb.Up);
                 }
                 // Ergebnis des Stapels in den gemeinsamen Zwischenstand übernehmen.
                 lock (_meterGate)
@@ -660,8 +670,16 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                         _portBytes.TryGetValue(key, out var sum);
                         _portBytes[key] = (sum.Down + b.Down, sum.Up + b.Up);
                     }
+                    foreach (var (flow, b) in localFlows)
+                    {
+                        // Obergrenze je Abschnitt: Eine Flut aus vielen Absendern (gefälschte Adressen, Portscan) soll den Speicher
+                        // und die Auswertung nicht aufblähen; zugeordnet sind ohnehin höchstens ConnectionLog.MaxFlows Verbindungen.
+                        if (_flowBytes.TryGetValue(flow, out var sum)) _flowBytes[flow] = (sum.Down + b.Down, sum.Up + b.Up);
+                        else if (_flowBytes.Count < MaxFlowsPerInterval) _flowBytes[flow] = b;
+                    }
                 }
                 local.Clear();
+                localFlows.Clear();
             }
         }
     }
@@ -674,16 +692,21 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
         {
             Thread.Sleep(1000);
             Dictionary<(bool Tcp, ushort Port), (long Down, long Up)> taken;
+            Dictionary<FlowId, (long Down, long Up)> flows;
             lock (_meterGate)
             {
                 taken = _portBytes;
                 _portBytes = [];
+                flows = _flowBytes;
+                _flowBytes = [];
             }
             var now = Environment.TickCount64;
             var seconds = (now - last) / 1000.0;
             last = now;
             try
             {
+                // Je Gegenstelle: den Zeilen des Netzwerkmonitors zuschreiben (nur Verbindungen, die SnitchBox entschieden hat).
+                _engine?.History.AddVolumes(flows.Select(f => (f.Key, f.Value.Down, f.Value.Up)), seconds);
                 var perPath = new Dictionary<string, (long Down, long Up)>(StringComparer.OrdinalIgnoreCase);
                 // Verbindungen von vor dem Start kennt nur die Port-Tabelle von Windows; je Durchgang höchstens einmal holen.
                 Dictionary<ushort, int>? tcpTable = null, udpTable = null;

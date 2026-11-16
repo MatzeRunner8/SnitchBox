@@ -746,6 +746,404 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
         "IPv4: FIN zählt eine Folgenummer, IP- und TCP-Prüfsumme stimmen");
 }
 
+// ---- Profil automatisch je Netzwerk
+{
+    var npSettings = new Settings { Profiles = ["Zuhause", "Unterwegs"] };
+    npSettings.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{A}", Name = "FRITZ!Box", Profile = "Zuhause" });
+    npSettings.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{B}", Name = "Büro", Profile = null });
+    ConnectedNetwork Net(string id, string name = "x") => new(id, name);
+    Check(NetworkProfiles.Choose([Net("{a}", "FRITZ!Box")], npSettings) == (true, "Zuhause", "FRITZ!Box"), "zugeordnetes Netzwerk (Groß/klein egal) schaltet auf sein Profil");
+    Check(NetworkProfiles.Choose([Net("{B}", "Büro")], npSettings) == (true, null, "Büro"), "Zuordnung „Kein Profil“");
+    Check(!NetworkProfiles.Choose([Net("{C}", "Café")], npSettings).Switch && !NetworkProfiles.Choose([], npSettings).Switch,
+        "unbekanntes Netz ohne Profil für andere Netzwerke und kein Netz: nichts umschalten");
+    npSettings.SwitchOnUnknownNetwork = true;
+    npSettings.UnknownNetworkProfile = "Unterwegs";
+    Check(NetworkProfiles.Choose([Net("{C}", "Café")], npSettings) == (true, "Unterwegs", "Café"), "unbekanntes Netz: Profil für andere Netzwerke");
+    Check(NetworkProfiles.Choose([Net("{C}", "Café"), Net("{A}", "FRITZ!Box")], npSettings).Profile == "Zuhause", "eine Zuordnung geht dem Profil für andere Netzwerke vor");
+    npSettings.Profiles.Remove("Zuhause");
+    Check(NetworkProfiles.Choose([Net("{A}", "FRITZ!Box")], npSettings).Profile == "Unterwegs", "Zuordnung zu einem gelöschten Profil zählt nicht");
+    npSettings.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{D}", Name = "Hotspot", NoSwitch = true });
+    Check(NetworkProfiles.Choose([Net("{D}", "Hotspot")], npSettings) == (false, null, "Hotspot"),
+        "„Nicht automatisch wechseln“ gilt auch, wenn andere Netzwerke ein Profil haben");
+
+    // Zuordnungen ändern: nur umschalten, wenn es die verbundenen Netzwerke betrifft.
+    var cb = new Settings { Profiles = ["Zuhause", "Unterwegs", "Arbeit"], ActiveProfile = "Unterwegs" }; // von Hand gewählt
+    cb.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{A}", Name = "FRITZ!Box", Profile = "Zuhause" });
+    IReadOnlyList<ConnectedNetwork> home = [Net("{A}", "FRITZ!Box")];
+    Check(!NetworkProfiles.ChangeBindings(home, cb, s => s.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Hotel", Profile = "Arbeit" }))
+          && cb.ActiveProfile == "Unterwegs", "Zuordnung eines anderen Netzes lässt das von Hand gewählte Profil");
+    Check(!NetworkProfiles.ChangeBindings(home, cb, s => { s.SwitchOnUnknownNetwork = true; s.UnknownNetworkProfile = "Arbeit"; }) && cb.ActiveProfile == "Unterwegs",
+        "„Andere Netzwerke“ ändern lässt es bei zugeordnetem Netz ebenso");
+    Check(NetworkProfiles.ChangeBindings(home, cb, s => s.NetworkProfiles[0].Profile = "Arbeit") && cb.ActiveProfile == "Arbeit",
+        "neue Zuordnung des verbundenen Netzes schaltet sofort um");
+    cb.ActiveProfile = "Zuhause";
+    Check(!NetworkProfiles.ChangeBindings(home, cb, s => { s.NetworkProfiles[0].NoSwitch = true; s.NetworkProfiles[0].Profile = null; }) && cb.ActiveProfile == "Zuhause",
+        "„Nicht automatisch wechseln“ schaltet nicht auf das Profil für andere Netzwerke");
+    Check(NetworkProfiles.ChangeBindings(home, cb, s => s.NetworkProfiles.RemoveAt(0)) && cb.ActiveProfile == "Arbeit",
+        "„Wie andere Netzwerke“ übernimmt deren Profil");
+
+    // Mehrere Netze zugleich (LAN an der Dockingstation, Gast-WLAN, VPN).
+    var mn = new Settings { Profiles = ["Arbeit", "Unterwegs"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    mn.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "firma.local", Profile = "Arbeit" });
+    mn.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{GAST}", Name = "Firma-Gast", Profile = "Unterwegs" });
+    IReadOnlyList<ConnectedNetwork> docked = [Net("{GAST}", "Firma-Gast"), Net("{LAN}", "firma.local")];
+    Check(NetworkProfiles.Choose(docked, mn) == (true, "Arbeit", "firma.local"), "bei zwei zugeordneten Netzen gilt die ältere Zuordnung");
+    NetworkProfiles.SetBinding(mn, "{lan}", new NetworkProfile { NetworkId = "{LAN}", Name = "firma.local", Profile = null });
+    Check(mn.NetworkProfiles[0].NetworkId == "{LAN}" && mn.NetworkProfiles.Count == 2 && NetworkProfiles.Choose(docked, mn) == (true, null, "firma.local"),
+        "eine geänderte Zuordnung behält ihre Stelle (ihren Vorrang)");
+    NetworkProfiles.SetBinding(mn, "{GAST}", new NetworkProfile { NetworkId = "{GAST}", Name = "Firma-Gast", NoSwitch = true });
+    NetworkProfiles.SetBinding(mn, "{LAN}", new NetworkProfile { NetworkId = "{LAN}", Name = "firma.local", Profile = "Arbeit" });
+    Check(NetworkProfiles.Choose(docked, mn) == (true, "Arbeit", "firma.local"), "ein Netz mit „Nicht automatisch wechseln“ daneben zählt nicht");
+    Check(NetworkProfiles.Choose([Net("{GAST}", "Firma-Gast"), Net("{CAFE}", "Café")], mn) == (true, "Unterwegs", "Café"),
+        "… auch nicht neben einem unbekannten Netz: dort gilt das Profil für andere Netzwerke");
+    NetworkProfiles.SetBinding(mn, "{GAST}", null);
+    NetworkProfiles.SetBinding(mn, "{NEU}", new NetworkProfile { NetworkId = "{NEU}", Name = "Neu", Profile = "Arbeit" });
+    Check(mn.NetworkProfiles.Select(b => b.NetworkId).SequenceEqual(["{LAN}", "{NEU}"]), "„Wie andere Netzwerke“ entfernt die Zuordnung, eine neue kommt ans Ende");
+
+    // Netzwerkwechsel erkennen – so wie der Watcher: Observe, Stand übernehmen, bei einem Wechsel das Profil neu bestimmen.
+    bool See(Settings s, bool placeGone, params string[] ids)
+    {
+        var nets = ids.Select(id => Net(id, id)).ToList();
+        if (NetworkProfiles.Observe(nets, s, placeGone) is not { } seen) return false;
+        s.NetworkPlace = seen.Place;
+        s.NetworkExtras = seen.Extras;
+        if (!seen.Changed) return false;
+        if (NetworkProfiles.Choose(nets, s) is (true, var p, _)) s.ActiveProfile = p;
+        return true;
+    }
+    var ob = new Settings { Profiles = ["Zuhause", "Unterwegs", "Arbeit"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    ob.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    Check(See(ob, false, "{H}") && ob.ActiveProfile == "Zuhause", "erstes Netz: Profil bestimmen");
+    ob.ActiveProfile = "Arbeit"; // von Hand
+    Check(!See(ob, false, "{H}", "{VPN}") && !See(ob, false, "{VPN}") && !See(ob, false) && !See(ob, false, "{H}", "{VPN}") && ob.ActiveProfile == "Arbeit",
+        "VPN kommt dazu, das WLAN fällt kurz weg (nur VPN, dann gar kein Netz) und kommt wieder: die Wahl von Hand bleibt");
+    Check(See(ob, true, "{VPN}") && ob.ActiveProfile == "Unterwegs", "fehlt das Heimnetz länger, gilt das Profil für das, was noch verbunden ist");
+    Check(See(ob, false, "{H}", "{VPN}") && ob.ActiveProfile == "Zuhause", "zurück zu Hause: wieder „Zuhause“");
+
+    var cf = new Settings { Profiles = ["Unterwegs", "Arbeit"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    Check(See(cf, false, "{CAFE}") && cf.ActiveProfile == "Unterwegs", "unbekanntes Netz: Profil für andere Netzwerke");
+    cf.ActiveProfile = "Arbeit";
+    Check(!See(cf, false, "{CAFE}", "{VPN}") && !See(cf, false, "{VPN}") && cf.ActiveProfile == "Arbeit", "im Café: VPN dazu, WLAN kurz weg – kein Wechsel");
+    Check(See(cf, false, "{HOTEL}", "{VPN}") && cf.ActiveProfile == "Unterwegs", "neues unbekanntes Netz, während das VPN weiterläuft: Wechsel");
+    cf.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{WORKVPN}", Name = "Firmen-VPN", Profile = "Arbeit" });
+    Check(See(cf, false, "{HOTEL}", "{VPN}", "{WORKVPN}") && cf.ActiveProfile == "Arbeit", "ein neu verbundenes, zugeordnetes Netz (Firmen-VPN) schaltet sofort um");
+    Check(!See(cf, false, "{HOTEL}", "{VPN}") && cf.ActiveProfile == "Arbeit" && See(cf, true, "{HOTEL}", "{VPN}") && cf.ActiveProfile == "Unterwegs",
+        "trennt es sich, gilt nach der Frist wieder das Profil des Hotels");
+    cf.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{VPN}", Name = "VPN", NoSwitch = true });
+    Check(NetworkProfiles.Observe([Net("{VPN}")], cf, false) == null && NetworkProfiles.Observe([], cf, true) == null
+          && NetworkProfiles.Observe([Net("{VPN}")], cf, true) is { Changed: false, Place.Count: 0 },
+        "nur Netze mit „Nicht automatisch wechseln“ oder gar keins: nie ein Wechsel (länger nur solche: der Ort wird vergessen)");
+
+    // Heimnetz auf „Nicht automatisch wechseln“: zu Hause von Hand gewählt, am nächsten Morgen im Büro gilt wieder das Büroprofil.
+    var ns = new Settings { Profiles = ["Arbeit", "Zuhause"] };
+    ns.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Büro", Profile = "Arbeit" });
+    ns.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", NoSwitch = true });
+    See(ns, false, "{LAN}");
+    Check(!NetworkProfiles.PlaceConnected([Net("{H}")], ns) && NetworkProfiles.PlaceConnected([], ns), "nur das Heimnetz (ohne Wechsel) verbunden: der Ort fehlt; gar kein Netz: zählt nicht");
+    Check(!See(ns, false, "{H}") && ns.NetworkPlace.SequenceEqual(["{lan}"]), "kurz nur ein solches Netz (Hotspot im Aufzug): der Ort bleibt");
+    Check(!See(ns, true, "{H}") && ns.NetworkPlace.Count == 0 && ns.ActiveProfile == "Arbeit", "länger: der Ort wird vergessen, ohne umzuschalten");
+    ns.ActiveProfile = "Zuhause"; // von Hand
+    Check(See(ns, false, "{LAN}") && ns.ActiveProfile == "Arbeit", "zurück im Büro: wieder „Arbeit“");
+
+    // Dauerhaft verbundener Adapter (WSL/Hyper-V): wird nie zum Ort.
+    var pad = new Settings { Profiles = ["Zuhause", "Unterwegs", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    pad.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    See(pad, false, "{H}");
+    See(pad, false, "{H}", "{VETH}");
+    Check(See(pad, true, "{VETH}") && pad.ActiveProfile == "Unterwegs" && pad.NetworkPlace.Count == 0 && pad.NetworkExtras.SequenceEqual(["{veth}"]),
+        "Heimnetz lange weg, nur der Adapter bleibt: Profil für andere Netzwerke, der Ort ist leer");
+    Check(See(pad, false, "{CAFE}", "{VETH}") && pad.NetworkPlace.SequenceEqual(["{cafe}"]), "im Café ist das Café der Ort, nicht der Adapter");
+    pad.ActiveProfile = "Streng";
+    Check(!See(pad, false, "{CAFE}") && pad.ActiveProfile == "Streng", "WSL beendet: kein Wechsel");
+    pad.ActiveProfile = "Streng";
+    Check(See(pad, false, "{HOTEL}", "{VETH}") && pad.ActiveProfile == "Unterwegs", "nächster Tag im Hotel: Wechsel");
+    var tsv = new Settings { Profiles = ["Zuhause", "Unterwegs"] };
+    See(tsv, false, "{H}", "{TS}"); // erster Start: beide zugleich neu
+    NetworkProfiles.ChangeBindings([Net("{H}"), Net("{TS}")], tsv, s => { s.SwitchOnUnknownNetwork = true; s.UnknownNetworkProfile = "Unterwegs"; });
+    tsv.ActiveProfile = "Zuhause";
+    Check(See(tsv, false, "{TS}", "{CAFE}") && tsv.ActiveProfile == "Unterwegs",
+        "erster Start mit Dauer-VPN im Ort: im Café (Heimnetz fehlt, neues Netz) wird trotzdem gewechselt");
+
+    // „Unterwegs“ (Ort leer, Büro-WLAN als Extra), dann länger nur ein Netz mit „Nicht automatisch wechseln“: auch die Extras vergessen.
+    var aw = new Settings { Profiles = ["Arbeit", "Unterwegs", "Zuhause"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    aw.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    aw.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", NoSwitch = true });
+    See(aw, false, "{LAN}", "{W}");
+    See(aw, true, "{W}");
+    Check(aw.NetworkPlace.Count == 0 && aw.NetworkExtras.SequenceEqual(["{w}"]) && !NetworkProfiles.PlaceConnected([Net("{H}")], aw)
+          && !See(aw, true, "{H}") && aw.NetworkExtras.Count == 0, "unterwegs, dann länger nur das Heimnetz (ohne Wechsel): alles Gemerkte vergessen");
+    aw.ActiveProfile = "Zuhause";
+    Check(See(aw, false, "{W}") && aw.ActiveProfile == "Unterwegs", "am nächsten Tag im Büro-WLAN: wieder das Profil für andere Netzwerke");
+    var ow = new Settings { Profiles = ["Arbeit", "Unterwegs", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    ow.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    See(ow, false, "{LAN}", "{W}");
+    See(ow, true, "{W}");
+    NetworkProfiles.ChangeBindings([], ow, s => s.UnknownNetworkProfile = "Streng");
+    Check(ow.NetworkExtras.Count == 0 && See(ow, false, "{W}") && ow.ActiveProfile == "Streng",
+        "offline geändertes Profil für andere Netzwerke gilt auch bei leerem Ort beim nächsten Verbinden");
+
+    // Während der Frist geändert: entschieden wird, als wäre der fehlende Ort noch da.
+    var gd = new Settings { Profiles = ["Arbeit", "Unterwegs", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    gd.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    See(gd, false, "{LAN}", "{W}");
+    Check(!NetworkProfiles.ChangeBindings([Net("{W}")], gd, s => s.UnknownNetworkProfile = "Streng") && gd.ActiveProfile == "Arbeit"
+          && !See(gd, false, "{LAN}", "{W}") && gd.ActiveProfile == "Arbeit", "abgedockt „Andere Netzwerke“ geändert, wieder angedockt: weiter „Arbeit“");
+    Check(See(gd, true, "{W}") && gd.ActiveProfile == "Streng", "… läuft die Frist ab, gilt das geänderte Profil des WLANs");
+    var gv = new Settings { Profiles = ["Zuhause", "Arbeit"] };
+    gv.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    See(gv, false, "{H}");
+    See(gv, false, "{H}", "{VETH}");
+    Check(NetworkProfiles.ChangeBindings([Net("{VETH}")], gv, s => s.NetworkProfiles[0].Profile = "Arbeit") && gv.ActiveProfile == "Arbeit"
+          && !See(gv, false, "{H}", "{VETH}") && gv.ActiveProfile == "Arbeit", "WLAN-Aussetzer, dabei Heimnetz umgestellt: gilt sofort und bleibt");
+
+    // Ort aus mehreren Netzen vom ersten Start: eine Änderung verkleinert ihn nicht auf den Dauer-Adapter.
+    var fs2 = new Settings { Profiles = ["Zuhause", "Unterwegs"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    See(fs2, false, "{H}", "{VETH}");
+    NetworkProfiles.ChangeBindings([Net("{H}"), Net("{VETH}")], fs2, s => NetworkProfiles.SetBinding(s, "{H}", new NetworkProfile { NetworkId = "{H}", Name = "Heim", NoSwitch = true }));
+    fs2.ActiveProfile = "Zuhause";
+    Check(!See(fs2, false, "{H}", "{VETH}", "{VPN}") && fs2.ActiveProfile == "Zuhause", "Heimnetz ohne Wechsel, VPN kommt dazu: die Wahl von Hand bleibt");
+    Check(See(fs2, false, "{VETH}", "{CAFE}") && fs2.ActiveProfile == "Unterwegs", "… im Café wird gewechselt, obwohl der Adapter weiter verbunden ist");
+
+    // Von Hand gewählt, während man nicht am gemerkten Ort ist: die Wahl gilt dem Netz, in dem man gerade ist.
+    var bh = new Settings { Profiles = ["Arbeit", "Unterwegs", "Zuhause", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    bh.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    bh.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", NoSwitch = true });
+    See(bh, false, "{CAFE}");
+    NetworkProfiles.ChooseByHand([Net("{CAFE}")], bh, "Streng");
+    Check(bh.ActiveProfile == "Streng" && bh.NetworkPlace.SequenceEqual(["{cafe}"]), "am Ort von Hand gewählt: der Ort bleibt");
+    NetworkProfiles.ChooseByHand([Net("{H}")], bh, "Zuhause"); // kurz zu Hause (ohne Wechsel), dann zugeklappt
+    Check(bh.NetworkPlace.Count == 0 && See(bh, false, "{CAFE}") && bh.ActiveProfile == "Unterwegs",
+        "zu Hause nur kurz von Hand gewählt: am nächsten Tag im Café trotzdem das Profil für andere Netzwerke");
+    See(bh, false, "{LAN}", "{W}");
+    NetworkProfiles.ChooseByHand([Net("{W}")], bh, "Streng"); // abgedockt, Frist läuft
+    Check(!See(bh, true, "{W}") && bh.ActiveProfile == "Streng" && See(bh, false, "{LAN}", "{W}") && bh.ActiveProfile == "Arbeit",
+        "abgedockt von Hand gewählt: bleibt nach der Frist; wieder angedockt gilt „Arbeit“");
+
+    // „Unterwegs“ mit Dauer-Adapter: ein kurzer WLAN-Aussetzer zählt bei der Rückkehr nicht als neues Netz.
+    var ua = new Settings { Profiles = ["Arbeit", "Unterwegs", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    ua.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    See(ua, false, "{LAN}", "{W}", "{VETH}");
+    See(ua, true, "{W}", "{VETH}");
+    ua.ActiveProfile = "Streng";
+    Check(!NetworkProfiles.PlaceConnected([Net("{VETH}")], ua) && !See(ua, false, "{VETH}") && !See(ua, false, "{W}", "{VETH}") && ua.ActiveProfile == "Streng",
+        "unterwegs: WLAN kurz weg (nur der Adapter) und zurück – die Wahl von Hand bleibt");
+    Check(!See(ua, true, "{VETH}") && ua.NetworkExtras.SequenceEqual(["{veth}"]), "… fehlt es länger, wird es vergessen");
+
+    // Während der Frist zugeordnet: das jetzt entscheidende, verbundene Netz wird zum Ort.
+    var tt = new Settings { Profiles = ["Unterwegs", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    See(tt, false, "{CAFE}");
+    See(tt, false, "{CAFE}", "{T}");
+    Check(NetworkProfiles.ChangeBindings([Net("{T}")], tt, s => s.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{T}", Name = "Tethering", Profile = "Streng" }))
+          && tt.ActiveProfile == "Streng" && tt.NetworkPlace.SequenceEqual(["{t}"]) && See(tt, false, "{CAFE}") && tt.ActiveProfile == "Unterwegs",
+        "WLAN weg, Tethering zugeordnet: gilt sofort; WLAN zurück und Tethering ab: wieder das Café-Profil");
+
+    // Ort aus mehreren Netzen: ein gerade getrenntes Mitglied wird zugeordnet – seine Rückkehr schaltet um.
+    var mm = new Settings { Profiles = ["Arbeit", "Unterwegs"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    See(mm, false, "{LAN2}", "{W2}");
+    NetworkProfiles.ChangeBindings([Net("{W2}")], mm, s => s.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN2}", Name = "Cowork-LAN", Profile = "Arbeit" }));
+    Check(mm.NetworkPlace.SequenceEqual(["{w2}"]) && See(mm, false, "{LAN2}", "{W2}") && mm.ActiveProfile == "Arbeit", "Cowork-LAN abgedockt zugeordnet: beim Andocken „Arbeit“");
+
+    // Profil löschen während der Frist: der Rückfall zählt den fehlenden Ort mit.
+    var pd = new Settings { Profiles = ["Zuhause", "Unterwegs", "Streng"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    pd.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    See(pd, false, "{H}", "{VETH}");
+    Check(NetworkProfiles.ChooseHere([Net("{VETH}")], pd) == (true, "Zuhause", "{h}") && NetworkProfiles.Choose([Net("{VETH}")], pd).Profile == "Unterwegs",
+        "WLAN-Aussetzer: für den Rückfall gilt weiter das Heimnetz");
+
+    // Von Hand auf dem Hotspot gewählt, während „unterwegs“ nur Extras gemerkt sind: auch dann gilt die Wahl nur dem Hotspot.
+    var hh = new Settings { Profiles = ["Arbeit", "Unterwegs", "Zuhause"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    hh.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    hh.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{D}", Name = "Hotspot", NoSwitch = true });
+    See(hh, false, "{LAN}", "{W}");
+    See(hh, true, "{W}");
+    NetworkProfiles.ChooseByHand([Net("{D}")], hh, "Zuhause");
+    Check(hh.NetworkExtras.Count == 0 && See(hh, false, "{W}") && hh.ActiveProfile == "Unterwegs", "zurück im Büro-WLAN: wieder das Profil für andere Netzwerke");
+
+    // Eine Änderung während der Frist verschluckt den anstehenden Wechsel nicht.
+    var gr = new Settings { Profiles = ["Arbeit", "Unterwegs", "Gast"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    gr.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "Dock", Profile = "Arbeit" });
+    See(gr, false, "{LAN}", "{W}");
+    NetworkProfiles.ChangeBindings([Net("{W}")], gr, s => s.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{X}", Name = "X", Profile = "Gast" }));
+    Check(gr.NetworkPlace.SequenceEqual(["{lan}"]) && See(gr, true, "{W}") && gr.ActiveProfile == "Unterwegs",
+        "abgedockt, während der Frist eine Zuordnung geändert: nach der Frist trotzdem das Profil des WLANs");
+
+    // Noch nicht identifizierte Netze (nach einem Router-Neustart) zählen erst nach 90 s.
+    var su = new StableNetworks();
+    Check(su.Update([new ConnectedNetwork("{U}", "Nicht identifiziertes Netzwerk", false)], 0) is ({ Count: 0 }, 90_000)
+          && su.Update([new ConnectedNetwork("{U}", "x", false)], 60_000).Stable.Count == 0 && su.Update([new ConnectedNetwork("{U}", "x", false)], 90_000).Stable.Count == 1,
+        "ein nicht identifiziertes Netz zählt erst nach 90 s");
+
+    // Übergangsnetz beim Verbinden („Netzwerkidentifizierung…“): erst nach 5 s ohne Unterbrechung zählt ein Netz.
+    var sn = new StableNetworks();
+    var trs = new Settings { Profiles = ["Zuhause", "Arbeit"] };
+    trs.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    bool SeeAt(long ms, params string[] ids)
+    {
+        var (stable, _) = sn.Update(ids.Select(id => Net(id, id)).ToList(), ms);
+        return See(trs, false, stable.Select(n => n.Id).ToArray());
+    }
+    Check(sn.Update([Net("{H}")], 0) is ({ Count: 0 }, 5000) && !SeeAt(500, "{H}") && SeeAt(5500, "{H}") && trs.ActiveProfile == "Zuhause",
+        "ein Netz zählt erst, wenn es 5 s verbunden ist");
+    trs.ActiveProfile = "Arbeit"; // von Hand
+    Check(!SeeAt(20_000) && !SeeAt(22_000, "{IDENT}") && !SeeAt(24_000, "{H}") && !SeeAt(30_000, "{H}") && trs.ActiveProfile == "Arbeit",
+        "Aufwachen: kein Netz, kurz das Übergangsnetz, dann wieder das Heimnetz – die Wahl von Hand bleibt");
+
+    // Ein dauerhaft verbundener virtueller Adapter (WSL, Hyper-V) gerät beim ersten Start in den Ort; das darf später nicht hängen bleiben.
+    var ve2 = new Settings { Profiles = ["Zuhause", "Unterwegs"] };
+    Check(See(ve2, false, "{H}", "{VETH}") && ve2.NetworkPlace.Count == 2, "erste Prüfung ohne Zuordnung: beide Netze bilden den Ort");
+    NetworkProfiles.ChangeBindings([Net("{H}"), Net("{VETH}")], ve2, s =>
+    {
+        NetworkProfiles.SetBinding(s, "{H}", new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+        s.SwitchOnUnknownNetwork = true;
+        s.UnknownNetworkProfile = "Unterwegs";
+    });
+    Check(ve2.ActiveProfile == "Zuhause" && ve2.NetworkPlace.SequenceEqual(["{h}"]) && ve2.NetworkExtras.SequenceEqual(["{veth}"]),
+        "wird das Heimnetz zugeordnet, ist nur noch es der Ort, der Adapter ein Extra");
+    Check(See(ve2, false, "{CAFE}", "{VETH}") && ve2.ActiveProfile == "Unterwegs", "im Café (Adapter weiter verbunden) gilt das Profil für andere Netzwerke");
+    var ve3 = new Settings { Profiles = ["Zuhause", "Unterwegs"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    See(ve3, false, "{H}", "{VETH}");
+    ve3.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" }); // ohne ChangeBindings geändert
+    Check(NetworkProfiles.Observe([Net("{H}"), Net("{VETH}")], ve3, false) is { Changed: false } shrink && shrink.Place.SequenceEqual(["{h}"]),
+        "auch die Prüfung selbst verkleinert den Ort auf das entscheidende Netz");
+
+    // Zuordnungen am verbundenen Netz: der gemerkte Ort zieht nach, eine danach von Hand gewählte Einstellung bleibt.
+    var dk = new Settings { Profiles = ["Arbeit", "Unterwegs"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    dk.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "LAN", Profile = "Arbeit" });
+    See(dk, false, "{LAN}", "{WLAN}");
+    IReadOnlyList<ConnectedNetwork> dock = [Net("{LAN}"), Net("{WLAN}")];
+    Check(NetworkProfiles.ChangeBindings(dock, dk, s => s.NetworkProfiles[0].NoSwitch = true) && dk.ActiveProfile == "Unterwegs",
+        "LAN auf „Nicht automatisch wechseln“: es gilt das Profil des WLANs");
+    dk.ActiveProfile = "Arbeit";
+    Check(!See(dk, true, "{LAN}", "{WLAN}") && dk.ActiveProfile == "Arbeit", "… und die danach von Hand gewählte Einstellung bleibt, auch nach der Frist");
+    var gs = new Settings { Profiles = ["Arbeit", "Unterwegs"] };
+    gs.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{GAST}", Name = "Gast", NoSwitch = true });
+    gs.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{LAN}", Name = "LAN", Profile = "Arbeit" });
+    See(gs, false, "{GAST}", "{LAN}");
+    Check(NetworkProfiles.ChangeBindings([Net("{GAST}"), Net("{LAN}")], gs, s => NetworkProfiles.SetBinding(s, "{GAST}",
+              new NetworkProfile { NetworkId = "{GAST}", Name = "Gast", Profile = "Unterwegs" })) && gs.ActiveProfile == "Unterwegs",
+        "ein bisher ignoriertes Netz bekommt ein Profil (mit Vorrang): sofort umschalten");
+    gs.ActiveProfile = "Arbeit";
+    Check(!See(gs, false, "{GAST}", "{LAN}") && gs.ActiveProfile == "Arbeit", "… und die nächste Prüfung hält das nicht für ein neues Netz");
+    var pend = new Settings { Profiles = ["Zuhause", "Unterwegs"], SwitchOnUnknownNetwork = true, UnknownNetworkProfile = "Unterwegs" };
+    pend.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    See(pend, false, "{H}");
+    NetworkProfiles.ChangeBindings([Net("{CAFE}")], pend, s => s.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{X}", Name = "X", Profile = "Zuhause" }));
+    Check(pend.NetworkPlace.SequenceEqual(["{h}"]) && See(pend, false, "{CAFE}") && pend.ActiveProfile == "Unterwegs",
+        "steht ein Netzwechsel noch aus, verschluckt eine Änderung in den Einstellungen ihn nicht");
+
+    var off = new Settings { Profiles = ["Zuhause", "Arbeit"] };
+    off.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{H}", Name = "Heim", Profile = "Zuhause" });
+    See(off, false, "{H}");
+    Check(!NetworkProfiles.ChangeBindings([], off, s => s.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{X}", Name = "X", Profile = "Arbeit" }))
+          && off.NetworkPlace.SequenceEqual(["{h}"]), "eine unbeteiligte Änderung ohne Netz lässt den gemerkten Ort");
+    Check(!NetworkProfiles.ChangeBindings([], off, s => s.NetworkProfiles[0].Profile = "Arbeit") && off.NetworkPlace.Count == 0
+          && See(off, false, "{H}") && off.ActiveProfile == "Arbeit", "eine ohne Netz geänderte Zuordnung gilt beim nächsten Verbinden mit demselben Netz");
+    off.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{D}", Name = "Hotspot", NoSwitch = true });
+    Check(!NetworkProfiles.ChangeBindings([Net("{D}")], off, s => s.NetworkProfiles[0].Profile = "Zuhause") && off.NetworkPlace.Count == 0
+          && See(off, false, "{H}") && off.ActiveProfile == "Zuhause", "… ebenso, wenn nur ein Netz mit „Nicht automatisch wechseln“ verbunden war");
+
+    var npStore = new Store();
+    npStore.Settings.Profiles.Add("Zuhause");
+    npStore.Settings.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{A}", Name = "FRITZ!Box", Profile = "Zuhause" });
+    npStore.Settings.NetworkProfiles.Add(new NetworkProfile { NetworkId = "{D}", Name = "Hotspot", NoSwitch = true });
+    npStore.Settings.SwitchOnUnknownNetwork = true;
+    npStore.Settings.NetworkPlace = ["{a}"];
+    npStore.Settings.NetworkExtras = ["{vpn}"];
+    npStore.Save();
+    var npLoaded = Store.Load();
+    Check(npLoaded.Settings.NetworkProfiles[0].Profile == "Zuhause" && npLoaded.Settings.NetworkProfiles[0].Name == "FRITZ!Box" && npLoaded.Settings.SwitchOnUnknownNetwork
+          && npLoaded.Settings.NetworkProfiles[1].NoSwitch && !npLoaded.Settings.NetworkProfiles[0].NoSwitch && npLoaded.Settings.NetworkPlace.SequenceEqual(["{a}"]) && npLoaded.Settings.NetworkExtras.SequenceEqual(["{vpn}"]),
+        "Zuordnungen und zuletzt gesehene Netzwerke werden gespeichert und geladen");
+}
+
+// ---- Datenmengen je Gegenstelle
+{
+    var vp = new FakeProcs();
+    var vs = new Store();
+    vs.Rules.Add(new Rule { Action = RuleAction.Allow, Process = @"C:\A\dl.exe" });
+    var ve = new FirewallEngine(vs, vp, "boot", () => now);
+    vp.Ports[(true, 53000)] = new ProcessInfo(70, @"C:\A\dl.exe");
+    vp.Ports[(false, 53001)] = new ProcessInfo(70, @"C:\A\dl.exe");
+    var vm = new PacketMeta(true, false, 7, 0);
+    ve.Process(V4(6, "192.168.1.10", "93.184.216.34", TcpSyn(53000, 443, 1)), vm, out _);
+    ve.Process(V4(17, "192.168.1.10", "93.184.216.34", UdpSeg(53001, 443, [1])), vm, out _);
+    var volRemote = IpKey.From(IPAddress.Parse("93.184.216.34"));
+    ve.History.AddVolumes([(new FlowId(volRemote, 53000, 443, Packet.Tcp), 1000, 200), (new FlowId(volRemote, 53001, 443, Packet.Udp), 50, 5),
+                           (new FlowId(volRemote, 9, 9, Packet.Tcp), 999, 999)], 2);
+    var tcpRow = ve.History.Snapshot().Single(r => r.Protocol == Proto.Tcp);
+    var udpRow = ve.History.Snapshot().Single(r => r.Protocol == Proto.Udp);
+    Check(tcpRow.Down == 1000 && tcpRow.Up == 200 && tcpRow.RateDown == 500 && udpRow.Down == 50 && udpRow.Up == 5,
+        "Bytes landen bei ihrer Verbindungszeile (TCP und UDP), Rate je Sekunde, fremde Verbindung zählt nicht");
+    var volVersion = ve.History.VolumeVersion;
+    ve.History.AddVolumes([], 1);
+    Check(tcpRow.RateDown == 0 && tcpRow.Down == 1000 && ve.History.VolumeVersion > volVersion, "ohne Verkehr fällt die Rate auf 0, die Summe bleibt");
+    vp.Ports[(true, 53010)] = new ProcessInfo(71, @"C:\A\other.exe");
+    ve.Process(V4(6, "192.168.1.10", "198.51.100.7", TcpSyn(53010, 443, 1)), vm, out _);
+    Check(ve.History.FlowCount == 2, "eine offene Nachfrage ordnet noch nichts zu (erst die Antwort)");
+    ve.Resolve(ve.Alerts[0].Id, true, null);
+    ve.History.AddVolumes([(new FlowId(IpKey.From(IPAddress.Parse("198.51.100.7")), 53010, 443, Packet.Tcp), 77, 7)], 1);
+    Check(ve.History.Snapshot().Single(r => r.ProcessPath == @"C:\A\other.exe").Down == 77, "auch nach einer Nachfrage gehören die Bytes zur Zeile");
+    ve.Mutate(s => s.Rules.Add(new Rule { Action = RuleAction.Deny, Process = @"C:\A\bad.exe" }));
+    vp.Ports[(true, 53020)] = new ProcessInfo(72, @"C:\A\bad.exe");
+    ve.Process(V4(6, "192.168.1.10", "198.51.100.8", TcpSyn(53020, 443, 1)), vm, out _);
+    ve.History.AddVolumes([(new FlowId(IpKey.From(IPAddress.Parse("198.51.100.8")), 53020, 443, Packet.Tcp), 40, 0)], 1);
+    Check(ve.History.FlowCount == 3 && ve.History.Snapshot().Single(r => r.ProcessPath == @"C:\A\bad.exe").Down == 0,
+        "verbotene Verbindung wird nicht zugeordnet (das eigene RST zählt nicht als Daten)");
+    ve.History.Clear();
+    ve.History.AddVolumes([(new FlowId(volRemote, 53000, 443, Packet.Tcp), 10, 10)], 1);
+    Check(ve.History.Snapshot().Count == 0 && tcpRow.Down == 1000, "nach „Verlauf leeren“ zählt nichts mehr zu alten Zeilen");
+    var m4 = V4(6, "192.168.1.10", "93.184.216.34", TcpSyn(53000, 443, 1));
+    Check(Packet.Measure(m4, out _, out _, out var mp4s, out var mp4d, out var ma4s, out var ma4d) == m4.Length
+          && ma4s == IpKey.From(IPAddress.Parse("192.168.1.10")) && ma4d == volRemote && mp4s == 53000 && mp4d == 443, "Messung liefert Adressen und Ports (IPv4)");
+    var m6 = V6(17, "2001:db8::10", "2606:4700::1111", UdpSeg(5353, 53, [1, 2]));
+    Check(Packet.Measure(m6, out _, out _, out _, out _, out var ma6s, out var ma6d) == m6.Length
+          && ma6s == IpKey.From(IPAddress.Parse("2001:db8::10")) && ma6d == IpKey.From(IPAddress.Parse("2606:4700::1111")), "Messung liefert Adressen (IPv6)");
+}
+
+// ---- Datenmengen: verdrängt wird nach Aktivität, nicht nach Alter
+{
+    var fp = new FakeProcs();
+    var fs = new Store();
+    fs.Rules.Add(new Rule { Action = RuleAction.Allow, Process = @"C:\A\p2p.exe" });
+    var fe = new FirewallEngine(fs, fp, "boot", () => now);
+    var fm = new PacketMeta(true, false, 7, 0);
+    void Open(ushort port, string remote = "203.0.113.5")
+    {
+        fp.Ports[(false, port)] = new ProcessInfo(80, @"C:\A\p2p.exe");
+        fe.Process(V4(17, "192.168.1.10", remote, UdpSeg(port, 6881, [1])), fm, out _);
+    }
+    var peer = IpKey.From(IPAddress.Parse("203.0.113.5"));
+    var tunnel = new FlowId(peer, 1000, 6881, Packet.Udp);
+    Open(1000);
+    Open(1001);
+    for (var i = 0; i < ConnectionLog.MaxFlows; i++)
+    {
+        Open((ushort)(2000 + i));
+        if (i % 1000 == 0) fe.History.AddVolumes([(tunnel, 10, 0)], 1); // die frühe Verbindung hat weiter Verkehr
+    }
+    fe.History.AddVolumes([(tunnel, 10, 0), (new FlowId(peer, 1001, 6881, Packet.Udp), 10, 0)], 1);
+    var peerRow = fe.History.Snapshot().Single();
+    Check(fe.History.FlowCount <= ConnectionLog.MaxFlows && peerRow.Down == 51 * 10,
+        "eine früh zugeordnete Verbindung mit Verkehr bleibt, eine untätige fällt heraus");
+
+    // Zeilen: Wer Verkehr hat, bleibt; mit einer verdrängten Zeile fallen ihre Verbindungen heraus.
+    fe.History.Clear();
+    Open(3000, "198.51.100.1");
+    Open(3001, "198.51.100.2");
+    var keep = new FlowId(IpKey.From(IPAddress.Parse("198.51.100.1")), 3000, 6881, Packet.Udp);
+    var gone = new FlowId(IpKey.From(IPAddress.Parse("198.51.100.2")), 3001, 6881, Packet.Udp);
+    var goneRow = fe.History.Snapshot().Single(r => r.Host == "198.51.100.2");
+    for (var i = 0; i < ConnectionLog.Max; i++)
+    {
+        Open((ushort)(4000 + i), $"10.0.{i / 256}.{i % 256}");
+        if (i % 100 == 0) fe.History.AddVolumes([(keep, 1, 0)], 1);
+    }
+    fe.History.AddVolumes([(gone, 5, 0)], 1);
+    var rowHosts = fe.History.Snapshot().Select(r => r.Host).ToHashSet();
+    Check(rowHosts.Contains("198.51.100.1") && !rowHosts.Contains("198.51.100.2") && goneRow.Down == 0,
+        "Zeile mit Verkehr bleibt; die verdrängte zählt nicht im Verborgenen weiter");
+}
+
 // ---- Sprachen: jede Tabelle vollständig, Platzhalter unverändert, string.Format scheitert nicht
 Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.Normalize("xx") == "en" && Loc.Normalize(null) == "en", "Sprachcodes");
 {
