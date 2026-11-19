@@ -142,6 +142,9 @@ public sealed class App : Application
         // Geschützte Orte von Windows Update und Viren- & Bedrohungsschutz (Werksregeln, Beschriftung in den Listen).
         WindowsComponents.Configure(windows, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
+        // Bekannte Apps (Claude, ChatGPT, Browser und ihre Updater): nur Name und Symbol in den Listen.
+        KnownApps.Configure(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
         AlertRules.TempRoots = new[]
             {
                 Path.GetTempPath(), Environment.GetEnvironmentVariable("TEMP"), Environment.GetEnvironmentVariable("TMP"),

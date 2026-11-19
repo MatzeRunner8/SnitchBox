@@ -322,6 +322,28 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   die Auswahl, Netzwerkereignisse in schneller Folge schoben die Prüfung beliebig auf, die 30-s-Prüfung verdrängte die zweite Prüfung,
   abgeschnittene Zellen und Köpfe).
 
+## Build 31 – bekannte Apps mit Namen und Symbol
+- KnownApps (Kern): Claude (Store-Paket Claude_pzs8sxrjxfjjc, ältere Squirrel-Installation unter AppData\Local\AnthropicClaude), Claude
+  Code (Kommandozeile: AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\…\claude.exe, ~\.local\bin\claude.exe), ChatGPT
+  (Store-Pakete OpenAI.Codex / OpenAI.ChatGPT-Desktop, Herausgeber 2p2nqsd0c76g0), Google Chrome, Brave, Firefox (auch als Store-Paket
+  und mit Wartungsdienst) und Microsoft Edge samt WebView2. Jedes Programm bekommt eine Rolle: die App selbst, Updater (GoogleUpdater,
+  Google Update, BraveUpdate/BraveUpdater, EdgeUpdate, updater.exe und Wartungsdienst von Firefox, der Installer-Ordner der
+  Chromium-Browser, Squirrel-Update.exe), Hilfsprogramm (alles Übrige im Ordner der App, etwa elevation_service.exe, codex.exe, WebView2)
+  oder Kommandozeile. Erkannt wird am Ort über Vorlagen für beide Programmordner, WindowsApps, AppData\Local, den Benutzerordner und
+  ProgramData; Versions-, Hash- und Paketversions-Ordner sind variabel, deshalb passen auch Regel-Muster mit „*“. Ein Store-Paket muss
+  die richtige Herausgeber-Kennung haben. Namen: „Google Chrome“, „Brave · Updater“, „Google Updater“, „ChatGPT · codex.exe“, „Microsoft
+  Edge WebView2“ – in der Regelliste, der Programmliste des Netzwerkmonitors und im Warnfenster (mit Hinweis bei Updatern: Verbieten
+  stoppt die Updates, auch die Sicherheitsupdates). Die schmale Prozess-Spalte der Verbindungsliste zeigt Symbol und Dateiname, den Namen
+  im Tooltip.
+- Nur Anzeige: Die Erkennung ändert nie, welche Regel greift. Name und Symbol einer Datei kann ihr Hersteller ohnehin frei wählen, eine
+  neue Möglichkeit zum Verkleiden entsteht also nicht; maßgeblich ist die geprüfte Signatur im Warnfenster.
+- Symbole (AppIcons): Bekannte Apps zeigen das Symbol ihres Hauptprogramms (Store-Pakete über GetPackagesByPackageFamily /
+  GetPackagePathByFullName aufgelöst, denn WindowsApps lässt sich nicht auflisten), Updater, Hilfsprogramme und Kommandozeile zusätzlich
+  ein Abzeichen unten rechts (blauer Kreis mit Pfeilen, graues Zahnrad, dunkle Eingabeaufforderung); ist die App nicht installiert, eine
+  Buchstabenkachel in ihrer Farbe. Allgemein bekommen Regel-Muster mit „*“ und Pfade alter, schon gelöschter Versionen jetzt das Symbol
+  der aktuell installierten Datei (neuester Treffer, höchstens 400 Ordner durchsucht) statt des grauen Fragezeichens. Geprüft mit den
+  48 Regeln des Nutzers: Alle 46 aufgeführten Programme haben ein Symbol.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

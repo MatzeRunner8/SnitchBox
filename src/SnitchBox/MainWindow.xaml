@@ -199,7 +199,10 @@
                                 <GridViewColumn Header="{l:L de='Prozess', en='Process'}" Width="106">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Process}" ToolTip="{Binding Process}" TextTrimming="CharacterEllipsis"/>
+                                            <DockPanel ToolTip="{Binding ProcessTip}">
+                                                <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,5,0" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Process}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                            </DockPanel>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>

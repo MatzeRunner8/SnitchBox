@@ -323,5 +323,8 @@
  "Profile per network": "네트워크별 프로필",
  "Profile: {0}": "프로필: {0}",
  "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "지정된 네트워크에 연결하면 SnitchBox가 프로필을 전환합니다. 직접 전환할 수도 있으며, 그 선택은 다음 네트워크 변경 때까지 유지됩니다.",
- "Like other networks": "기타 네트워크와 동일"
+ "Like other networks": "기타 네트워크와 동일",
+ "{0} · Updater": "{0} · 업데이터",
+ "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.": "{0} 업데이터: 이를 차단하면 {0}은(는) 보안 업데이트를 포함한 업데이트를 더 이상 받지 못합니다.",
+ "Helper program of {0}.": "{0}의 보조 프로그램입니다."
 }

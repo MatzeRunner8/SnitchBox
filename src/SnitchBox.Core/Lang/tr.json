@@ -323,5 +323,8 @@
  "Profile per network": "Ağa göre profil",
  "Profile: {0}": "Profil: {0}",
  "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "Atanmış bir ağa bağlandığında SnitchBox profili değiştirir. Elle değiştirmeye devam edebilirsin; bu seçim bir sonraki ağ değişikliğine kadar geçerlidir.",
- "Like other networks": "Diğer ağlar gibi"
+ "Like other networks": "Diğer ağlar gibi",
+ "{0} · Updater": "{0} · Güncelleyici",
+ "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.": "{0} güncelleyicisi: Bunu engellerseniz {0} artık güncelleme almaz – güvenlik güncellemeleri de dahil.",
+ "Helper program of {0}.": "{0} yardımcı programı."
 }

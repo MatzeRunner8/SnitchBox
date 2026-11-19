@@ -64,12 +64,14 @@ public sealed class Rule
 
     [JsonIgnore] public bool AnyProcess => Process.Length == 0;
     /// <summary>Anzeigename: bei Windows Update und dem Viren- &amp; Bedrohungsschutz deren Name vorn, damit solche Regeln sofort
-    /// erkennbar sind („Windows Update · SIHClient.exe“).</summary>
+    /// erkennbar sind („Windows Update · SIHClient.exe“); bekannte Apps mit ihrem Namen und ihrer Rolle („Google Updater“,
+    /// „ChatGPT · codex.exe“, siehe <see cref="KnownApps"/>).</summary>
     [JsonIgnore]
     public string ProcessName => Service.Length > 0 ? Loc.F("Windows-Dienst: {0}", "Windows service: {0}", ServiceTitle(Service) ?? Service)
         : AnyProcess ? Loc.T("Jeder Prozess", "Any Process")
         : WindowsComponents.IsComponent(Process) ? WindowsComponents.Title(Process)
         : WindowsComponents.Of(Process) is { } c ? WindowsComponents.Title(c) + " · " + NameOf(Process)
+        : KnownApps.Of(Process) is { } app ? app.Label(Process)
         : NameOf(Process);
 
     /// <summary>Anzeigename eines Windows-Dienstes (unter Windows vom Dienst-Manager, z. B. „Benutzererfahrung und Telemetrie im

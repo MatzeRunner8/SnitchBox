@@ -323,5 +323,8 @@
  "Profile per network": "按网络切换配置文件",
  "Profile: {0}": "配置文件：{0}",
  "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "连接到已分配的网络时，SnitchBox 会切换配置文件。你仍可手动切换；该选择在下次网络变化前有效。",
- "Like other networks": "与其他网络相同"
+ "Like other networks": "与其他网络相同",
+ "{0} · Updater": "{0} · 更新程序",
+ "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.": "{0} 的更新程序：如果拒绝，{0} 将不再获得更新，包括安全更新。",
+ "Helper program of {0}.": "{0} 的辅助程序。"
 }

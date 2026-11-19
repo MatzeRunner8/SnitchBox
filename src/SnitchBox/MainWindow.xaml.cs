@@ -72,7 +72,8 @@ internal static class Ui
         (Gray, Box(14, 23, 4, 4, 0)), (Gray, Box(9, 26.5, 14, 2.5, 1.2)));
 
     /// <summary>Programmsymbol mit Ersatz, wo es keine Datei gibt: leerer Pfad = jeder bzw. unbekannter Prozess. Windows Update und
-    /// Viren- &amp; Bedrohungsschutz (auch ihre einzelnen Programme) zeigen das Symbol aus den Einstellungen bzw. der Windows-Sicherheit.</summary>
+    /// Viren- &amp; Bedrohungsschutz (auch ihre einzelnen Programme) zeigen das Symbol aus den Einstellungen bzw. der Windows-Sicherheit,
+    /// bekannte Apps das ihres Hauptprogramms (mit Abzeichen für Updater und Hilfsprogramme), Regel-Muster das der installierten Datei.</summary>
     public static ImageSource IconFor(string path, bool emptyMeansAll)
     {
         if (path.Length == 0) return emptyMeansAll ? AllProgramsIcon : UnknownIcon;
@@ -86,7 +87,9 @@ internal static class Ui
                 : Path.Combine(windows, "System32", "SecurityHealthSystray.exe");
             if (Native.IconOf(sample) is { } componentIcon) return componentIcon;
         }
-        return WindowsComponents.IsComponent(path) ? UnknownIcon : Native.IconOf(path) ?? UnknownIcon;
+        if (WindowsComponents.IsComponent(path)) return UnknownIcon;
+        if (KnownApps.Of(path) is { } app) return AppIcons.For(app, path);
+        return AppIcons.ExistingFile(path) is { } file ? Native.IconOf(file) ?? UnknownIcon : UnknownIcon;
     }
 
     /// <summary>Farbe der Betriebsart: Orange fragt nach, Grün erlaubt alles, Rot verbietet alles.</summary>
@@ -210,6 +213,10 @@ internal sealed class ConnectionRow(ConnectionRecord record) : INotifyPropertyCh
     public string Process => r.ProcessPath.Length == 0 ? Loc.T("Unbekannt", "Unknown")
         : r.Service.Length > 0 ? Rule.NameOf(r.ProcessPath) + " · " + r.Service
         : Rule.NameOf(r.ProcessPath);
+    /// <summary>Die Spalte ist schmal: dort Symbol und Dateiname, im Tooltip der Name einer bekannten App und der volle Pfad.</summary>
+    public string ProcessTip => r.ProcessPath.Length == 0 ? Loc.T("Unbekannt", "Unknown")
+        : (KnownApps.Of(r.ProcessPath) is { } app ? app.Label(r.ProcessPath) + "\n" : "") + r.ProcessPath + (r.Service.Length > 0 ? " · " + r.Service : "");
+    public ImageSource Icon => Ui.IconFor(r.ProcessPath, false);
     public string Host => r.Host;
     public string Address => r.Remote.ToString();
     /// <summary>Für den Tooltip der Gegenstelle: voller Name, Adresse und die Regel, die entschieden hat.</summary>
@@ -652,6 +659,7 @@ public partial class MainWindow : Window
         }
         if (path.Length == 0) return Loc.T("Unbekannter Prozess", "Unknown Process");
         if (WindowsComponents.Of(path) is { } component) return WindowsComponents.Title(component) + " · " + Rule.NameOf(path);
+        if (KnownApps.Of(path) is { } app) return app.Label(path);
         var title = Native.InfoOf(path).Title;
         return title.Length > 0 ? title : Rule.NameOf(path);
     }

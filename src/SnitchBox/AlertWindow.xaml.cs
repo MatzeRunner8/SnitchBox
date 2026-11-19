@@ -40,7 +40,24 @@ public partial class AlertWindow : Window
                         "Part of Windows: if you deny this, virus protection no longer gets new signatures or cloud protection."));
             ComponentHint.Visibility = Visibility.Visible;
         }
-        var port = $"{c.Port} ({(c.Protocol == Proto.Tcp ? "TCP" : "UDP")})";
+        else if (KnownApps.Of(c.ProcessPath) is { } app)
+        {
+            // Bekannte App: Name und Rolle statt „updater.exe“; ob die Datei wirklich vom Hersteller stammt, zeigt die Signaturzeile.
+            NameText.Text = app.Label(c.ProcessPath);
+            var hint = app.Role switch
+            {
+                AppRole.Updater => Loc.F("Updater von {0}: Verbietest du das, bekommt {0} keine Updates mehr – auch keine Sicherheitsupdates.",
+                                         "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.", app.App.Title),
+                AppRole.Helper => Loc.F("Hilfsprogramm von {0}.", "Helper program of {0}.", app.App.Title),
+                _ => null,
+            };
+            if (hint != null)
+            {
+                ComponentHint.Text = "ⓘ " + hint;
+                ComponentHint.Visibility = Visibility.Visible;
+            }
+        }
+        var port =$"{c.Port} ({(c.Protocol == Proto.Tcp ? "TCP" : "UDP")})";
         // Der Satz nennt die Gegenstelle fett, damit das Wichtigste sofort ins Auge fällt.
         var (before, after) = c.Direction == Direction.Outgoing
             ? (Loc.T("möchte sich mit ", "wants to connect to "), Loc.F(" auf Port {0} verbinden", " on port {0}", port))

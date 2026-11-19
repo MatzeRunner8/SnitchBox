@@ -667,6 +667,69 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     WindowsComponents.Configure("", "", "", "");
 }
 
+// ---- Bekannte Apps (Claude, ChatGPT, Browser, Updater): Name und Rolle, nur zur Anzeige
+{
+    KnownApps.Configure(@"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData");
+    string? L(string p) => KnownApps.Of(p)?.Label(p);
+    AppRole? R(string p) => KnownApps.Of(p)?.Role;
+    const string WA = @"C:\Program Files\WindowsApps\";
+    Check(L(WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\Claude.exe") == "Claude"
+          && L(WA + @"Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe") == "Claude"
+          && L(WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\resources\cowork-svc.exe") == "Claude · cowork-svc.exe"
+          && R(WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\resources\cowork-svc.exe") == AppRole.Helper,
+        "Claude (Store) samt Hilfsprogrammen erkannt, auch als Muster");
+    Check(L(@"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe") == "Claude Code"
+          && L(@"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe") == "Claude Code"
+          && R(@"C:\Users\x\.local\bin\claude.exe") == AppRole.CommandLine
+          && L(@"C:\Users\x\AppData\Local\AnthropicClaude\Update.exe") == "Claude · Updater",
+        "Claude Code (Kommandozeile) und der Updater der älteren Claude-Fassung erkannt");
+    Check(L(WA + @"OpenAI.Codex_*_x64__2p2nqsd0c76g0\app\ChatGPT.exe") == "ChatGPT"
+          && L(WA + @"OpenAI.Codex_26.1111.9265.0_x64__2p2nqsd0c76g0\app\resources\codex.exe") == "ChatGPT · codex.exe"
+          && L(WA + @"OpenAI.Codex_*_x64__2p2nqsd0c76g0\app\resources\cua_node\bin\node_repl.exe") == "ChatGPT · node_repl.exe",
+        "ChatGPT samt Hilfsprogrammen erkannt");
+    Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == "Google Chrome"
+          && L(@"C:\Program Files\Google\Chrome\Application\157.0.8103.79\elevation_service.exe") == "Google Chrome · elevation_service.exe"
+          && R(@"C:\Program Files\Google\Chrome\Application\157.0.8103.79\Installer\setup.exe") == AppRole.Updater
+          && L(@"C:\Program Files (x86)\Google\GoogleUpdater\*\updater.exe") == "Google Updater"
+          && L(@"C:\Program Files (x86)\Google\Update\GoogleUpdate.exe") == "Google Updater"
+          && L(@"C:\Users\x\AppData\Local\Google\Chrome\Application\chrome.exe") == "Google Chrome",
+        "Chrome, seine Hilfsprogramme und der Google Updater erkannt (Installer-Ordner zählt als Updater)");
+    Check(L(@"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe") == "Brave"
+          && L(@"C:\Program Files (x86)\BraveSoftware\Update\BraveUpdate.exe") == "Brave · Updater"
+          && L(@"C:\Program Files (x86)\BraveSoftware\Update\1.3.361.151\BraveUpdateCore.exe") == "Brave · Updater",
+        "Brave und Brave Update erkannt");
+    Check(L(@"C:\Program Files\Mozilla Firefox\firefox.exe") == "Firefox"
+          && L(@"C:\Program Files\Mozilla Firefox\updater.exe") == "Firefox · Updater"
+          && R(@"C:\Program Files (x86)\Mozilla Maintenance Service\maintenanceservice.exe") == AppRole.Updater
+          && L(@"C:\Program Files\Mozilla Firefox\pingsender.exe") == "Firefox · pingsender.exe"
+          && R(@"C:\ProgramData\Mozilla-1de4eec8-1241-4177-a864-e594e8d1fb38\updates\308046B0AF4A39CB\updates\0\updater.exe") == AppRole.Updater,
+        "Firefox, Updater, Wartungsdienst und Hilfsprogramme erkannt");
+    Check(L(@"C:\Program Files (x86)\Microsoft\EdgeUpdate\MicrosoftEdgeUpdate.exe") == "Microsoft Edge · Updater"
+          && L(@"C:\Program Files (x86)\Microsoft\EdgeWebView\Application\*\msedgewebview2.exe") == "Microsoft Edge WebView2"
+          && L(@"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe") == "Microsoft Edge",
+        "Edge, Edge Update und WebView2 erkannt");
+    Check(L(@"R:\Temp\chrome.exe") == null && L(@"C:\Users\x\Downloads\updater.exe") == null
+          && L(@"C:\Program Files\Google\Chrome\Application\..\..\x\evil.exe") == null
+          && L(WA + @"Claude_*_x64__andererherausgeber\app\claude.exe") == null
+          && L(@"C:\Program Files\Google\Chrome\Application\chrome.dll") == null
+          && L("@windows-update") == null && L("System") == null && L("") == null && L(@"C:\Windows\System32\svchost.exe") == null,
+        "gleicher Name an einem anderen Ort, fremder Herausgeber, „..“ und Nicht-Programme sind keine bekannte App");
+    Check(new Rule { Process = @"C:\Program Files (x86)\Google\GoogleUpdater\*\updater.exe" }.ProcessName == "Google Updater"
+          && new Rule { Process = WA + @"OpenAI.Codex_*_x64__2p2nqsd0c76g0\app\resources\codex.exe" }.ProcessName == "ChatGPT · codex.exe"
+          && new Rule { Process = @"C:\Tools\x\updater.exe" }.ProcessName == "updater.exe",
+        "Regelliste zeigt bekannte Apps mit Namen und Rolle");
+    var appRules = new Store();
+    appRules.Rules.Add(new Rule { Action = RuleAction.Deny, Process = @"C:\Program Files (x86)\Google\GoogleUpdater\*\updater.exe" });
+    var appConn = new Connection
+    {
+        ProcessPath = @"C:\Users\x\Downloads\updater.exe", Pid = 9, Direction = Direction.Outgoing, Protocol = Proto.Tcp,
+        Remote = IpKey.From(IPAddress.Parse("142.250.1.1")), Port = 443,
+    };
+    Check(RuleSet.Build(appRules, "boot").Evaluate(appConn, now).Action == null, "die Erkennung ändert nicht, welche Regel greift");
+    KnownApps.Configure("", "", "");
+    Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
+}
+
 // ---- Windows-Dienste einzeln (svchost.exe): sehen und regeln
 {
     const string Svc = @"C:\Windows\System32\svchost.exe";

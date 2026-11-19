@@ -323,5 +323,8 @@
  "Profile per network": "Profil par réseau",
  "Profile: {0}": "Profil : {0}",
  "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "Lorsque vous vous connectez à un réseau associé, SnitchBox change de profil. Vous pouvez toujours changer à la main ; ce choix vaut jusqu’au prochain changement de réseau.",
- "Like other networks": "Comme les autres réseaux"
+ "Like other networks": "Comme les autres réseaux",
+ "{0} · Updater": "{0} · Programme de mise à jour",
+ "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.": "Programme de mise à jour de {0} : si vous l’interdisez, {0} ne reçoit plus de mises à jour – y compris les mises à jour de sécurité.",
+ "Helper program of {0}.": "Programme auxiliaire de {0}."
 }

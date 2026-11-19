@@ -323,5 +323,8 @@
  "Profile per network": "ネットワークごとのプロファイル",
  "Profile: {0}": "プロファイル: {0}",
  "When you connect to an assigned network, SnitchBox switches the profile. You can still switch by hand; that choice lasts until the next network change.": "割り当てたネットワークに接続すると、SnitchBox がプロファイルを切り替えます。手動での切り替えも引き続き可能で、次にネットワークが変わるまで有効です。",
- "Like other networks": "その他のネットワークと同じ"
+ "Like other networks": "その他のネットワークと同じ",
+ "{0} · Updater": "{0} · アップデーター",
+ "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.": "{0} のアップデーターです。これを拒否すると、{0} はセキュリティ更新を含む更新を受け取れなくなります。",
+ "Helper program of {0}.": "{0} の補助プログラムです。"
 }

@@ -312,6 +312,26 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
   the mouse wheel changing a choice, network events in quick succession postponing the check indefinitely, the periodic check displacing
   the second check, clipped cells and headers).
 
+## Build 31 – known apps with name and icon
+- KnownApps (Core): Claude (Store package Claude_pzs8sxrjxfjjc, older Squirrel install under AppData\Local\AnthropicClaude), Claude Code
+  (command line: AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\…\claude.exe, ~\.local\bin\claude.exe), ChatGPT (Store
+  packages OpenAI.Codex / OpenAI.ChatGPT-Desktop, publisher 2p2nqsd0c76g0), Google Chrome, Brave, Firefox (also its Store package and
+  the maintenance service) and Microsoft Edge with WebView2. Each program gets a role: the app itself, updater (GoogleUpdater, Google
+  Update, BraveUpdate/BraveUpdater, EdgeUpdate, Firefox updater.exe and maintenance service, the Installer folder of the Chromium
+  browsers, Squirrel Update.exe), helper (everything else in the app's folder, e.g. elevation_service.exe, codex.exe, WebView2) or
+  command line. Recognized by location via templates for both program folders, WindowsApps, AppData\Local, the user folder and
+  ProgramData; version, hash and package-version folders are variable, so rule patterns with “*” match too. A Store package must have
+  the right publisher ID. Labels: “Google Chrome”, “Brave · Updater”, “Google Updater”, “ChatGPT · codex.exe”, “Microsoft Edge WebView2”
+  – in the rule list, the Network Monitor's program list and the alert window (with a hint for updaters: denying them stops updates,
+  including security updates). The narrow process column of the connection list shows icon and file name, the label in the tooltip.
+- Display only: recognition never changes which rule matches. A vendor can choose a file's name and icon freely anyway, so this adds
+  no new way to impersonate; what counts is the verified signature in the alert window.
+- Icons (AppIcons): known apps show the icon of their main program (Store packages are resolved via GetPackagesByPackageFamily /
+  GetPackagePathByFullName, since WindowsApps cannot be listed), updaters, helpers and the command line add a badge at the bottom right
+  (blue circle with arrows, grey gear, dark prompt); if the app is not installed, a letter tile in its colour. Generally, rule patterns
+  with “*” and paths of old, already deleted versions now get the icon of the currently installed file (newest match, at most 400
+  folders searched) instead of the grey question mark. Checked with the user's 48 rules: all 46 listed programs have an icon.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).
