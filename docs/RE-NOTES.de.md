@@ -344,6 +344,16 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   der aktuell installierten Datei (neuester Treffer, höchstens 400 Ordner durchsucht) statt des grauen Fragezeichens. Geprüft mit den
   48 Regeln des Nutzers: Alle 46 aufgeführten Programme haben ein Symbol.
 
+## Build 32 – Visual Studio Code, Visual Studio, NordVPN
+- KnownApps erweitert: Visual Studio Code (Benutzerinstallation unter AppData\Local\Programs und Systeminstallation; Updater
+  inno_updater.exe im Hash-Ordner, etwa …\e646868227\tools\; das heruntergeladene Update %TEMP%\vscode-stable-…\CodeSetup-….exe;
+  Erweiterungen unter ~\.vscode\extensions wie rust-analyzer; VS Code Insiders getrennt), Visual Studio (Ordner 18/2022 und Ausgabe:
+  devenv.exe als App, alles Übrige im Installationsordner und in „Shared“ als Hilfsprogramm, etwa PerfWatson2.exe; der Visual Studio
+  Installer als Updater, auch seine Kopie in einem Zufallsordner unter Temp, die BackgroundDownload.exe ausführt) und NordVPN (NordVPN.exe
+  und NordVPNApp.exe im Versionsordner als App, Dienst und Threat Protection als Hilfsprogramme, NordUpdater als Updater).
+- Neuer Platzhalter {TEMP} in den Vorlagen: die eingestellten Temp-Ordner (wie bei Regel-Mustern, nie ein ganzes Laufwerk) und
+  AppData\Local\Temp jedes Benutzers. Das Symbol einer App mit wechselndem Ordner (devenv.exe) wird per Muster gefunden.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

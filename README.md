@@ -18,7 +18,7 @@ or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both nee
 - Alert window for every new connection: program (with its digital signature checked by Windows: valid, invalid or unsigned), host name, port; lifetime (Once … Forever) and scope (any connection, port, domain, host)
 - Modes: Alert Mode, Silent Mode “allow all” / “deny all”; network filter on/off (with a warning before turning it off or quitting)
 - Windows services in svchost.exe shown and ruled individually (e.g. deny telemetry “DiagTrack”, keep Windows Update)
-- Known apps at a glance: Claude, Claude Code, ChatGPT, Google Chrome, Brave, Firefox and Microsoft Edge are shown with their name and icon – including their updaters (“Google Updater” instead of “updater.exe”) and helper programs, marked with a small badge
+- Known apps at a glance: Claude, Claude Code, ChatGPT, Google Chrome, Brave, Firefox, Microsoft Edge, Visual Studio Code, Visual Studio and NordVPN are shown with their name and icon – including their updaters (“Google Updater” instead of “updater.exe”) and helper programs, marked with a small badge
 - Per-program rules: allow/deny, outgoing/incoming, hosts, domains, address ranges, local network, system DNS servers, ports, TCP/UDP, priority, lifetime, profiles
 - Profiles switch automatically per network (e.g. “Home” on your router, “On the go” everywhere else); a profile chosen by hand lasts until the next network change
 - Denying takes effect immediately: established connections that a rule change newly denies are cut (IPv4 and IPv6)

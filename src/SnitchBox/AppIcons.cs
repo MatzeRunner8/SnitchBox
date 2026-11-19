@@ -38,7 +38,8 @@ internal static class AppIcons
         foreach (var file in app.Files)
         {
             var p = Path.Combine(Environment.GetFolderPath(dir), file);
-            if (File.Exists(p)) return p;
+            var found = p.Contains('*') ? ExistingFile(p) : File.Exists(p) ? p : null;
+            if (found != null) return found;
         }
         return null;
     }
@@ -150,7 +151,8 @@ internal static class AppIcons
         var color = app.Id switch
         {
             "claude" or "claude-code" => 0xD97757u, "chatgpt" => 0x10A37Fu, "chrome" => 0x4285F4u, "brave" => 0xFB542Bu,
-            "firefox" => 0xFF7139u, "edge" => 0x0C59A4u, _ => 0x8A939Eu,
+            "firefox" => 0xFF7139u, "edge" => 0x0C59A4u, "vscode" => 0x007ACCu, "vscode-insiders" => 0x24BFA5u,
+            "visualstudio" => 0x5C2D91u, "nordvpn" => 0x4687FFu, _ => 0x8A939Eu,
         };
         var group = new DrawingGroup();
         group.Children.Add(new GeometryDrawing(Brush(color), null, new RectangleGeometry(new Rect(2, 2, 28, 28), 7, 7)));

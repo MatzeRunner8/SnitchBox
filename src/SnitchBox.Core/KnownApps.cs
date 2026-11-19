@@ -32,8 +32,8 @@ public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = n
 }
 
 /// <summary>Erkennt verbreitete Apps, deren Programme sonst schwer zuzuordnen sind: Claude, Claude Code, ChatGPT, Google Chrome,
-/// Brave, Firefox, Microsoft Edge – samt ihren Updatern („updater.exe“ sagt allein nichts) und Hilfsprogrammen. Erkannt wird am Ort
-/// (Programm- und Paketordner, auch als Regel-Muster mit „*“). Die Erkennung ändert nur Anzeige und Symbol, nie, welche Regel greift:
+/// Brave, Firefox, Microsoft Edge, Visual Studio Code, Visual Studio, NordVPN – samt ihren Updatern („updater.exe“ sagt allein nichts)
+/// und Hilfsprogrammen. Erkannt wird am Ort (Programm-, Paket- und Temp-Ordner, auch als Regel-Muster mit „*“). Die Erkennung ändert nur Anzeige und Symbol, nie, welche Regel greift:
 /// Name und Symbol einer Datei kann ihr Hersteller ohnehin frei wählen, verlässlich ist erst die geprüfte Signatur im Warnfenster.</summary>
 public static class KnownApps
 {
@@ -46,12 +46,18 @@ public static class KnownApps
     public static readonly KnownApp Firefox = new("firefox", "Firefox", [@"Mozilla Firefox\firefox.exe"],
         [("Mozilla.Firefox_n80bbvh6b1yt2", @"VFS\ProgramFiles\Firefox Package Root\firefox.exe")]);
     public static readonly KnownApp Edge = new("edge", "Microsoft Edge", [@"Microsoft\Edge\Application\msedge.exe"], []);
+    // Fundorte relativ zu den Programmordnern bzw. AppData\Local; „*“ steht für wechselnde Ordner (Version, Ausgabe).
+    public static readonly KnownApp VsCode = new("vscode", "Visual Studio Code", [@"Programs\Microsoft VS Code\Code.exe", @"Microsoft VS Code\Code.exe"], []);
+    public static readonly KnownApp VsCodeInsiders = new("vscode-insiders", "Visual Studio Code Insiders",
+        [@"Programs\Microsoft VS Code Insiders\Code - Insiders.exe", @"Microsoft VS Code Insiders\Code - Insiders.exe"], []);
+    public static readonly KnownApp VisualStudio = new("visualstudio", "Visual Studio", [@"Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe"], []);
+    public static readonly KnownApp NordVpn = new("nordvpn", "NordVPN", [@"NordVPN\NordVPN.exe"], []);
 
-    public static readonly KnownApp[] All = [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge];
+    public static readonly KnownApp[] All = [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn];
 
     // Vorlagen, die erste passende gewinnt (Genaues vor „alles darunter“). {PF} = beide Programmordner, {WA} = WindowsApps,
-    // {LOCAL} = AppData\Local eines Benutzers, {HOME} = Benutzerordner, {PD} = ProgramData, {V} = ein wechselnder Name (Version,
-    // Hash, auch „*“ aus einem Regel-Muster), {ANY} = beliebiger Rest des Pfads.
+    // {LOCAL} = AppData\Local eines Benutzers, {HOME} = Benutzerordner, {PD} = ProgramData, {TEMP} = die Temp-Ordner,
+    // {V} = ein wechselnder Name (Version, Hash, auch „*“ aus einem Regel-Muster), {ANY} = beliebiger Rest des Pfads.
     private static readonly (KnownApp App, AppRole Role, string Template, string? Label)[] Templates =
     [
         (Claude, AppRole.App, @"{WA}\Claude_{V}__pzs8sxrjxfjjc\app\claude.exe", null),
@@ -108,16 +114,55 @@ public static class KnownApps
         (Edge, AppRole.Updater, @"{PF}\Microsoft\EdgeUpdate\{ANY}", null),
         (Edge, AppRole.Helper, @"{PF}\Microsoft\EdgeWebView\Application\{ANY}", "Microsoft Edge WebView2"),
         (Edge, AppRole.Helper, @"{PF}\Microsoft\EdgeCore\{ANY}", null),
+
+        // VS Code: Benutzer- und Systeminstallation; der Updater liegt in einem Hash-Ordner (…\e646868227\tools\inno_updater.exe),
+        // das heruntergeladene Update in %TEMP%\vscode-stable-user-x64\CodeSetup-stable-<Version>.exe; Erweiterungen unter ~\.vscode.
+        (VsCode, AppRole.App, @"{LOCAL}\Programs\Microsoft VS Code\Code.exe", null),
+        (VsCode, AppRole.Updater, @"{LOCAL}\Programs\Microsoft VS Code\{ANY}\inno_updater.exe", null),
+        (VsCode, AppRole.Helper, @"{LOCAL}\Programs\Microsoft VS Code\{ANY}", null),
+        (VsCode, AppRole.App, @"{PF}\Microsoft VS Code\Code.exe", null),
+        (VsCode, AppRole.Updater, @"{PF}\Microsoft VS Code\{ANY}\inno_updater.exe", null),
+        (VsCode, AppRole.Helper, @"{PF}\Microsoft VS Code\{ANY}", null),
+        (VsCode, AppRole.Updater, @"{TEMP}\vscode-stable-{V}\CodeSetup-{V}", null),
+        (VsCode, AppRole.Helper, @"{HOME}\.vscode\extensions\{ANY}", null),
+        (VsCodeInsiders, AppRole.App, @"{LOCAL}\Programs\Microsoft VS Code Insiders\Code - Insiders.exe", null),
+        (VsCodeInsiders, AppRole.Updater, @"{LOCAL}\Programs\Microsoft VS Code Insiders\{ANY}\inno_updater.exe", null),
+        (VsCodeInsiders, AppRole.Helper, @"{LOCAL}\Programs\Microsoft VS Code Insiders\{ANY}", null),
+        (VsCodeInsiders, AppRole.App, @"{PF}\Microsoft VS Code Insiders\Code - Insiders.exe", null),
+        (VsCodeInsiders, AppRole.Updater, @"{PF}\Microsoft VS Code Insiders\{ANY}\inno_updater.exe", null),
+        (VsCodeInsiders, AppRole.Helper, @"{PF}\Microsoft VS Code Insiders\{ANY}", null),
+        (VsCodeInsiders, AppRole.Updater, @"{TEMP}\vscode-insider-{V}\CodeSetup-{V}", null),
+        (VsCodeInsiders, AppRole.Helper, @"{HOME}\.vscode-insiders\extensions\{ANY}", null),
+
+        // Visual Studio (Ordner „18“ bzw. „2022“, Ausgabe Community/Professional/Enterprise/BuildTools). Der Installer lädt Updates mit
+        // BackgroundDownload.exe, oft aus einer Kopie in einem Zufallsordner unter Temp.
+        (VisualStudio, AppRole.App, @"{PF}\Microsoft Visual Studio\{V}\{V}\Common7\IDE\devenv.exe", null),
+        (VisualStudio, AppRole.Updater, @"{PF}\Microsoft Visual Studio\Installer\{ANY}", "Visual Studio Installer"),
+        (VisualStudio, AppRole.Updater, @"{TEMP}\{V}\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\{ANY}", "Visual Studio Installer"),
+        (VisualStudio, AppRole.Helper, @"{PF}\Microsoft Visual Studio\{ANY}", null),
+
+        // NordVPN: NordVPN.exe startet die eigentliche App im Versionsordner (8.15.2.0\NordVPNApp.exe); der NordUpdater ist eigenständig.
+        (NordVpn, AppRole.App, @"{PF}\NordVPN\NordVPN.exe", null),
+        (NordVpn, AppRole.App, @"{PF}\NordVPN\{V}\NordVPNApp.exe", null),
+        (NordVpn, AppRole.Updater, @"{PF}\NordVPN\Extras\NordUpdaterSetup.exe", "NordUpdater"),
+        (NordVpn, AppRole.Helper, @"{PF}\NordVPN\{ANY}", null),
+        (NordVpn, AppRole.Updater, @"{PF}\NordUpdater\{ANY}", "NordUpdater"),
+        (NordVpn, AppRole.Updater, @"{PD}\NordUpdater\{ANY}", "NordUpdater"),
+        (NordVpn, AppRole.Helper, @"{PD}\NordVPN\{ANY}", null),
+        (NordVpn, AppRole.Helper, @"{LOCAL}\NordVPN\{ANY}", null),
     ];
 
     private static (Regex Pattern, AppMatch Match)[] _compiled = [];
 
-    /// <summary>Orte festlegen (unter Windows beim Start aus den Systemordnern); vorher wird nichts erkannt.</summary>
-    public static void Configure(string programFiles, string programFilesX86, string programData)
+    /// <summary>Orte festlegen (unter Windows beim Start aus den Systemordnern); vorher wird nichts erkannt. <paramref name="tempRoots"/>:
+    /// die Temp-Ordner wie in <see cref="AlertRules.TempRoots"/> (ein ganzes Laufwerk zählt nie), AppData\Local\Temp gilt immer.</summary>
+    public static void Configure(string programFiles, string programFilesX86, string programData, IEnumerable<string>? tempRoots = null)
     {
         static string E(string dir) => Regex.Escape(dir.TrimEnd('\\'));
         var roots = new[] { programFiles, programFilesX86 }.Where(d => d.Length > 0).Select(E).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (roots.Length == 0) { _compiled = []; return; }
+        var temps = (tempRoots ?? []).Select(t => t.TrimEnd('\\')).Where(t => t.Length > 3 && t[1] == ':' && t.Contains('\\'))
+            .Select(E).Append(@"[A-Za-z]:\\Users\\[^\\]+\\AppData\\Local\\Temp").Distinct(StringComparer.OrdinalIgnoreCase);
         var tokens = new Dictionary<string, string>
         {
             ["{PF}"] = "(?:" + string.Join("|", roots) + ")",
@@ -125,6 +170,7 @@ public static class KnownApps
             ["{LOCAL}"] = @"[A-Za-z]:\\Users\\[^\\]+\\AppData\\Local",
             ["{HOME}"] = @"[A-Za-z]:\\Users\\[^\\]+",
             ["{PD}"] = programData.Length > 0 ? E(programData) : "(?!)",
+            ["{TEMP}"] = "(?:" + string.Join("|", temps) + ")",
             ["{V}"] = @"[^\\]+",
             ["{ANY}"] = @"[^\\].*",
         };

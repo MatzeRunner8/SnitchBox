@@ -18,7 +18,7 @@ oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide br
 - Warnfenster je neuer Verbindung: Programm (mit von Windows geprüfter Signatur: gültig, ungültig oder nicht signiert), Hostname, Port; Gültigkeit (Einmal … Für immer) und Reichweite (jede Verbindung, Port, Domain, Host)
 - Betriebsarten: Warnmodus, Stiller Modus „alles erlauben“ / „alles verbieten“; Netzwerkfilter ein/aus (mit Warnung vor dem Ausschalten und Beenden)
 - Windows-Dienste in svchost.exe einzeln sehen und regeln (z. B. Telemetrie „DiagTrack“ verbieten, Windows Update behalten)
-- Bekannte Apps auf einen Blick: Claude, Claude Code, ChatGPT, Google Chrome, Brave, Firefox und Microsoft Edge erscheinen mit Namen und Symbol – samt ihren Updatern („Google Updater“ statt „updater.exe“) und Hilfsprogrammen, gekennzeichnet durch ein kleines Abzeichen
+- Bekannte Apps auf einen Blick: Claude, Claude Code, ChatGPT, Google Chrome, Brave, Firefox, Microsoft Edge, Visual Studio Code, Visual Studio und NordVPN erscheinen mit Namen und Symbol – samt ihren Updatern („Google Updater“ statt „updater.exe“) und Hilfsprogrammen, gekennzeichnet durch ein kleines Abzeichen
 - Regeln je Programm: Erlauben/Verbieten, aus-/eingehend, Hosts, Domains, Adressbereiche, lokales Netz, DNS-Server des Systems, Ports, TCP/UDP, Priorität, Gültigkeit, Profile
 - Profile wechseln automatisch je Netzwerk (etwa „Zuhause“ am eigenen Router, „Unterwegs“ überall sonst); ein von Hand gewähltes Profil gilt bis zum nächsten Netzwerkwechsel
 - Verbieten wirkt sofort: bestehende Verbindungen, die eine Regeländerung neu verbietet, werden getrennt (IPv4 und IPv6)

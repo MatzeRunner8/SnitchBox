@@ -142,15 +142,17 @@ public sealed class App : Application
         // Geschützte Orte von Windows Update und Viren- & Bedrohungsschutz (Werksregeln, Beschriftung in den Listen).
         WindowsComponents.Configure(windows, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
-        // Bekannte Apps (Claude, ChatGPT, Browser und ihre Updater): nur Name und Symbol in den Listen.
-        KnownApps.Configure(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
         AlertRules.TempRoots = new[]
             {
                 Path.GetTempPath(), Environment.GetEnvironmentVariable("TEMP"), Environment.GetEnvironmentVariable("TMP"),
                 Path.Combine(windows, "Temp"), Path.Combine(windows, "SystemTemp"),
             }
             .Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => Path.GetFullPath(p!)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Bekannte Apps (Claude, ChatGPT, Browser, Entwicklerwerkzeuge, NordVPN und ihre Updater): nur Name und Symbol in den Listen.
+        // Die Temp-Ordner braucht sie für Updater, die sich dorthin kopieren (Visual Studio Installer, VS-Code-Update).
+        KnownApps.Configure(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            AlertRules.TempRoots);
         var store = Store.Load();
         // Gewählte Sprache aus den Einstellungen (--lang hat Vorrang).
         if (langArg == null && store.Settings.Language != null) Loc.Language = store.Settings.Language;

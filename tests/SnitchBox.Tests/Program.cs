@@ -726,6 +726,39 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
         Remote = IpKey.From(IPAddress.Parse("142.250.1.1")), Port = 443,
     };
     Check(RuleSet.Build(appRules, "boot").Evaluate(appConn, now).Action == null, "die Erkennung ändert nicht, welche Regel greift");
+
+    KnownApps.Configure(@"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData", [@"R:\Temp", @"C:\Windows\Temp", @"C:\"]);
+    const string Code = @"C:\Users\Justman\AppData\Local\Programs\Microsoft VS Code\";
+    Check(L(Code + "Code.exe") == "Visual Studio Code"
+          && L(Code + @"e646868227\tools\inno_updater.exe") == "Visual Studio Code · Updater"
+          && L(Code + @"bin\copilot-shim\copilot.exe") == "Visual Studio Code · copilot.exe"
+          && L(@"C:\Users\Justman\.vscode\extensions\rust-lang.rust-analyzer-0.3.3105-win32-x64\server\rust-analyzer.exe") == "Visual Studio Code · rust-analyzer.exe"
+          && R(@"R:\Temp\vscode-stable-user-x64\CodeSetup-stable-1.106.0.exe") == AppRole.Updater
+          && L(@"C:\Program Files\Microsoft VS Code\Code.exe") == "Visual Studio Code"
+          && L(@"C:\Users\x\AppData\Local\Programs\Microsoft VS Code Insiders\Code - Insiders.exe") == "Visual Studio Code Insiders",
+        "VS Code (Benutzer- und Systeminstallation), Updater im Hash-Ordner, Update in Temp, Erweiterungen und Insiders erkannt");
+    Check(L(@"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\devenv.exe") == "Visual Studio"
+          && L(@"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\PerfWatson2.exe") == "Visual Studio · PerfWatson2.exe"
+          && L(@"C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe") == "Visual Studio Installer"
+          && R(@"C:\Program Files (x86)\Microsoft Visual Studio\Installer\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == AppRole.Updater
+          && L(@"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == "Visual Studio Installer"
+          && L(@"C:\Users\x\AppData\Local\Temp\obkz3fue.blc\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == "Visual Studio Installer"
+          && L(@"C:\Program Files (x86)\Microsoft Visual Studio\Shared\x.exe") == "Visual Studio · x.exe",
+        "Visual Studio, seine Hilfsprogramme und der Installer (auch als Kopie in Temp) erkannt");
+    Check(L(@"C:\Program Files\NordVPN\NordVPN.exe") == "NordVPN"
+          && L(@"C:\Program Files\NordVPN\8.15.2.0\NordVPNApp.exe") == "NordVPN"
+          && L(@"C:\Program Files\NordVPN\nordvpn-service.exe") == "NordVPN · nordvpn-service.exe"
+          && L(@"C:\Program Files\NordVPN\NordSec ThreatProtection\8.15.13.0\nordsec-threatprotection-service-app.exe") == "NordVPN · nordsec-threatprotection-service-app.exe"
+          && L(@"C:\Program Files\NordUpdater\NordUpdateService.exe") == "NordUpdater"
+          && R(@"C:\Program Files\NordVPN\Extras\NordUpdaterSetup.exe") == AppRole.Updater,
+        "NordVPN, Dienst, Threat Protection und NordUpdater erkannt");
+    Check(L(@"C:\setup\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == null
+          && L(@"D:\Downloads\vscode-stable-user-x64\CodeSetup-stable-1.exe") == null
+          && L(@"C:\Users\x\Downloads\Code.exe") == null && L(@"C:\Tools\NordVPN\NordVPN.exe") == null,
+        "ein ganzes Laufwerk zählt nie als Temp-Ordner; gleiche Namen anderswo sind keine bekannte App");
+    Check(new Rule { Process = @"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe" }.ProcessName == "Visual Studio Installer"
+          && new Rule { Process = @"C:\Program Files\NordUpdater\NordUpdateService.exe" }.ProcessName == "NordUpdater",
+        "Regelliste zeigt Visual Studio Installer und NordUpdater");
     KnownApps.Configure("", "", "");
     Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }

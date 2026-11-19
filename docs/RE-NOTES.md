@@ -332,6 +332,16 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
   with “*” and paths of old, already deleted versions now get the icon of the currently installed file (newest match, at most 400
   folders searched) instead of the grey question mark. Checked with the user's 48 rules: all 46 listed programs have an icon.
 
+## Build 32 – Visual Studio Code, Visual Studio, NordVPN
+- KnownApps extended: Visual Studio Code (user install under AppData\Local\Programs and system install; updater inno_updater.exe in
+  the hash folder, e.g. …\e646868227\tools\; the downloaded update %TEMP%\vscode-stable-…\CodeSetup-….exe; extensions under
+  ~\.vscode\extensions such as rust-analyzer; VS Code Insiders separately), Visual Studio (folder 18/2022 and edition: devenv.exe as the
+  app, everything else in the installation folder and in “Shared” as helpers, e.g. PerfWatson2.exe; the Visual Studio Installer as
+  updater, including its copy in a random Temp folder that runs BackgroundDownload.exe) and NordVPN (NordVPN.exe and NordVPNApp.exe in
+  the version folder as the app, service and Threat Protection as helpers, NordUpdater as updater).
+- New template token {TEMP}: the configured Temp folders (as for rule patterns, never a whole drive) plus AppData\Local\Temp of every
+  user. Icon of an app with a variable folder (devenv.exe) is found by pattern.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).
