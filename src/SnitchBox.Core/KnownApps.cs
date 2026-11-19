@@ -13,6 +13,8 @@ public enum AppRole
     Helper,
     /// <summary>Kommandozeilenfassung (Claude Code).</summary>
     CommandLine,
+    /// <summary>Spiel aus einer Bibliothek (Steam: …\steamapps\common\&lt;Spiel&gt;\…); Name ist der Ordner des Spiels.</summary>
+    Game,
 }
 
 /// <summary>Bekannte App: Markenname (wird nicht übersetzt), Kennung für das Symbol und Fundorte ihres Hauptprogramms, dessen Symbol
@@ -28,13 +30,25 @@ public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = n
     {
         AppRole.App or AppRole.CommandLine => App.Title,
         AppRole.Updater => Loc.F("{0} · Updater", "{0} · Updater", App.Title),
+        AppRole.Game => App.Title + " · " + GameName(processPath),
         _ => App.Title + " · " + Rule.NameOf(processPath),
     };
+
+    /// <summary>Ordner des Spiels hinter „steamapps\common\“ („Counter-Strike Global Offensive“); bei einem Muster („*“) der Dateiname.</summary>
+    private static string GameName(string processPath)
+    {
+        const string marker = @"\steamapps\common\";
+        var i = processPath.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return Rule.NameOf(processPath);
+        var rest = processPath[(i + marker.Length)..];
+        var folder = rest.IndexOf('\\') is var slash and > 0 ? rest[..slash] : rest;
+        return folder.Length == 0 || folder.Contains('*') ? Rule.NameOf(processPath) : folder;
+    }
 }
 
 /// <summary>Erkennt verbreitete Apps, deren Programme sonst schwer zuzuordnen sind: Claude, Claude Code, ChatGPT, Google Chrome,
 /// Brave, Firefox, Microsoft Edge, Visual Studio Code, Visual Studio, NordVPN, Microsoft Office samt OneDrive, Adobe Creative Cloud und
-/// Acrobat – samt ihren Updatern („updater.exe“ sagt allein nichts) und Hilfsprogrammen. Erkannt wird am Ort (Programm-, Paket- und Temp-Ordner, auch als Regel-Muster mit „*“). Die Erkennung ändert nur Anzeige und Symbol, nie, welche Regel greift:
+/// Acrobat, Git und GitHub, NVIDIA, Steam samt Spielen – samt ihren Updatern („updater.exe“ sagt allein nichts) und Hilfsprogrammen. Erkannt wird am Ort (Programm-, Paket- und Temp-Ordner, auch als Regel-Muster mit „*“). Die Erkennung ändert nur Anzeige und Symbol, nie, welche Regel greift:
 /// Name und Symbol einer Datei kann ihr Hersteller ohnehin frei wählen, verlässlich ist erst die geprüfte Signatur im Warnfenster.</summary>
 public static class KnownApps
 {
@@ -68,10 +82,15 @@ public static class KnownApps
     public static readonly KnownApp Git = new("git", "Git", [@"Git\git-bash.exe", @"Programs\Git\git-bash.exe"], [], ProcessGroup.Development);
     public static readonly KnownApp GitHubDesktop = new("github", "GitHub Desktop", [@"GitHubDesktop\GitHubDesktop.exe"], [], ProcessGroup.Development);
     public static readonly KnownApp GitHubCli = GitHubDesktop with { Id = "github-cli", Title = "GitHub CLI" };
+    // NVIDIA: Der Grafiktreiber liegt im DriverStore (relativ zum Windows-Ordner); sein Container trägt das NVIDIA-Symbol.
+    public static readonly KnownApp Nvidia = new("nvidia", "NVIDIA",
+        [@"NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe", @"System32\DriverStore\FileRepository\nv_dispig.inf_*\Display.NvContainer\NVDisplay.Container.exe"],
+        [], ProcessGroup.Hardware);
+    public static readonly KnownApp Steam = new("steam", "Steam", [@"Steam\steam.exe"], [], ProcessGroup.Games);
 
     public static readonly KnownApp[] All =
         [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn, Office, OneDrive, Outlook, Teams,
-         CreativeCloud, Acrobat, Git, GitHubDesktop, GitHubCli];
+         CreativeCloud, Acrobat, Git, GitHubDesktop, GitHubCli, Nvidia, Steam];
 
     // Programme mit eigenem Namen (Rolle App mit festem Namen): Office-Anwendungen und die Programme der Creative Cloud.
     private static readonly (string File, string Label)[] OfficeApps =
@@ -229,6 +248,32 @@ public static class KnownApps
         (CreativeCloud, AppRole.Helper, @"{PF}\Common Files\Adobe\{ANY}", null),
         (CreativeCloud, AppRole.Helper, @"{PF}\Adobe\Adobe {ANY}", null),
 
+        // NVIDIA-Grafiktreiber im DriverStore (nur die NVIDIA-Pakete, nicht jedes „nv…“ – nvdimm, nvmedisk sind von Microsoft): der
+        // Container als Hilfsprogramm, der DLSS-Updater (NGX) und das Installationsprogramm als Updater; Werkzeuge in System32.
+        (Nvidia, AppRole.Updater, @"{WIN}\System32\DriverStore\FileRepository\nv_disp{V}\nvngx_update.exe", "NVIDIA NGX Updater (DLSS)"),
+        (Nvidia, AppRole.Updater, @"{WIN}\System32\DriverStore\FileRepository\nv_disp{V}\setup.exe", null),
+        (Nvidia, AppRole.Updater, @"{WIN}\System32\DriverStore\FileRepository\nv_disp{V}\nvsetup.exe", null),
+        (Nvidia, AppRole.Helper, @"{WIN}\System32\DriverStore\FileRepository\nv_disp{V}\{ANY}", null),
+        (Nvidia, AppRole.Helper, @"{WIN}\System32\DriverStore\FileRepository\nvhda{V}\{ANY}", null),
+        (Nvidia, AppRole.Helper, @"{WIN}\System32\DriverStore\FileRepository\nvpcf{V}\{ANY}", null),
+        (Nvidia, AppRole.CommandLine, @"{WIN}\System32\nvidia-smi.exe", "NVIDIA SMI"),
+        (Nvidia, AppRole.Helper, @"{WIN}\System32\nvidia-pcc.exe", null),
+        (Nvidia, AppRole.Helper, @"{WIN}\System32\nvdebugdump.exe", null),
+        // NVIDIA App bzw. GeForce Experience, Treiber-Installation (Installer2, Downloader, entpackter Treiber unter C:\NVIDIA).
+        (Nvidia, AppRole.App, @"{PF}\NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe", "NVIDIA App"),
+        (Nvidia, AppRole.App, @"{PF}\NVIDIA Corporation\NVIDIA GeForce Experience\NVIDIA GeForce Experience.exe", "GeForce Experience"),
+        (Nvidia, AppRole.Updater, @"{PF}\NVIDIA Corporation\Installer2\{ANY}", null),
+        (Nvidia, AppRole.Helper, @"{PF}\NVIDIA Corporation\{ANY}", null),
+        (Nvidia, AppRole.Updater, @"{PD}\NVIDIA Corporation\Downloader\{ANY}", null),
+        (Nvidia, AppRole.Helper, @"{PD}\NVIDIA Corporation\{ANY}", null),
+        (Nvidia, AppRole.Updater, @"{DRIVE}\NVIDIA\DisplayDriver\{ANY}", null),
+
+        // Steam: Client und Dienst; Spiele in jeder Bibliothek (…\steamapps\common\<Spiel>\…, auf jedem Laufwerk) mit Spielnamen.
+        (Steam, AppRole.Game, @"{DRIVE}\{DIRS}steamapps\common\{V}\{ANY}", null),
+        (Steam, AppRole.App, @"{PF}\Steam\steam.exe", null),
+        (Steam, AppRole.Helper, @"{PF}\Steam\{ANY}", null),
+        (Steam, AppRole.Helper, @"{PF}\Common Files\Steam\{ANY}", null),
+
         // GitHub Desktop (Squirrel, je Benutzer) bringt ein eigenes Git mit – das zählt zu GitHub Desktop.
         (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\GitHubDesktop.exe", null),
         (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\app-{V}\GitHubDesktop.exe", null),
@@ -251,7 +296,7 @@ public static class KnownApps
 
     /// <summary>Orte festlegen (unter Windows beim Start aus den Systemordnern); vorher wird nichts erkannt. <paramref name="tempRoots"/>:
     /// die Temp-Ordner wie in <see cref="AlertRules.TempRoots"/> (ein ganzes Laufwerk zählt nie), AppData\Local\Temp gilt immer.</summary>
-    public static void Configure(string programFiles, string programFilesX86, string programData, IEnumerable<string>? tempRoots = null)
+    public static void Configure(string programFiles, string programFilesX86, string programData, IEnumerable<string>? tempRoots = null, string windowsDir = "")
     {
         static string E(string dir) => Regex.Escape(dir.TrimEnd('\\'));
         var roots = new[] { programFiles, programFilesX86 }.Where(d => d.Length > 0).Select(E).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -266,6 +311,7 @@ public static class KnownApps
             ["{HOME}"] = @"[A-Za-z]:\\Users\\[^\\]+",
             ["{PD}"] = programData.Length > 0 ? E(programData) : "(?!)",
             ["{TEMP}"] = "(?:" + string.Join("|", temps) + ")",
+            ["{WIN}"] = windowsDir.Length > 3 ? E(windowsDir) : @"[A-Za-z]:\\Windows",
             // Für Werkzeuge, die portabel an beliebigem Ort liegen: Laufwerk, beliebig viele Ordner (auch keiner), Git-Architektur.
             ["{DRIVE}"] = "[A-Za-z]:",
             ["{DIRS}"] = @"(?:[^\\]+\\)*",

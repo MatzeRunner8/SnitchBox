@@ -152,7 +152,7 @@ public sealed class App : Application
         // Die Temp-Ordner braucht sie für Updater, die sich dorthin kopieren (Visual Studio Installer, VS-Code-Update).
         KnownApps.Configure(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            AlertRules.TempRoots);
+            AlertRules.TempRoots, windows);
         // Windows-Programme mit verständlichem Namen und Kategorie-Symbol (nur an geschützten Windows-Orten).
         WindowsProcesses.Configure(windows, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
         var store = Store.Load();

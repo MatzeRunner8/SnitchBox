@@ -827,6 +827,33 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(new Rule { Process = @"C:\Tools\GitHubCLI\bin\gh.exe" }.ProcessName == "GitHub CLI"
           && new Rule { Process = @"C:\Tools\MinGit\ucrt64\bin\git-remote-https.exe" }.ProcessName == "Git · git-remote-https.exe",
         "Regelliste zeigt GitHub CLI und Git");
+
+    const string DS = @"C:\Windows\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_cc526ccc3287f5cd\";
+    Check(L(DS + @"Display.NvContainer\NVDisplay.Container.exe") == "NVIDIA · NVDisplay.Container.exe"
+          && L(DS + "nvngx_update.exe") == "NVIDIA NGX Updater (DLSS)" && R(DS + "nvngx_update.exe") == AppRole.Updater
+          && R(DS + "setup.exe") == AppRole.Updater
+          && L(@"C:\Windows\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_*\Display.NvContainer\NVDisplay.Container.exe") == "NVIDIA · NVDisplay.Container.exe"
+          && L(@"C:\Windows\System32\nvidia-smi.exe") == "NVIDIA SMI"
+          && R(@"C:\Program Files\NVIDIA Corporation\Installer2\InstallerCore\SETUP.EXE") == AppRole.Updater
+          && L(@"C:\Program Files\NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe") == "NVIDIA App"
+          && R(@"C:\NVIDIA\DisplayDriver\610.88\Win11_64\International\setup.exe") == AppRole.Updater,
+        "NVIDIA: Treiber-Container, DLSS-Updater, Installation, nvidia-smi, NVIDIA App, entpackter Treiber");
+    Check(L(@"C:\Windows\System32\DriverStore\FileRepository\nvdimm.inf_amd64_acc6ca47f92b4065\x.exe") == null
+          && L(@"C:\Windows\System32\DriverStore\FileRepository\nvmedisk.inf_amd64_803f3f48841e44d8\x.exe") == null
+          && L(@"C:\Tools\nvidia-smi.exe") == null,
+        "Treiber von Microsoft mit „nv…“ im Namen und nvidia-smi anderswo sind kein NVIDIA");
+    Check(L(@"C:\Program Files (x86)\Steam\steam.exe") == "Steam"
+          && L(@"C:\Program Files (x86)\Steam\bin\cef\cef.win7x64\steamwebhelper.exe") == "Steam · steamwebhelper.exe"
+          && L(@"C:\Program Files (x86)\Common Files\Steam\steamservice.exe") == "Steam · steamservice.exe"
+          && L(@"C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe") == "Steam · Counter-Strike Global Offensive"
+          && L(@"D:\SteamLibrary\steamapps\common\Portal 2\portal2.exe") == "Steam · Portal 2"
+          && R(@"D:\SteamLibrary\steamapps\common\Portal 2\portal2.exe") == AppRole.Game
+          && L(@"D:\SteamLibrary\steamapps\common\*\portal2.exe") == "Steam · portal2.exe",
+        "Steam: Client, Web-Helper, Dienst und Spiele in jeder Bibliothek mit Spielnamen");
+    Check(ProcessGroups.Of(DS + "nvngx_update.exe") == ProcessGroup.Hardware && ProcessGroups.Of(@"D:\SteamLibrary\steamapps\common\Portal 2\portal2.exe") == ProcessGroup.Games
+          && ProcessGroups.Of(@"C:\Program Files (x86)\Steam\steam.exe") == ProcessGroup.Games && ProcessGroups.Title(ProcessGroup.Games) == "Spiele"
+          && ProcessGroups.Title(ProcessGroup.Hardware) == "Treiber und Hardware",
+        "NVIDIA in „Treiber und Hardware“, Steam samt Spielen in „Spiele“");
     KnownApps.Configure("", "", "");
     Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }

@@ -377,5 +377,7 @@
  "VPN and security": "VPN i bezpieczeństwo",
  "Other programs": "Inne programy",
  "Group programs by type (AI, browsers, Windows …)": "Grupuj programy według rodzaju (AI, przeglądarki, Windows…)",
- "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Lista reguł i monitor sieci pokazują programy w grupach z nagłówkami; nic nie jest ukrywane."
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Lista reguł i monitor sieci pokazują programy w grupach z nagłówkami; nic nie jest ukrywane.",
+ "Games": "Gry",
+ "Drivers and hardware": "Sterowniki i sprzęt"
 }

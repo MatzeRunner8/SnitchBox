@@ -377,5 +377,7 @@
  "VPN and security": "VPN とセキュリティ",
  "Other programs": "その他のプログラム",
  "Group programs by type (AI, browsers, Windows …)": "プログラムを種類別にグループ化 (AI、ブラウザー、Windows など)",
- "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "ルールの一覧とネットワーク モニターで、プログラムが見出し付きのグループで表示されます。非表示になるものはありません。"
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "ルールの一覧とネットワーク モニターで、プログラムが見出し付きのグループで表示されます。非表示になるものはありません。",
+ "Games": "ゲーム",
+ "Drivers and hardware": "ドライバーとハードウェア"
 }

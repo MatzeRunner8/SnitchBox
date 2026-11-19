@@ -24,11 +24,12 @@ internal static class AppIcons
     /// Updater, Hilfsprogramme und Kommandozeile das des Hauptprogramms mit Abzeichen (zwischengespeichert je App und Rolle).</summary>
     public static ImageSource For(AppMatch match, string processPath)
     {
-        if (match.Role == AppRole.App)
+        if (match.Role is AppRole.App or AppRole.Game)
         {
+            // Programm oder Spiel mit eigenem Symbol (Word, Photoshop, ein Steam-Spiel): dieses.
             if (ExistingFile(processPath) is { } own && HasOwnIcon(own) && Native.IconOf(own) is { } ownIcon) return ownIcon;
             // Programm mit eigenem Namen, aber nicht (mehr) installiert (Word, Photoshop): sein Anfangsbuchstabe, nicht der der Suite.
-            if (match.FixedLabel != null) return Composed.GetOrAdd(match.App.Id + "|" + match.FixedLabel, _ => LetterTile(match.App, match.FixedLabel));
+            if (match.Role == AppRole.App && match.FixedLabel != null) return Composed.GetOrAdd(match.App.Id + "|" + match.FixedLabel, _ => LetterTile(match.App, match.FixedLabel));
         }
         // Updater, Hilfsprogramme, Kommandozeile: immer das Hauptprogramm der App (ein Symbol je App und Rolle, gleich für alle ihre
         // Dateien); ist es nicht installiert, die gezeichnete Kachel – nie das Symbol der gerade gezeigten Datei.
@@ -89,7 +90,8 @@ internal static class AppIcons
     {
         foreach (var (family, exe) in app.Packages)
             if (PackageRoot(family) is { } root && File.Exists(Path.Combine(root, exe)) && HasOwnIcon(Path.Combine(root, exe))) return Path.Combine(root, exe);
-        foreach (var dir in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.LocalApplicationData })
+        // Der Windows-Ordner für Treiber im DriverStore (NVIDIA).
+        foreach (var dir in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolder.Windows })
         foreach (var file in app.Files)
         {
             var p = Path.Combine(Environment.GetFolderPath(dir), file);
@@ -210,7 +212,7 @@ internal static class AppIcons
             "firefox" => 0xFF7139u, "edge" => 0x0C59A4u, "vscode" => 0x007ACCu, "vscode-insiders" => 0x24BFA5u,
             "visualstudio" => 0x5C2D91u, "nordvpn" => 0x4687FFu, "office" => 0xD83B01u, "onedrive" => 0x0364B8u,
             "outlook" => 0x0F6CBDu, "teams" => 0x4B53BCu, "github" or "github-cli" => 0x444C56u,
-            "adobe-cc" => 0xDA1F26u, "acrobat" => 0xB30B00u, _ => 0x8A939Eu,
+            "adobe-cc" => 0xDA1F26u, "acrobat" => 0xB30B00u, "nvidia" => 0x76B900u, "steam" => 0x2A475Eu, _ => 0x8A939Eu,
         };
         // Anfangsbuchstabe ohne Herstellernamen: „O“ für Microsoft Office, „C“ für Adobe Creative Cloud.
         var name = label ?? app.Title;
@@ -242,12 +244,14 @@ internal static class AppIcons
         return Freeze(group);
     }
 
-    /// <summary>Abzeichen unten rechts: Pfeile im Kreis (Updater), Zahnrad (Hilfsprogramm), Eingabeaufforderung (Kommandozeile).</summary>
+    /// <summary>Abzeichen unten rechts: Pfeile im Kreis (Updater), Zahnrad (Hilfsprogramm), Eingabeaufforderung (Kommandozeile),
+    /// Spielsteuerung (Spiel ohne eigenes Symbol).</summary>
     private static ImageSource WithBadge(ImageSource icon, AppRole role)
     {
         var (fill, glyph) = role switch
         {
             AppRole.Updater => (Brush(0x1F7AE0), ""),
+            AppRole.Game => (Brush(0x107C10), ""),
             AppRole.CommandLine => (Brush(0x2B2F36), ""),
             _ => (Brush(0x6E7781), ""),
         };

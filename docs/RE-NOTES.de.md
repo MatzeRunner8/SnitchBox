@@ -424,6 +424,18 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   einer älteren config.json ohne den Eintrag); ausgeschaltet gibt es die bisherigen flachen Listen.
 - 8 neue Texte in allen 12 Sprachen.
 
+## Build 37 – NVIDIA und Steam
+- NVIDIA (neue Gruppe „Treiber und Hardware“): der Grafiktreiber im DriverStore – nur die NVIDIA-Pakete (nv_disp…, nvhda…, nvpcf…),
+  nicht jeder „nv…“-Ordner (nvdimm, nvmedisk gehören zu Microsoft) – mit NVDisplay.Container.exe als Hilfsprogramm, dem NGX/DLSS-Updater
+  nvngx_update.exe („NVIDIA NGX Updater (DLSS)“) und der Treiber-Installation als Updater; nvidia-smi.exe („NVIDIA SMI“), nvidia-pcc.exe
+  und nvdebugdump.exe in System32; NVIDIA App und GeForce Experience mit Namen, Installer2, der Downloader unter ProgramData und der nach
+  C:\NVIDIA\DisplayDriver entpackte Treiber als Updater. Symbol: NVIDIA App, wenn installiert, sonst NVDisplay.Container.exe aus dem
+  DriverStore (das einzige Treiberprogramm mit Symbol; Hauptprogramme werden jetzt auch im Windows-Ordner gesucht). Neuer Platzhalter {WIN}.
+- Steam (neue Gruppe „Spiele“): steam.exe, steamwebhelper und der Steam Client Service; Spiele in jeder Bibliothek auf jedem Laufwerk
+  (…\steamapps\common\<Spiel>\…) mit der neuen Rolle „Spiel“, benannt nach dem Ordner des Spiels („Steam · Portal 2“), mit eigenem Symbol
+  oder dem Steam-Symbol samt Gamepad-Abzeichen. Steam ist auf dem Entwicklungsrechner nicht installiert: durch Kern-Tests abgedeckt,
+  Symbol nur als Buchstabenkachel.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

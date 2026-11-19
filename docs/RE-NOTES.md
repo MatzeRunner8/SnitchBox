@@ -406,6 +406,17 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
   config.json without the entry); switching it off restores the previous flat lists.
 - 8 new texts in all 12 languages.
 
+## Build 37 – NVIDIA and Steam
+- NVIDIA (new group “Drivers and hardware”): the graphics driver in the DriverStore – only NVIDIA's packages (nv_disp…, nvhda…,
+  nvpcf…), not every “nv…” folder (nvdimm, nvmedisk belong to Microsoft) – with NVDisplay.Container.exe as helper, the NGX/DLSS updater
+  nvngx_update.exe (“NVIDIA NGX Updater (DLSS)”) and the driver setup as updaters; nvidia-smi.exe (“NVIDIA SMI”), nvidia-pcc.exe and
+  nvdebugdump.exe in System32; NVIDIA App and GeForce Experience by name, Installer2, the Downloader under ProgramData and the driver
+  unpacked to C:\NVIDIA\DisplayDriver as updaters. Icon: NVIDIA App if installed, otherwise NVDisplay.Container.exe from the DriverStore
+  (the only driver program with an icon; the Windows folder is now also searched for main programs). New template token {WIN}.
+- Steam (new group “Games”): steam.exe, steamwebhelper and the Steam Client Service; games in every library on every drive
+  (…\steamapps\common\<game>\…) with the new role “Game”, labelled with the game's folder (“Steam · Portal 2”), with their own icon or the
+  Steam icon plus a controller badge. Steam is not installed on the development PC: covered by core tests, icon only as letter tile.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

@@ -2,7 +2,7 @@ namespace SnitchBox.Core;
 
 /// <summary>Gruppen, nach denen Regelliste und Programmliste des Netzwerkmonitors sortiert und mit Überschriften getrennt werden;
 /// die Reihenfolge hier ist die in den Listen.</summary>
-public enum ProcessGroup { AllPrograms, AI, Browser, Office, Development, Vpn, Windows, Other }
+public enum ProcessGroup { AllPrograms, AI, Browser, Office, Development, Vpn, Games, Hardware, Windows, Other }
 
 /// <summary>Ordnet Programme einer Gruppe zu – aus der Erkennung bekannter Apps, der Windows-Bestandteile und Windows-Programme.
 /// Nur Anzeige: Nichts wird ausgeblendet, und die Gruppierung lässt sich in den Einstellungen abschalten (Settings.GroupLists).</summary>
@@ -29,6 +29,8 @@ public static class ProcessGroups
         ProcessGroup.Office => Loc.T("Office und Kreativ", "Office and creative"),
         ProcessGroup.Development => Loc.T("Entwicklung", "Development"),
         ProcessGroup.Vpn => Loc.T("VPN und Sicherheit", "VPN and security"),
+        ProcessGroup.Games => Loc.T("Spiele", "Games"),
+        ProcessGroup.Hardware => Loc.T("Treiber und Hardware", "Drivers and hardware"),
         ProcessGroup.Windows => "Windows",
         _ => Loc.T("Andere Programme", "Other programs"),
     };
