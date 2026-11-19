@@ -759,6 +759,50 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(new Rule { Process = @"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe" }.ProcessName == "Visual Studio Installer"
           && new Rule { Process = @"C:\Program Files\NordUpdater\NordUpdateService.exe" }.ProcessName == "NordUpdater",
         "Regelliste zeigt Visual Studio Installer und NordUpdater");
+
+    const string C2R = @"C:\Program Files\Common Files\microsoft shared\ClickToRun\";
+    Check(L(C2R + "OfficeClickToRun.exe") == "Microsoft Office Click-to-Run" && R(C2R + "OfficeClickToRun.exe") == AppRole.Updater
+          && L(C2R + @"Updates\16.0.19328.20000\OfficeClickToRun.exe") == "Microsoft Office Click-to-Run"
+          && L(C2R + "OfficeC2RClient.exe") == "Microsoft Office · Updater"
+          && L(C2R + "AppVShNotify.exe") == "Microsoft Office · AppVShNotify.exe",
+        "Office-Updater (Klick-und-Los-Dienst und Update-Client) erkannt");
+    Check(L(@"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE") == "Microsoft Word"
+          && L(@"C:\Program Files (x86)\Microsoft Office\root\Office16\OUTLOOK.EXE") == "Microsoft Outlook"
+          && L(@"C:\Program Files\Microsoft Office\Office16\EXCEL.EXE") == "Microsoft Excel"
+          && L(@"C:\Program Files\Microsoft Office\root\Office16\msoia.exe") == "Microsoft Office · msoia.exe"
+          && L(WA + @"Microsoft.OutlookForWindows_1.2026.1013.100_x64__8wekyb3d8bbwe\olk.exe") == "Microsoft Outlook"
+          && L(WA + @"Microsoft.OutlookForWindows_*_x64__8wekyb3d8bbwe\olkBg.exe") == "Microsoft Outlook · olkBg.exe"
+          && L(WA + @"MSTeams_*_x64__8wekyb3d8bbwe\ms-teams.exe") == "Microsoft Teams",
+        "Office-Programme (Klick-und-Los und MSI), neues Outlook und Teams erkannt");
+    const string OD = @"C:\Users\Justman\AppData\Local\Microsoft\OneDrive\";
+    Check(L(OD + "OneDrive.exe") == "Microsoft OneDrive" && L(OD + "OneDriveStandaloneUpdater.exe") == "Microsoft OneDrive · Updater"
+          && R(OD + @"26.198.1011.0006\OneDriveSetup.exe") == AppRole.Updater
+          && L(OD + @"26.198.1011.0006\FileCoAuth.exe") == "Microsoft OneDrive · FileCoAuth.exe"
+          && L(@"C:\Program Files\Microsoft OneDrive\OneDriveStandaloneUpdater.exe") == "Microsoft OneDrive · Updater",
+        "OneDrive samt Updater erkannt (je Benutzer und für alle)");
+    Check(L(@"C:\Program Files (x86)\Common Files\Adobe\ARM\1.0\armsvc.exe") == "Adobe Acrobat · Updater"
+          && L(@"C:\Program Files (x86)\Common Files\Adobe\ARM\1.0\AdobeARM.exe") == "Adobe Acrobat · Updater"
+          && L(@"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe") == "Adobe Acrobat"
+          && L(@"C:\Program Files (x86)\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe") == "Adobe Acrobat Reader"
+          && L(@"C:\Program Files\Adobe\Acrobat DC\Acrobat\AdobeCollabSync.exe") == "Adobe Acrobat · AdobeCollabSync.exe",
+        "Acrobat, Reader und ihr Updater erkannt");
+    const string ADC = @"C:\Program Files\Common Files\Adobe\Adobe Desktop Common\";
+    Check(L(ADC + @"ElevationManager\AdobeUpdateService.exe") == "Adobe Update Service" && R(ADC + @"ElevationManager\AdobeUpdateService.exe") == AppRole.Updater
+          && L(ADC + @"ElevationManager\Adobe Installer.exe") == "Adobe Creative Cloud · Updater"
+          && R(ADC + @"HDBox\Setup.exe") == AppRole.Updater
+          && R(@"C:\Program Files (x86)\Common Files\Adobe\OOBE\PDApp\UWA\UpdaterStartupUtility.exe") == AppRole.Updater
+          && L(ADC + @"ADS\Adobe Desktop Service.exe") == "Adobe Creative Cloud · Adobe Desktop Service.exe"
+          && L(@"C:\Program Files (x86)\Common Files\Adobe\AdobeGCClient\AGSService.exe") == "Adobe Genuine Service"
+          && L(@"C:\Program Files\Adobe\Adobe Creative Cloud\ACC\Creative Cloud.exe") == "Adobe Creative Cloud",
+        "Creative Cloud: App, Adobe Update Service, Installationsprogramm, Hintergrunddienste erkannt");
+    Check(L(@"C:\Program Files\Adobe\Adobe Photoshop 2026\Photoshop.exe") == "Adobe Photoshop"
+          && L(@"C:\Program Files\Adobe\Adobe Illustrator 2026\Support Files\Contents\Windows\Illustrator.exe") == "Adobe Illustrator"
+          && L(@"C:\Program Files\Adobe\Adobe Premiere Pro 2026\Adobe Premiere Pro.exe") == "Adobe Premiere Pro"
+          && L(@"C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe") == "Adobe Creative Cloud · node.exe",
+        "Programme der Creative Cloud mit eigenem Namen, ihre Hilfsprogramme bei der Creative Cloud");
+    Check(L(@"C:\Users\x\Downloads\OfficeClickToRun.exe") == null && L(@"C:\Users\x\AppData\Local\Temp\AdobeARM.exe") == null
+          && L(WA + @"Microsoft.OutlookForWindows_*_x64__fremd\olk.exe") == null && L(@"D:\Adobe\Photoshop.exe") == null,
+        "Office- und Adobe-Namen an anderen Orten oder von fremdem Herausgeber sind keine bekannte App");
     KnownApps.Configure("", "", "");
     Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }

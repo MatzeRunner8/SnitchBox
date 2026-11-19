@@ -354,6 +354,24 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
 - Neuer Platzhalter {TEMP} in den Vorlagen: die eingestellten Temp-Ordner (wie bei Regel-Mustern, nie ein ganzes Laufwerk) und
   AppData\Local\Temp jedes Benutzers. Das Symbol einer App mit wechselndem Ordner (devenv.exe) wird per Muster gefunden.
 
+## Build 33 – Update-Prozesse von Microsoft Office und Adobe
+- Microsoft Office (Klick-und-Los): der Dienst OfficeClickToRun.exe (lädt und installiert die Updates, während eines Updates auch aus
+  einem Unterordner) als „Microsoft Office Click-to-Run“ und OfficeC2RClient.exe (von der Aufgabe „Office Automatic Updates 2.0“
+  gestartet) als „Microsoft Office · Updater“, beide mit Updater-Abzeichen; alles Übrige unter ClickToRun und Microsoft Office als
+  Hilfsprogramm; Word, Excel, PowerPoint, Outlook, OneNote, Access, Publisher, Visio, Project und Skype for Business mit Namen
+  (Klick-und-Los- und MSI-Ordner). Das neue Outlook (Store-Paket Microsoft.OutlookForWindows) und Teams (MSTeams) als eigene Apps,
+  OneDrive (je Benutzer und für alle) mit OneDriveStandaloneUpdater.exe und OneDriveSetup.exe als Updater.
+- Adobe: Acrobat und Reader mit ihrem Updater unter Common Files\Adobe\ARM (Adobe Acrobat Update Service armsvc.exe, AdobeARM.exe);
+  Creative Cloud mit dem Adobe Update Service (Adobe Desktop Common\ElevationManager\AdobeUpdateService.exe) und dem
+  Installationsprogramm (ElevationManager, HDBox, OOBE) als Updater, Hintergrunddienste (Adobe Desktop Service, CoreSync, Adobe Genuine
+  Service) als Hilfsprogramme und die Programme der Suite mit Namen (Photoshop, Illustrator, InDesign, Premiere Pro, After Effects, Media
+  Encoder, Audition, Bridge, Animate, Dreamweaver, Lightroom, Character Animator, Substance 3D Painter).
+- Ein Programm mit eigenem Namen zeigt sein eigenes Symbol (Word, Photoshop); ist es nicht installiert, eine Buchstabenkachel mit seinem
+  Anfangsbuchstaben statt dem der Suite.
+- Office (Klick-und-Los) und Adobe sind auf dem Entwicklungsrechner nicht installiert: Ihre Vorlagen folgen den Standard-Installationsorten
+  der Hersteller und sind durch Kern-Tests abgedeckt, aber nicht mit echten Dateien geprüft. OneDrive und das neue Outlook wurden mit den
+  installierten Apps geprüft.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

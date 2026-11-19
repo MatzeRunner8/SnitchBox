@@ -32,8 +32,8 @@ public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = n
 }
 
 /// <summary>Erkennt verbreitete Apps, deren Programme sonst schwer zuzuordnen sind: Claude, Claude Code, ChatGPT, Google Chrome,
-/// Brave, Firefox, Microsoft Edge, Visual Studio Code, Visual Studio, NordVPN – samt ihren Updatern („updater.exe“ sagt allein nichts)
-/// und Hilfsprogrammen. Erkannt wird am Ort (Programm-, Paket- und Temp-Ordner, auch als Regel-Muster mit „*“). Die Erkennung ändert nur Anzeige und Symbol, nie, welche Regel greift:
+/// Brave, Firefox, Microsoft Edge, Visual Studio Code, Visual Studio, NordVPN, Microsoft Office samt OneDrive, Adobe Creative Cloud und
+/// Acrobat – samt ihren Updatern („updater.exe“ sagt allein nichts) und Hilfsprogrammen. Erkannt wird am Ort (Programm-, Paket- und Temp-Ordner, auch als Regel-Muster mit „*“). Die Erkennung ändert nur Anzeige und Symbol, nie, welche Regel greift:
 /// Name und Symbol einer Datei kann ihr Hersteller ohnehin frei wählen, verlässlich ist erst die geprüfte Signatur im Warnfenster.</summary>
 public static class KnownApps
 {
@@ -52,8 +52,34 @@ public static class KnownApps
         [@"Programs\Microsoft VS Code Insiders\Code - Insiders.exe", @"Microsoft VS Code Insiders\Code - Insiders.exe"], []);
     public static readonly KnownApp VisualStudio = new("visualstudio", "Visual Studio", [@"Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe"], []);
     public static readonly KnownApp NordVpn = new("nordvpn", "NordVPN", [@"NordVPN\NordVPN.exe"], []);
+    // Office: Symbol des Update-Clients (Office-Logo); Word, Excel … zeigen ihr eigenes Symbol (Rolle App).
+    public static readonly KnownApp Office = new("office", "Microsoft Office",
+        [@"Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe", @"Microsoft Office\root\Office16\WINWORD.EXE"], []);
+    public static readonly KnownApp OneDrive = new("onedrive", "Microsoft OneDrive", [@"Microsoft\OneDrive\OneDrive.exe", @"Microsoft OneDrive\OneDrive.exe"], []);
+    public static readonly KnownApp Outlook = new("outlook", "Microsoft Outlook", [], [("Microsoft.OutlookForWindows_8wekyb3d8bbwe", "olk.exe")]);
+    public static readonly KnownApp Teams = new("teams", "Microsoft Teams", [], [("MSTeams_8wekyb3d8bbwe", "ms-teams.exe")]);
+    public static readonly KnownApp CreativeCloud = new("adobe-cc", "Adobe Creative Cloud", [@"Adobe\Adobe Creative Cloud\ACC\Creative Cloud.exe"], []);
+    public static readonly KnownApp Acrobat = new("acrobat", "Adobe Acrobat",
+        [@"Adobe\Acrobat DC\Acrobat\Acrobat.exe", @"Adobe\Acrobat Reader DC\Reader\AcroRd32.exe"], []);
 
-    public static readonly KnownApp[] All = [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn];
+    public static readonly KnownApp[] All =
+        [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn, Office, OneDrive, Outlook, Teams, CreativeCloud, Acrobat];
+
+    // Programme mit eigenem Namen (Rolle App mit festem Namen): Office-Anwendungen und die Programme der Creative Cloud.
+    private static readonly (string File, string Label)[] OfficeApps =
+    [
+        ("WINWORD.EXE", "Microsoft Word"), ("EXCEL.EXE", "Microsoft Excel"), ("POWERPNT.EXE", "Microsoft PowerPoint"),
+        ("OUTLOOK.EXE", "Microsoft Outlook"), ("ONENOTE.EXE", "Microsoft OneNote"), ("MSACCESS.EXE", "Microsoft Access"),
+        ("MSPUB.EXE", "Microsoft Publisher"), ("VISIO.EXE", "Microsoft Visio"), ("WINPROJ.EXE", "Microsoft Project"), ("lync.exe", "Skype for Business"),
+    ];
+    private static readonly (string File, string Label)[] AdobeApps =
+    [
+        ("Photoshop.exe", "Adobe Photoshop"), ("Illustrator.exe", "Adobe Illustrator"), ("InDesign.exe", "Adobe InDesign"),
+        ("Adobe Premiere Pro.exe", "Adobe Premiere Pro"), ("AfterFX.exe", "Adobe After Effects"), ("Adobe Media Encoder.exe", "Adobe Media Encoder"),
+        ("Adobe Audition.exe", "Adobe Audition"), ("Adobe Bridge.exe", "Adobe Bridge"), ("Animate.exe", "Adobe Animate"),
+        ("Dreamweaver.exe", "Adobe Dreamweaver"), ("Lightroom.exe", "Adobe Lightroom"), ("Adobe Character Animator.exe", "Adobe Character Animator"),
+        ("Substance 3D Painter.exe", "Adobe Substance 3D Painter"),
+    ];
 
     // Vorlagen, die erste passende gewinnt (Genaues vor „alles darunter“). {PF} = beide Programmordner, {WA} = WindowsApps,
     // {LOCAL} = AppData\Local eines Benutzers, {HOME} = Benutzerordner, {PD} = ProgramData, {TEMP} = die Temp-Ordner,
@@ -150,6 +176,49 @@ public static class KnownApps
         (NordVpn, AppRole.Updater, @"{PD}\NordUpdater\{ANY}", "NordUpdater"),
         (NordVpn, AppRole.Helper, @"{PD}\NordVPN\{ANY}", null),
         (NordVpn, AppRole.Helper, @"{LOCAL}\NordVPN\{ANY}", null),
+
+        // Microsoft Office (Klick-und-Los): Der Dienst OfficeClickToRun.exe lädt und installiert die Updates (während eines Updates
+        // auch aus einem Unterordner), OfficeC2RClient.exe stößt sie an (Aufgabe „Office Automatic Updates 2.0“).
+        (Office, AppRole.Updater, @"{PF}\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe", "Microsoft Office Click-to-Run"),
+        (Office, AppRole.Updater, @"{PF}\Common Files\microsoft shared\ClickToRun\{ANY}\OfficeClickToRun.exe", "Microsoft Office Click-to-Run"),
+        (Office, AppRole.Updater, @"{PF}\Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe", null),
+        (Office, AppRole.Updater, @"{PF}\Common Files\microsoft shared\ClickToRun\{ANY}\OfficeC2RClient.exe", null),
+        (Office, AppRole.Helper, @"{PF}\Common Files\microsoft shared\ClickToRun\{ANY}", null),
+        .. OfficeApps.Select(a => (Office, AppRole.App, @"{PF}\Microsoft Office\{ANY}\" + a.File, (string?)a.Label)),
+        (Office, AppRole.Helper, @"{PF}\Microsoft Office\{ANY}", null),
+        // Neues Outlook und Teams kommen als Store-Pakete von Microsoft und werden über den Store aktualisiert.
+        (Outlook, AppRole.App, @"{WA}\Microsoft.OutlookForWindows_{V}__8wekyb3d8bbwe\olk.exe", null),
+        (Outlook, AppRole.Helper, @"{WA}\Microsoft.OutlookForWindows_{V}__8wekyb3d8bbwe\{ANY}", null),
+        (Teams, AppRole.App, @"{WA}\MSTeams_{V}__8wekyb3d8bbwe\ms-teams.exe", null),
+        (Teams, AppRole.Helper, @"{WA}\MSTeams_{V}__8wekyb3d8bbwe\{ANY}", null),
+
+        // OneDrive: je Benutzer unter AppData\Local\Microsoft\OneDrive oder für alle unter Programme; eigener Updater.
+        (OneDrive, AppRole.App, @"{LOCAL}\Microsoft\OneDrive\OneDrive.exe", null),
+        (OneDrive, AppRole.Updater, @"{LOCAL}\Microsoft\OneDrive\OneDriveStandaloneUpdater.exe", null),
+        (OneDrive, AppRole.Updater, @"{LOCAL}\Microsoft\OneDrive\{ANY}\OneDriveSetup.exe", null),
+        (OneDrive, AppRole.Helper, @"{LOCAL}\Microsoft\OneDrive\{ANY}", null),
+        (OneDrive, AppRole.App, @"{PF}\Microsoft OneDrive\OneDrive.exe", null),
+        (OneDrive, AppRole.Updater, @"{PF}\Microsoft OneDrive\OneDriveStandaloneUpdater.exe", null),
+        (OneDrive, AppRole.Updater, @"{PF}\Microsoft OneDrive\{ANY}\OneDriveSetup.exe", null),
+        (OneDrive, AppRole.Helper, @"{PF}\Microsoft OneDrive\{ANY}", null),
+
+        // Adobe Acrobat und Reader; ihr Updater (Adobe Acrobat Update Service armsvc.exe, AdobeARM.exe) liegt unter Common Files\Adobe\ARM.
+        (Acrobat, AppRole.App, @"{PF}\Adobe\Acrobat{V}\Acrobat\Acrobat.exe", null),
+        (Acrobat, AppRole.App, @"{PF}\Adobe\Acrobat{V}\Reader\AcroRd32.exe", "Adobe Acrobat Reader"),
+        (Acrobat, AppRole.Helper, @"{PF}\Adobe\Acrobat{V}\{ANY}", null),
+        (Acrobat, AppRole.Updater, @"{PF}\Common Files\Adobe\ARM\{ANY}", null),
+
+        // Adobe Creative Cloud: Die App, der Adobe Update Service und das Installationsprogramm (ElevationManager, HDBox, OOBE) sowie
+        // Hintergrunddienste (Adobe Desktop Service, CoreSync, Genuine Service); die Programme der Suite mit eigenem Namen.
+        .. AdobeApps.Select(a => (CreativeCloud, AppRole.App, @"{PF}\Adobe\{ANY}\" + a.File, (string?)a.Label)),
+        (CreativeCloud, AppRole.App, @"{PF}\Adobe\Adobe Creative Cloud\ACC\Creative Cloud.exe", null),
+        (CreativeCloud, AppRole.Updater, @"{PF}\Common Files\Adobe\Adobe Desktop Common\ElevationManager\AdobeUpdateService.exe", "Adobe Update Service"),
+        (CreativeCloud, AppRole.Updater, @"{PF}\Common Files\Adobe\Adobe Desktop Common\ElevationManager\{ANY}", null),
+        (CreativeCloud, AppRole.Updater, @"{PF}\Common Files\Adobe\Adobe Desktop Common\HDBox\{ANY}", null),
+        (CreativeCloud, AppRole.Updater, @"{PF}\Common Files\Adobe\OOBE\{ANY}", null),
+        (CreativeCloud, AppRole.Helper, @"{PF}\Common Files\Adobe\AdobeGCClient\{ANY}", "Adobe Genuine Service"),
+        (CreativeCloud, AppRole.Helper, @"{PF}\Common Files\Adobe\{ANY}", null),
+        (CreativeCloud, AppRole.Helper, @"{PF}\Adobe\Adobe {ANY}", null),
     ];
 
     private static (Regex Pattern, AppMatch Match)[] _compiled = [];

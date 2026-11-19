@@ -342,6 +342,23 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
 - New template token {TEMP}: the configured Temp folders (as for rule patterns, never a whole drive) plus AppData\Local\Temp of every
   user. Icon of an app with a variable folder (devenv.exe) is found by pattern.
 
+## Build 33 – update processes of Microsoft Office and Adobe
+- Microsoft Office (Click-to-Run): the service OfficeClickToRun.exe (downloads and installs updates, also from a subfolder during an
+  update) as “Microsoft Office Click-to-Run” and OfficeC2RClient.exe (started by the task “Office Automatic Updates 2.0”) as “Microsoft
+  Office · Updater”, both with the updater badge; everything else under ClickToRun and Microsoft Office as helpers; Word, Excel, PowerPoint,
+  Outlook, OneNote, Access, Publisher, Visio, Project and Skype for Business by name (Click-to-Run and MSI layout). The new Outlook
+  (Store package Microsoft.OutlookForWindows) and Teams (MSTeams) as apps of their own, OneDrive (per user and per machine) with
+  OneDriveStandaloneUpdater.exe and OneDriveSetup.exe as updaters.
+- Adobe: Acrobat and Reader with their updater under Common Files\Adobe\ARM (Adobe Acrobat Update Service armsvc.exe, AdobeARM.exe);
+  Creative Cloud with the Adobe Update Service (Adobe Desktop Common\ElevationManager\AdobeUpdateService.exe), the installer engine
+  (ElevationManager, HDBox, OOBE) as updaters, background services (Adobe Desktop Service, CoreSync, Adobe Genuine Service) as helpers,
+  and the suite's programs by name (Photoshop, Illustrator, InDesign, Premiere Pro, After Effects, Media Encoder, Audition, Bridge,
+  Animate, Dreamweaver, Lightroom, Character Animator, Substance 3D Painter).
+- A program with a name of its own shows its own icon (Word, Photoshop); if it is not installed, a letter tile with its initial instead
+  of the suite's.
+- Office (Click-to-Run) and Adobe are not installed on the development PC: their templates follow the vendors' standard install
+  locations and are covered by core tests, but not by real files. OneDrive and the new Outlook were checked with the installed apps.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

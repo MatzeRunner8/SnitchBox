@@ -20,14 +20,23 @@ internal static class AppIcons
     private static readonly ConcurrentDictionary<string, string?> Resolved = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, ImageSource> Composed = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Symbol einer bekannten App in ihrer Rolle (zwischengespeichert je App und Rolle).</summary>
-    public static ImageSource For(AppMatch match, string processPath) =>
-        Composed.GetOrAdd(match.App.Id + "|" + match.Role, _ =>
+    /// <summary>Symbol einer bekannten App in ihrer Rolle: das Programm selbst zeigt sein eigenes Symbol (Word, Photoshop, ChatGPT),
+    /// Updater, Hilfsprogramme und Kommandozeile das des Hauptprogramms mit Abzeichen (zwischengespeichert je App und Rolle).</summary>
+    public static ImageSource For(AppMatch match, string processPath)
+    {
+        if (match.Role == AppRole.App)
+        {
+            if (ExistingFile(processPath) is { } own && Native.IconOf(own) is { } ownIcon) return ownIcon;
+            // Programm mit eigenem Namen, aber nicht (mehr) installiert (Word, Photoshop): sein Anfangsbuchstabe, nicht der der Suite.
+            if (match.FixedLabel != null) return Composed.GetOrAdd(match.App.Id + "|" + match.FixedLabel, _ => LetterTile(match.App, match.FixedLabel));
+        }
+        return Composed.GetOrAdd(match.App.Id + "|" + match.Role, _ =>
         {
             var main = MainFile(match.App) ?? ExistingFile(processPath);
             var baseIcon = (main != null ? Native.IconOf(main) : null) ?? LetterTile(match.App);
             return match.Role == AppRole.App ? baseIcon : WithBadge(baseIcon, match.Role);
         });
+    }
 
     /// <summary>Hauptprogramm einer bekannten App: Store-Paket, sonst die Programmordner und AppData\Local des Benutzers.</summary>
     private static string? MainFile(KnownApp app)
@@ -146,17 +155,23 @@ internal static class AppIcons
     }
 
     /// <summary>Ersatz, solange die App nicht installiert ist (etwa eine Regel von früher): Anfangsbuchstabe auf ihrer Farbe.</summary>
-    private static ImageSource LetterTile(KnownApp app)
+    private static ImageSource LetterTile(KnownApp app, string? label = null)
     {
         var color = app.Id switch
         {
             "claude" or "claude-code" => 0xD97757u, "chatgpt" => 0x10A37Fu, "chrome" => 0x4285F4u, "brave" => 0xFB542Bu,
             "firefox" => 0xFF7139u, "edge" => 0x0C59A4u, "vscode" => 0x007ACCu, "vscode-insiders" => 0x24BFA5u,
-            "visualstudio" => 0x5C2D91u, "nordvpn" => 0x4687FFu, _ => 0x8A939Eu,
+            "visualstudio" => 0x5C2D91u, "nordvpn" => 0x4687FFu, "office" => 0xD83B01u, "onedrive" => 0x0364B8u,
+            "outlook" => 0x0F6CBDu, "teams" => 0x4B53BCu,
+            "adobe-cc" => 0xDA1F26u, "acrobat" => 0xB30B00u, _ => 0x8A939Eu,
         };
+        // Anfangsbuchstabe ohne Herstellernamen: „O“ für Microsoft Office, „C“ für Adobe Creative Cloud.
+        var name = label ?? app.Title;
+        foreach (var vendor in new[] { "Microsoft ", "Adobe " })
+            if (name.StartsWith(vendor, StringComparison.Ordinal) && name.Length > vendor.Length) name = name[vendor.Length..];
         var group = new DrawingGroup();
         group.Children.Add(new GeometryDrawing(Brush(color), null, new RectangleGeometry(new Rect(2, 2, 28, 28), 7, 7)));
-        if (Glyph(app.Title[..1], "Segoe UI", FontWeights.Bold, new Rect(8, 7, 16, 18)) is { } letter)
+        if (Glyph(name[..1], "Segoe UI", FontWeights.Bold, new Rect(8, 7, 16, 18)) is { } letter)
             group.Children.Add(new GeometryDrawing(Brushes.White, null, letter));
         return Freeze(group);
     }
