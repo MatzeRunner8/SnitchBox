@@ -394,6 +394,21 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   von Windows.“
 - 43 neue Texte in allen 12 Sprachen.
 
+## Build 35 – Git und GitHub
+- KnownApps: GitHub CLI (MSI-Installation unter Programme\GitHub CLI, sonst ZIP-Paket oder Scoop mit …\bin\gh.exe – auch portabel an
+  beliebigem Ort, etwa C:\Tools\GitHubCLI\bin\gh.exe) als Kommandozeile; Git für Windows und MinGit an beliebigem Ort – git.exe in cmd\
+  oder <arch>\bin\ als Kommandozeile, die Helfer (git-remote-https.exe, git-credential-manager.exe …) in <arch>\bin\ und
+  <arch>\libexec\git-core\ (arch = mingw64, ucrt64, clangarm64, mingw32), alles Übrige unter Programme\Git als Hilfsprogramm; GitHub
+  Desktop (Squirrel, je Benutzer) mit Update.exe als Updater – das mitgelieferte Git zählt zu GitHub Desktop, ebenso das von Visual Studio.
+- Neue Platzhalter {DRIVE}{DIRS} („irgendwo“), nur für portable Werkzeuge mit unverwechselbarer Ordnerstruktur und ganz am Ende der
+  Liste, damit bestimmte Apps vorgehen.
+- Symbole: gh.exe und die Git-Programme enthalten kein Symbol. Git zeigt das von Git Bash, GitHub CLI das von GitHub Desktop, wenn
+  installiert; sonst eine gezeichnete Kachel – orangefarbene Raute mit Verzweigung für Git, dunkelgraue Kachel mit „GH“ für GitHub.
+  Korrektur: Updater, Hilfsprogramme und Kommandozeile nehmen jetzt immer das Hauptprogramm der App (oder die gezeichnete Kachel), nie
+  das Symbol der gerade gezeigten Datei (bisher lieh der erste Helfer mit Symbol – git-credential-manager.exe – es allen anderen, und
+  Dateien ohne Symbol zeigten das leere Standardsymbol); ein Hauptprogramm oder die eigene Datei einer App zählt nur, wenn sie
+  wirklich ein Symbol enthält.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

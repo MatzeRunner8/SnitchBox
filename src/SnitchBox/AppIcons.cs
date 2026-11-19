@@ -26,13 +26,15 @@ internal static class AppIcons
     {
         if (match.Role == AppRole.App)
         {
-            if (ExistingFile(processPath) is { } own && Native.IconOf(own) is { } ownIcon) return ownIcon;
+            if (ExistingFile(processPath) is { } own && HasOwnIcon(own) && Native.IconOf(own) is { } ownIcon) return ownIcon;
             // Programm mit eigenem Namen, aber nicht (mehr) installiert (Word, Photoshop): sein Anfangsbuchstabe, nicht der der Suite.
             if (match.FixedLabel != null) return Composed.GetOrAdd(match.App.Id + "|" + match.FixedLabel, _ => LetterTile(match.App, match.FixedLabel));
         }
+        // Updater, Hilfsprogramme, Kommandozeile: immer das Hauptprogramm der App (ein Symbol je App und Rolle, gleich für alle ihre
+        // Dateien); ist es nicht installiert, die gezeichnete Kachel – nie das Symbol der gerade gezeigten Datei.
         return Composed.GetOrAdd(match.App.Id + "|" + match.Role, _ =>
         {
-            var main = MainFile(match.App) ?? ExistingFile(processPath);
+            var main = MainFile(match.App);
             var baseIcon = (main != null ? Native.IconOf(main) : null) ?? LetterTile(match.App);
             return match.Role == AppRole.App ? baseIcon : WithBadge(baseIcon, match.Role);
         });
@@ -86,13 +88,13 @@ internal static class AppIcons
     private static string? MainFile(KnownApp app)
     {
         foreach (var (family, exe) in app.Packages)
-            if (PackageRoot(family) is { } root && File.Exists(Path.Combine(root, exe))) return Path.Combine(root, exe);
+            if (PackageRoot(family) is { } root && File.Exists(Path.Combine(root, exe)) && HasOwnIcon(Path.Combine(root, exe))) return Path.Combine(root, exe);
         foreach (var dir in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.LocalApplicationData })
         foreach (var file in app.Files)
         {
             var p = Path.Combine(Environment.GetFolderPath(dir), file);
             var found = p.Contains('*') ? ExistingFile(p) : File.Exists(p) ? p : null;
-            if (found != null) return found;
+            if (found != null && HasOwnIcon(found)) return found;
         }
         return null;
     }
@@ -201,12 +203,13 @@ internal static class AppIcons
     /// <summary>Ersatz, solange die App nicht installiert ist (etwa eine Regel von früher): Anfangsbuchstabe auf ihrer Farbe.</summary>
     private static ImageSource LetterTile(KnownApp app, string? label = null)
     {
+        if (label == null && app.Id == "git") return GitTile();
         var color = app.Id switch
         {
             "claude" or "claude-code" => 0xD97757u, "chatgpt" => 0x10A37Fu, "chrome" => 0x4285F4u, "brave" => 0xFB542Bu,
             "firefox" => 0xFF7139u, "edge" => 0x0C59A4u, "vscode" => 0x007ACCu, "vscode-insiders" => 0x24BFA5u,
             "visualstudio" => 0x5C2D91u, "nordvpn" => 0x4687FFu, "office" => 0xD83B01u, "onedrive" => 0x0364B8u,
-            "outlook" => 0x0F6CBDu, "teams" => 0x4B53BCu,
+            "outlook" => 0x0F6CBDu, "teams" => 0x4B53BCu, "github" or "github-cli" => 0x444C56u,
             "adobe-cc" => 0xDA1F26u, "acrobat" => 0xB30B00u, _ => 0x8A939Eu,
         };
         // Anfangsbuchstabe ohne Herstellernamen: „O“ für Microsoft Office, „C“ für Adobe Creative Cloud.
@@ -215,8 +218,27 @@ internal static class AppIcons
             if (name.StartsWith(vendor, StringComparison.Ordinal) && name.Length > vendor.Length) name = name[vendor.Length..];
         var group = new DrawingGroup();
         group.Children.Add(new GeometryDrawing(Brush(color), null, new RectangleGeometry(new Rect(2, 2, 28, 28), 7, 7)));
-        if (Glyph(name[..1], "Segoe UI", FontWeights.Bold, new Rect(8, 7, 16, 18)) is { } letter)
+        var initial = label == null && app.Id is "github" or "github-cli" ? "GH" : name[..1];
+        if (Glyph(initial, "Segoe UI", FontWeights.Bold, initial.Length > 1 ? new Rect(4.5, 6.5, 18, 12) : new Rect(8, 7, 16, 18)) is { } letter)
             group.Children.Add(new GeometryDrawing(Brushes.White, null, letter));
+        return Freeze(group);
+    }
+
+    /// <summary>Git ohne installiertes Git Bash (MinGit, portabel): orangefarbene Raute mit Verzweigung.</summary>
+    private static ImageSource GitTile()
+    {
+        var group = new DrawingGroup();
+        group.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 32, 32))));
+        group.Children.Add(new GeometryDrawing(Brush(0xF05032), null,
+            new RectangleGeometry(new Rect(6, 6, 20, 20), 3.5, 3.5) { Transform = new RotateTransform(45, 16, 16) }));
+        var pen = new Pen(Brushes.White, 2.2) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        var lines = new GeometryGroup();
+        // Knoten oben links, damit das Abzeichen unten rechts sie nicht verdeckt.
+        lines.Children.Add(new LineGeometry(new Point(11.5, 20.5), new Point(11.5, 9)));
+        lines.Children.Add(new LineGeometry(new Point(11.5, 11.5), new Point(18.5, 13.5)));
+        group.Children.Add(new GeometryDrawing(null, pen, lines));
+        foreach (var p in new[] { new Point(11.5, 20.5), new Point(18.5, 13.5) })
+            group.Children.Add(new GeometryDrawing(Brushes.White, null, new EllipseGeometry(p, 2.4, 2.4)));
         return Freeze(group);
     }
 

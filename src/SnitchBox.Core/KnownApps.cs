@@ -62,8 +62,15 @@ public static class KnownApps
     public static readonly KnownApp Acrobat = new("acrobat", "Adobe Acrobat",
         [@"Adobe\Acrobat DC\Acrobat\Acrobat.exe", @"Adobe\Acrobat Reader DC\Reader\AcroRd32.exe"], []);
 
+    // Git und GitHub: Git für Windows und GitHub CLI liegen oft portabel irgendwo (MinGit, ZIP-Paket von gh); ihre Programme
+    // enthalten kein Symbol – das kommt aus Git Bash bzw. GitHub Desktop, wenn installiert, sonst gezeichnet.
+    public static readonly KnownApp Git = new("git", "Git", [@"Git\git-bash.exe", @"Programs\Git\git-bash.exe"], []);
+    public static readonly KnownApp GitHubDesktop = new("github", "GitHub Desktop", [@"GitHubDesktop\GitHubDesktop.exe"], []);
+    public static readonly KnownApp GitHubCli = GitHubDesktop with { Id = "github-cli", Title = "GitHub CLI" };
+
     public static readonly KnownApp[] All =
-        [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn, Office, OneDrive, Outlook, Teams, CreativeCloud, Acrobat];
+        [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn, Office, OneDrive, Outlook, Teams,
+         CreativeCloud, Acrobat, Git, GitHubDesktop, GitHubCli];
 
     // Programme mit eigenem Namen (Rolle App mit festem Namen): Office-Anwendungen und die Programme der Creative Cloud.
     private static readonly (string File, string Label)[] OfficeApps =
@@ -83,7 +90,8 @@ public static class KnownApps
 
     // Vorlagen, die erste passende gewinnt (Genaues vor „alles darunter“). {PF} = beide Programmordner, {WA} = WindowsApps,
     // {LOCAL} = AppData\Local eines Benutzers, {HOME} = Benutzerordner, {PD} = ProgramData, {TEMP} = die Temp-Ordner,
-    // {V} = ein wechselnder Name (Version, Hash, auch „*“ aus einem Regel-Muster), {ANY} = beliebiger Rest des Pfads.
+    // {V} = ein wechselnder Name (Version, Hash, auch „*“ aus einem Regel-Muster), {ANY} = beliebiger Rest des Pfads,
+    // {DRIVE}{DIRS} = irgendwo (nur für portable Werkzeuge mit unverwechselbarer Ordnerstruktur, ganz am Ende der Liste).
     private static readonly (KnownApp App, AppRole Role, string Template, string? Label)[] Templates =
     [
         (Claude, AppRole.App, @"{WA}\Claude_{V}__pzs8sxrjxfjjc\app\claude.exe", null),
@@ -219,6 +227,23 @@ public static class KnownApps
         (CreativeCloud, AppRole.Helper, @"{PF}\Common Files\Adobe\AdobeGCClient\{ANY}", "Adobe Genuine Service"),
         (CreativeCloud, AppRole.Helper, @"{PF}\Common Files\Adobe\{ANY}", null),
         (CreativeCloud, AppRole.Helper, @"{PF}\Adobe\Adobe {ANY}", null),
+
+        // GitHub Desktop (Squirrel, je Benutzer) bringt ein eigenes Git mit – das zählt zu GitHub Desktop.
+        (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\GitHubDesktop.exe", null),
+        (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\app-{V}\GitHubDesktop.exe", null),
+        (GitHubDesktop, AppRole.Updater, @"{LOCAL}\GitHubDesktop\Update.exe", null),
+        (GitHubDesktop, AppRole.Helper, @"{LOCAL}\GitHubDesktop\{ANY}", null),
+        // GitHub CLI: MSI-Installation, sonst das ZIP-Paket bzw. Scoop (…\bin\gh.exe), auch portabel an beliebigem Ort.
+        (GitHubCli, AppRole.CommandLine, @"{PF}\GitHub CLI\gh.exe", null),
+        (GitHubCli, AppRole.CommandLine, @"{DRIVE}\{DIRS}bin\gh.exe", null),
+        // Git für Windows (Programme, je Benutzer) und MinGit an beliebigem Ort: git.exe in cmd\ bzw. <arch>\bin\, die Helfer
+        // (git-remote-https.exe, git-credential-manager.exe …) in <arch>\bin\ und <arch>\libexec\git-core\.
+        (Git, AppRole.CommandLine, @"{DRIVE}\{DIRS}cmd\git.exe", null),
+        (Git, AppRole.CommandLine, @"{DRIVE}\{DIRS}{GITARCH}\bin\git.exe", null),
+        (Git, AppRole.Helper, @"{DRIVE}\{DIRS}{GITARCH}\bin\git{V}", null),
+        (Git, AppRole.Helper, @"{DRIVE}\{DIRS}{GITARCH}\libexec\git-core\{V}", null),
+        (Git, AppRole.Helper, @"{PF}\Git\{ANY}", null),
+        (Git, AppRole.Helper, @"{LOCAL}\Programs\Git\{ANY}", null),
     ];
 
     private static (Regex Pattern, AppMatch Match)[] _compiled = [];
@@ -240,6 +265,10 @@ public static class KnownApps
             ["{HOME}"] = @"[A-Za-z]:\\Users\\[^\\]+",
             ["{PD}"] = programData.Length > 0 ? E(programData) : "(?!)",
             ["{TEMP}"] = "(?:" + string.Join("|", temps) + ")",
+            // Für Werkzeuge, die portabel an beliebigem Ort liegen: Laufwerk, beliebig viele Ordner (auch keiner), Git-Architektur.
+            ["{DRIVE}"] = "[A-Za-z]:",
+            ["{DIRS}"] = @"(?:[^\\]+\\)*",
+            ["{GITARCH}"] = "(?:mingw64|ucrt64|clangarm64|mingw32)",
             ["{V}"] = @"[^\\]+",
             ["{ANY}"] = @"[^\\].*",
         };

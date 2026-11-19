@@ -378,6 +378,20 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
 - Alert window: name plus a hint – for telemetry and tips/ads that Windows keeps working if you deny it, otherwise “Part of Windows.”
 - 43 new texts in all 12 languages.
 
+## Build 35 – Git and GitHub
+- KnownApps: GitHub CLI (MSI install under Program Files\GitHub CLI, otherwise the zip package or Scoop with …\bin\gh.exe – also
+  portable anywhere, e.g. C:\Tools\GitHubCLI\bin\gh.exe) as command line; Git for Windows and MinGit anywhere – git.exe in cmd\ or
+  <arch>\bin\ as command line, the helpers (git-remote-https.exe, git-credential-manager.exe …) in <arch>\bin\ and
+  <arch>\libexec\git-core\ (arch = mingw64, ucrt64, clangarm64, mingw32), everything else under Program Files\Git as helper; GitHub Desktop
+  (Squirrel, per user) with Update.exe as updater – the Git it bundles counts as part of GitHub Desktop, likewise Visual Studio's.
+- New template tokens {DRIVE}{DIRS} (“anywhere”), only for portable tools with an unmistakable folder structure and at the very end of
+  the list, so that specific apps take precedence.
+- Icons: gh.exe and the Git programs contain no icon. Git shows the icon of Git Bash, GitHub CLI that of GitHub Desktop, if installed;
+  otherwise a drawn tile – an orange diamond with a branch for Git, a dark grey tile with “GH” for GitHub. Fix: updaters, helpers and
+  the command line now always use the app's main program (or the drawn tile), never the icon of the file just shown (previously the
+  first helper with an icon – git-credential-manager.exe – lent its icon to all others, and files without an icon showed the blank
+  default icon); a main program or an app's own file counts only if it really contains an icon.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

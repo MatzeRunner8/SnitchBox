@@ -803,6 +803,30 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(L(@"C:\Users\x\Downloads\OfficeClickToRun.exe") == null && L(@"C:\Users\x\AppData\Local\Temp\AdobeARM.exe") == null
           && L(WA + @"Microsoft.OutlookForWindows_*_x64__fremd\olk.exe") == null && L(@"D:\Adobe\Photoshop.exe") == null,
         "Office- und Adobe-Namen an anderen Orten oder von fremdem Herausgeber sind keine bekannte App");
+
+    Check(L(@"C:\Tools\GitHubCLI\bin\gh.exe") == "GitHub CLI" && R(@"C:\Tools\GitHubCLI\bin\gh.exe") == AppRole.CommandLine
+          && L(@"C:\Program Files\GitHub CLI\gh.exe") == "GitHub CLI"
+          && L(@"C:\Users\x\scoop\apps\gh\current\bin\gh.exe") == "GitHub CLI",
+        "GitHub CLI erkannt: portabel (ZIP-Paket), MSI-Installation, Scoop");
+    Check(L(@"C:\Tools\MinGit\ucrt64\bin\git-remote-https.exe") == "Git · git-remote-https.exe"
+          && R(@"C:\Tools\MinGit\ucrt64\bin\git-remote-https.exe") == AppRole.Helper
+          && L(@"C:\Tools\MinGit\cmd\git.exe") == "Git" && R(@"C:\Tools\MinGit\cmd\git.exe") == AppRole.CommandLine
+          && L(@"C:\Program Files\Git\mingw64\bin\git-remote-https.exe") == "Git · git-remote-https.exe"
+          && L(@"C:\Program Files\Git\mingw64\libexec\git-core\git-remote-https.exe") == "Git · git-remote-https.exe"
+          && L(@"C:\Program Files\Git\usr\bin\ssh.exe") == "Git · ssh.exe"
+          && L(@"C:\Program Files\Git\cmd\git.exe") == "Git",
+        "Git erkannt: MinGit portabel und Git für Windows (mingw64, libexec, usr\\bin)");
+    Check(L(@"C:\Users\x\AppData\Local\GitHubDesktop\app-3.5.2\GitHubDesktop.exe") == "GitHub Desktop"
+          && L(@"C:\Users\x\AppData\Local\GitHubDesktop\Update.exe") == "GitHub Desktop · Updater"
+          && L(@"C:\Users\x\AppData\Local\GitHubDesktop\app-3.5.2\resources\app\git\mingw64\bin\git-remote-https.exe") == "GitHub Desktop · git-remote-https.exe"
+          && L(@"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\mingw64\bin\git-remote-https.exe")
+             == "Visual Studio · git-remote-https.exe",
+        "GitHub Desktop samt Updater; mitgeliefertes Git zählt zur App, die es mitbringt");
+    Check(L(@"C:\Tools\x\gh.exe") == null && L(@"C:\Tools\x\bin\git-remote-https.exe") == null && L(@"C:\Tools\x\ucrt64\bin\curl.exe") == null,
+        "gh.exe ohne bin-Ordner und Git-Helfer ohne Git-Ordnerstruktur sind keine bekannte App");
+    Check(new Rule { Process = @"C:\Tools\GitHubCLI\bin\gh.exe" }.ProcessName == "GitHub CLI"
+          && new Rule { Process = @"C:\Tools\MinGit\ucrt64\bin\git-remote-https.exe" }.ProcessName == "Git · git-remote-https.exe",
+        "Regelliste zeigt GitHub CLI und Git");
     KnownApps.Configure("", "", "");
     Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }
