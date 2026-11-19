@@ -379,5 +379,7 @@
  "Group programs by type (AI, browsers, Windows …)": "按类型对程序分组（AI、浏览器、Windows…）",
  "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "规则列表和网络监视器按带标题的分组显示程序；不会隐藏任何内容。",
  "Games": "游戏",
- "Drivers and hardware": "驱动程序和硬件"
+ "Drivers and hardware": "驱动程序和硬件",
+ "Communication": "通信",
+ "Music and media": "音乐和媒体"
 }

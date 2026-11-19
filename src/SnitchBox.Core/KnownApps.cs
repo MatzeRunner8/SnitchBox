@@ -87,10 +87,20 @@ public static class KnownApps
         [@"NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe", @"System32\DriverStore\FileRepository\nv_dispig.inf_*\Display.NvContainer\NVDisplay.Container.exe"],
         [], ProcessGroup.Hardware);
     public static readonly KnownApp Steam = new("steam", "Steam", [@"Steam\steam.exe"], [], ProcessGroup.Games);
+    // Discord (Squirrel, je Benutzer unter AppData\Local) in drei Ausgaben; die App liegt im Versionsordner app-<Version>.
+    public static readonly KnownApp Discord = new("discord", "Discord", [@"Discord\app-*\Discord.exe"], [], ProcessGroup.Communication);
+    public static readonly KnownApp DiscordPtb = new("discord-ptb", "Discord PTB", [@"DiscordPTB\app-*\DiscordPTB.exe"], [], ProcessGroup.Communication);
+    public static readonly KnownApp DiscordCanary = new("discord-canary", "Discord Canary", [@"DiscordCanary\app-*\DiscordCanary.exe"], [], ProcessGroup.Communication);
+    // Spotify: klassisch unter AppData\Roaming, sonst als Store-App.
+    public static readonly KnownApp Spotify = new("spotify", "Spotify", [@"Spotify\Spotify.exe"],
+        [("SpotifyAB.SpotifyMusic_zpdnekdrzrea0", "Spotify.exe")], ProcessGroup.Media);
+    // Apple Music (Store-App) und die übrigen Apple-Programme: iTunes, Apple Software Update, Bonjour, Apple Mobile Device Support.
+    public static readonly KnownApp AppleMusic = new("apple-music", "Apple Music", [], [("AppleInc.AppleMusicWin_nzyj5cx40ttqa", "AppleMusic.exe")], ProcessGroup.Media);
+    public static readonly KnownApp Apple = new("apple", "Apple", [@"iTunes\iTunes.exe"], [("AppleInc.iTunes_nzyj5cx40ttqa", "iTunes.exe")], ProcessGroup.Media);
 
     public static readonly KnownApp[] All =
         [Claude, ClaudeCode, ChatGpt, Chrome, Brave, Firefox, Edge, VsCode, VsCodeInsiders, VisualStudio, NordVpn, Office, OneDrive, Outlook, Teams,
-         CreativeCloud, Acrobat, Git, GitHubDesktop, GitHubCli, Nvidia, Steam];
+         CreativeCloud, Acrobat, Git, GitHubDesktop, GitHubCli, Nvidia, Steam, Discord, DiscordPtb, DiscordCanary, Spotify, AppleMusic, Apple];
 
     // Programme mit eigenem Namen (Rolle App mit festem Namen): Office-Anwendungen und die Programme der Creative Cloud.
     private static readonly (string File, string Label)[] OfficeApps =
@@ -274,6 +284,37 @@ public static class KnownApps
         (Steam, AppRole.Helper, @"{PF}\Steam\{ANY}", null),
         (Steam, AppRole.Helper, @"{PF}\Common Files\Steam\{ANY}", null),
 
+        // Discord: Update.exe ist der Squirrel-Updater (startet auch die App), die App liegt in app-<Version>.
+        (Discord, AppRole.Updater, @"{LOCAL}\Discord\Update.exe", null),
+        (Discord, AppRole.App, @"{LOCAL}\Discord\app-{V}\Discord.exe", null),
+        (Discord, AppRole.App, @"{LOCAL}\Discord\Discord.exe", null),
+        (Discord, AppRole.Helper, @"{LOCAL}\Discord\{ANY}", null),
+        (DiscordPtb, AppRole.Updater, @"{LOCAL}\DiscordPTB\Update.exe", null),
+        (DiscordPtb, AppRole.App, @"{LOCAL}\DiscordPTB\app-{V}\DiscordPTB.exe", null),
+        (DiscordPtb, AppRole.Helper, @"{LOCAL}\DiscordPTB\{ANY}", null),
+        (DiscordCanary, AppRole.Updater, @"{LOCAL}\DiscordCanary\Update.exe", null),
+        (DiscordCanary, AppRole.App, @"{LOCAL}\DiscordCanary\app-{V}\DiscordCanary.exe", null),
+        (DiscordCanary, AppRole.Helper, @"{LOCAL}\DiscordCanary\{ANY}", null),
+
+        // Spotify: Programm unter AppData\Roaming\Spotify, heruntergeladene Updates unter AppData\Local\Spotify\Update; Store-App.
+        (Spotify, AppRole.App, @"{ROAMING}\Spotify\Spotify.exe", null),
+        (Spotify, AppRole.Helper, @"{ROAMING}\Spotify\{ANY}", null),
+        (Spotify, AppRole.Updater, @"{LOCAL}\Spotify\Update\{ANY}", null),
+        (Spotify, AppRole.Helper, @"{LOCAL}\Spotify\{ANY}", null),
+        (Spotify, AppRole.App, @"{WA}\SpotifyAB.SpotifyMusic_{V}__zpdnekdrzrea0\Spotify.exe", null),
+        (Spotify, AppRole.Helper, @"{WA}\SpotifyAB.SpotifyMusic_{V}__zpdnekdrzrea0\{ANY}", null),
+
+        // Apple Music und iTunes (Store-Pakete von Apple, Herausgeber nzyj5cx40ttqa), iTunes klassisch, Apple Software Update, Bonjour.
+        (AppleMusic, AppRole.App, @"{WA}\AppleInc.AppleMusicWin_{V}__nzyj5cx40ttqa\AppleMusic.exe", null),
+        (AppleMusic, AppRole.Helper, @"{WA}\AppleInc.AppleMusicWin_{V}__nzyj5cx40ttqa\{ANY}", null),
+        (Apple, AppRole.App, @"{WA}\AppleInc.iTunes_{V}__nzyj5cx40ttqa\iTunes.exe", "iTunes"),
+        (Apple, AppRole.Helper, @"{WA}\AppleInc.{V}__nzyj5cx40ttqa\{ANY}", null),
+        (Apple, AppRole.App, @"{PF}\iTunes\iTunes.exe", "iTunes"),
+        (Apple, AppRole.Helper, @"{PF}\iTunes\{ANY}", null),
+        (Apple, AppRole.Updater, @"{PF}\Apple Software Update\{ANY}", "Apple Software Update"),
+        (Apple, AppRole.Helper, @"{PF}\Bonjour\{ANY}", "Bonjour (Apple)"),
+        (Apple, AppRole.Helper, @"{PF}\Common Files\Apple\{ANY}", null),
+
         // GitHub Desktop (Squirrel, je Benutzer) bringt ein eigenes Git mit – das zählt zu GitHub Desktop.
         (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\GitHubDesktop.exe", null),
         (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\app-{V}\GitHubDesktop.exe", null),
@@ -308,6 +349,7 @@ public static class KnownApps
             ["{PF}"] = "(?:" + string.Join("|", roots) + ")",
             ["{WA}"] = (programFiles.Length > 0 ? E(programFiles) : roots[0]) + @"\\WindowsApps",
             ["{LOCAL}"] = @"[A-Za-z]:\\Users\\[^\\]+\\AppData\\Local",
+            ["{ROAMING}"] = @"[A-Za-z]:\\Users\\[^\\]+\\AppData\\Roaming",
             ["{HOME}"] = @"[A-Za-z]:\\Users\\[^\\]+",
             ["{PD}"] = programData.Length > 0 ? E(programData) : "(?!)",
             ["{TEMP}"] = "(?:" + string.Join("|", temps) + ")",

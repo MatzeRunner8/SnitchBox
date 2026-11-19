@@ -379,5 +379,7 @@
  "Group programs by type (AI, browsers, Windows …)": "Raggruppa i programmi per tipo (IA, browser, Windows…)",
  "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "L’elenco delle regole e il monitor di rete mostrano i programmi in gruppi con intestazioni; non viene nascosto nulla.",
  "Games": "Giochi",
- "Drivers and hardware": "Driver e hardware"
+ "Drivers and hardware": "Driver e hardware",
+ "Communication": "Comunicazione",
+ "Music and media": "Musica e media"
 }

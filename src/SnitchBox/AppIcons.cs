@@ -90,8 +90,9 @@ internal static class AppIcons
     {
         foreach (var (family, exe) in app.Packages)
             if (PackageRoot(family) is { } root && File.Exists(Path.Combine(root, exe)) && HasOwnIcon(Path.Combine(root, exe))) return Path.Combine(root, exe);
-        // Der Windows-Ordner für Treiber im DriverStore (NVIDIA).
-        foreach (var dir in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolder.Windows })
+        // Der Windows-Ordner für Treiber im DriverStore (NVIDIA), AppData\Roaming für Spotify.
+        foreach (var dir in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.LocalApplicationData,
+                                    Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.Windows })
         foreach (var file in app.Files)
         {
             var p = Path.Combine(Environment.GetFolderPath(dir), file);
@@ -212,7 +213,8 @@ internal static class AppIcons
             "firefox" => 0xFF7139u, "edge" => 0x0C59A4u, "vscode" => 0x007ACCu, "vscode-insiders" => 0x24BFA5u,
             "visualstudio" => 0x5C2D91u, "nordvpn" => 0x4687FFu, "office" => 0xD83B01u, "onedrive" => 0x0364B8u,
             "outlook" => 0x0F6CBDu, "teams" => 0x4B53BCu, "github" or "github-cli" => 0x444C56u,
-            "adobe-cc" => 0xDA1F26u, "acrobat" => 0xB30B00u, "nvidia" => 0x76B900u, "steam" => 0x2A475Eu, _ => 0x8A939Eu,
+            "adobe-cc" => 0xDA1F26u, "acrobat" => 0xB30B00u, "nvidia" => 0x76B900u, "steam" => 0x2A475Eu,
+            "discord" or "discord-ptb" or "discord-canary" => 0x5865F2u, "spotify" => 0x1DB954u, "apple-music" => 0xFA243Cu, "apple" => 0x6E6E73u, _ => 0x8A939Eu,
         };
         // Anfangsbuchstabe ohne Herstellernamen: „O“ für Microsoft Office, „C“ für Adobe Creative Cloud.
         var name = label ?? app.Title;

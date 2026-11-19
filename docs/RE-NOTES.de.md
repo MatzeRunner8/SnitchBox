@@ -436,6 +436,18 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   oder dem Steam-Symbol samt Gamepad-Abzeichen. Steam ist auf dem Entwicklungsrechner nicht installiert: durch Kern-Tests abgedeckt,
   Symbol nur als Buchstabenkachel.
 
+## Build 38 – Discord, Spotify, Apple Music
+- Discord (neue Gruppe „Kommunikation“): Squirrel-Installation je Benutzer unter AppData\Local\Discord – die App in
+  app-<Version>\Discord.exe, Update.exe als Updater, Module als Hilfsprogramme; Discord PTB und Discord Canary als eigene Apps.
+- Spotify (neue Gruppe „Musik und Medien“): klassische Installation unter AppData\Roaming\Spotify (neuer Platzhalter {ROAMING};
+  Hauptprogramme werden jetzt auch unter Roaming gesucht), heruntergeladene Updates unter AppData\Local\Spotify\Update als Updater,
+  Store-App SpotifyAB.SpotifyMusic (Herausgeber zpdnekdrzrea0).
+- Apple („Musik und Medien“): Apple Music als Store-App AppleInc.AppleMusicWin (Herausgeber-Kennung von Apple nzyj5cx40ttqa) samt
+  Hilfsprogrammen (etwa AMPLibraryAgent.exe); iTunes als Store-App und klassisch, Apple Software Update als Updater, Bonjour
+  (mDNSResponder.exe) und Apple Mobile Device Support.
+- Keins der drei ist auf dem Entwicklungsrechner installiert: Die Vorlagen folgen den Standard-Installationsorten und sind durch Kern-Tests
+  abgedeckt; Symbole bis zur Installation nur als Buchstabenkachel.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

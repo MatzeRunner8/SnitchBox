@@ -417,6 +417,18 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
   (…\steamapps\common\<game>\…) with the new role “Game”, labelled with the game's folder (“Steam · Portal 2”), with their own icon or the
   Steam icon plus a controller badge. Steam is not installed on the development PC: covered by core tests, icon only as letter tile.
 
+## Build 38 – Discord, Spotify, Apple Music
+- Discord (new group “Communication”): Squirrel install per user under AppData\Local\Discord – the app in app-<version>\Discord.exe,
+  Update.exe as updater, modules as helpers; Discord PTB and Discord Canary as apps of their own.
+- Spotify (new group “Music and media”): classic install under AppData\Roaming\Spotify (new template token {ROAMING}; Roaming is now
+  also searched for main programs), downloaded updates under AppData\Local\Spotify\Update as updater, Store app
+  SpotifyAB.SpotifyMusic (publisher zpdnekdrzrea0).
+- Apple (“Music and media”): Apple Music as Store app AppleInc.AppleMusicWin (Apple's publisher ID nzyj5cx40ttqa) with its helpers
+  (e.g. AMPLibraryAgent.exe); iTunes as Store app and classic install, Apple Software Update as updater, Bonjour (mDNSResponder.exe) and
+  Apple Mobile Device Support.
+- None of the three is installed on the development PC: the templates follow the standard install locations and are covered by core
+  tests; icons only as letter tiles until the apps are installed.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

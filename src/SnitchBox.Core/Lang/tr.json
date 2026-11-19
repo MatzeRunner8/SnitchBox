@@ -379,5 +379,7 @@
  "Group programs by type (AI, browsers, Windows …)": "Programları türe göre grupla (yapay zekâ, tarayıcılar, Windows…)",
  "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Kural listesi ve ağ izleyicisi programları başlıklı gruplar halinde gösterir; hiçbir şey gizlenmez.",
  "Games": "Oyunlar",
- "Drivers and hardware": "Sürücüler ve donanım"
+ "Drivers and hardware": "Sürücüler ve donanım",
+ "Communication": "İletişim",
+ "Music and media": "Müzik ve medya"
 }

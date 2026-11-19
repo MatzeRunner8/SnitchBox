@@ -854,6 +854,36 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && ProcessGroups.Of(@"C:\Program Files (x86)\Steam\steam.exe") == ProcessGroup.Games && ProcessGroups.Title(ProcessGroup.Games) == "Spiele"
           && ProcessGroups.Title(ProcessGroup.Hardware) == "Treiber und Hardware",
         "NVIDIA in „Treiber und Hardware“, Steam samt Spielen in „Spiele“");
+
+    const string DC = @"C:\Users\Justman\AppData\Local\Discord\";
+    Check(L(DC + "Update.exe") == "Discord · Updater" && R(DC + "Update.exe") == AppRole.Updater
+          && L(DC + @"app-1.0.9213\Discord.exe") == "Discord" && L(DC + @"app-*\Discord.exe") == "Discord"
+          && L(DC + @"app-1.0.9213\modules\discord_hook-1\discord_hook\DiscordHookHelper64.exe") == "Discord · DiscordHookHelper64.exe"
+          && L(@"C:\Users\x\AppData\Local\DiscordPTB\app-1.0.1200\DiscordPTB.exe") == "Discord PTB"
+          && L(@"C:\Users\x\AppData\Local\DiscordCanary\Update.exe") == "Discord Canary · Updater",
+        "Discord (auch PTB und Canary): App im Versionsordner, Squirrel-Updater, Module");
+    Check(L(@"C:\Users\Justman\AppData\Roaming\Spotify\Spotify.exe") == "Spotify"
+          && L(@"C:\Users\Justman\AppData\Roaming\Spotify\SpotifyMigrator.exe") == "Spotify · SpotifyMigrator.exe"
+          && R(@"C:\Users\Justman\AppData\Local\Spotify\Update\SpotifyUpdate.exe") == AppRole.Updater
+          && L(WA + @"SpotifyAB.SpotifyMusic_1.275.582.0_x86__zpdnekdrzrea0\Spotify.exe") == "Spotify"
+          && L(WA + @"SpotifyAB.SpotifyMusic_*_x86__zpdnekdrzrea0\SpotifyStartupTask.exe") == "Spotify · SpotifyStartupTask.exe",
+        "Spotify: klassisch (Roaming), Update-Ordner, Store-App");
+    Check(L(WA + @"AppleInc.AppleMusicWin_1.2.5.0_x64__nzyj5cx40ttqa\AppleMusic.exe") == "Apple Music"
+          && L(WA + @"AppleInc.AppleMusicWin_*_x64__nzyj5cx40ttqa\AMPLibraryAgent.exe") == "Apple Music · AMPLibraryAgent.exe"
+          && L(WA + @"AppleInc.iTunes_12.13.9.1_x64__nzyj5cx40ttqa\iTunes.exe") == "iTunes"
+          && L(@"C:\Program Files\iTunes\iTunes.exe") == "iTunes"
+          && L(@"C:\Program Files (x86)\Apple Software Update\SoftwareUpdate.exe") == "Apple Software Update"
+          && R(@"C:\Program Files (x86)\Apple Software Update\SoftwareUpdate.exe") == AppRole.Updater
+          && L(@"C:\Program Files\Bonjour\mDNSResponder.exe") == "Bonjour (Apple)"
+          && L(@"C:\Program Files\Common Files\Apple\Mobile Device Support\AppleMobileDeviceService.exe") == "Apple · AppleMobileDeviceService.exe",
+        "Apple Music, iTunes (Store und klassisch), Apple Software Update, Bonjour, Apple Mobile Device Support");
+    Check(L(@"C:\Users\x\Downloads\Discord.exe") == null && L(@"C:\Tools\Spotify\Spotify.exe") == null
+          && L(WA + @"AppleInc.AppleMusicWin_*_x64__fremd\AppleMusic.exe") == null,
+        "Discord und Spotify anderswo, Apple Music von fremdem Herausgeber sind keine bekannte App");
+    Check(ProcessGroups.Of(DC + "Update.exe") == ProcessGroup.Communication && ProcessGroups.Of(@"C:\Users\x\AppData\Roaming\Spotify\Spotify.exe") == ProcessGroup.Media
+          && ProcessGroups.Of(@"C:\Program Files\Bonjour\mDNSResponder.exe") == ProcessGroup.Media
+          && ProcessGroups.Title(ProcessGroup.Communication) == "Kommunikation" && ProcessGroups.Title(ProcessGroup.Media) == "Musik und Medien",
+        "Discord in „Kommunikation“, Spotify und Apple in „Musik und Medien“");
     KnownApps.Configure("", "", "");
     Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }

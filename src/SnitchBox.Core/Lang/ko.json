@@ -379,5 +379,7 @@
  "Group programs by type (AI, browsers, Windows …)": "프로그램을 종류별로 그룹화(AI, 브라우저, Windows 등)",
  "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "규칙 목록과 네트워크 모니터에서 프로그램을 제목이 있는 그룹으로 표시합니다. 숨겨지는 항목은 없습니다.",
  "Games": "게임",
- "Drivers and hardware": "드라이버 및 하드웨어"
+ "Drivers and hardware": "드라이버 및 하드웨어",
+ "Communication": "커뮤니케이션",
+ "Music and media": "음악 및 미디어"
 }

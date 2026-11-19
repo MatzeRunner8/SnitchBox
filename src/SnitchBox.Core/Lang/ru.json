@@ -379,5 +379,7 @@
  "Group programs by type (AI, browsers, Windows …)": "Группировать программы по типу (ИИ, браузеры, Windows…)",
  "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Список правил и сетевой монитор показывают программы группами с заголовками; ничего не скрывается.",
  "Games": "Игры",
- "Drivers and hardware": "Драйверы и оборудование"
+ "Drivers and hardware": "Драйверы и оборудование",
+ "Communication": "Общение",
+ "Music and media": "Музыка и медиа"
 }
