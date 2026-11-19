@@ -369,5 +369,13 @@
  "Console window host": "Konsol penceresi ana bilgisayarı",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Windows’un parçası: Microsoft’a tanılama ve kullanım verileri gönderir. Bunu engellerseniz Windows çalışmaya devam eder.",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Windows’un parçası: ipuçları, bildirimler, haberler veya reklamlar yükler. Bunu engellerseniz Windows çalışmaya devam eder.",
- "Part of Windows.": "Windows’un parçası."
+ "Part of Windows.": "Windows’un parçası.",
+ "AI": "Yapay zekâ",
+ "Browsers": "Tarayıcılar",
+ "Office and creative": "Ofis ve tasarım",
+ "Development": "Geliştirme",
+ "VPN and security": "VPN ve güvenlik",
+ "Other programs": "Diğer programlar",
+ "Group programs by type (AI, browsers, Windows …)": "Programları türe göre grupla (yapay zekâ, tarayıcılar, Windows…)",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Kural listesi ve ağ izleyicisi programları başlıklı gruplar halinde gösterir; hiçbir şey gizlenmez."
 }

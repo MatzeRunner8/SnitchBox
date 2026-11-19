@@ -369,5 +369,13 @@
  "Console window host": "控制台窗口主机",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Windows 的一部分：向 Microsoft 发送诊断和使用数据。即使拒绝，Windows 也能继续运行。",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Windows 的一部分：加载提示、通知、资讯或广告。即使拒绝，Windows 也能继续运行。",
- "Part of Windows.": "Windows 的一部分。"
+ "Part of Windows.": "Windows 的一部分。",
+ "AI": "AI",
+ "Browsers": "浏览器",
+ "Office and creative": "办公与创意",
+ "Development": "开发",
+ "VPN and security": "VPN 与安全",
+ "Other programs": "其他程序",
+ "Group programs by type (AI, browsers, Windows …)": "按类型对程序分组（AI、浏览器、Windows…）",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "规则列表和网络监视器按带标题的分组显示程序；不会隐藏任何内容。"
 }

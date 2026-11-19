@@ -155,6 +155,9 @@ public sealed class Settings
     public List<string> NetworkExtras { get => _networkExtras; set => _networkExtras = value ?? []; }
     private List<string> _networkExtras = [];
     public bool BlocklistAutoUpdate { get; set; } = true;
+    /// <summary>Regelliste und Programmliste des Netzwerkmonitors nach Art gruppieren (KI, Browser, Windows …); fehlt der Eintrag in
+    /// einer älteren config.json, gilt eingeschaltet.</summary>
+    public bool GroupLists { get; set; } = true;
     /// <summary>Oberflächensprache (zweibuchstabiger Code); null = wie Windows.</summary>
     public string? Language { get; set; }
     /// <summary>Build, in dem zuletzt vor einem unsicheren Autostart-Ziel gewarnt wurde (einmal je Build).</summary>

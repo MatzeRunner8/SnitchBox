@@ -369,5 +369,13 @@
  "Console window host": "콘솔 창 호스트",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Windows의 일부: 진단 및 사용 데이터를 Microsoft에 보냅니다. 이를 차단해도 Windows는 계속 작동합니다.",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Windows의 일부: 팁, 알림, 뉴스 또는 광고를 불러옵니다. 이를 차단해도 Windows는 계속 작동합니다.",
- "Part of Windows.": "Windows의 일부입니다."
+ "Part of Windows.": "Windows의 일부입니다.",
+ "AI": "AI",
+ "Browsers": "브라우저",
+ "Office and creative": "오피스 및 크리에이티브",
+ "Development": "개발",
+ "VPN and security": "VPN 및 보안",
+ "Other programs": "기타 프로그램",
+ "Group programs by type (AI, browsers, Windows …)": "프로그램을 종류별로 그룹화(AI, 브라우저, Windows 등)",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "규칙 목록과 네트워크 모니터에서 프로그램을 제목이 있는 그룹으로 표시합니다. 숨겨지는 항목은 없습니다."
 }

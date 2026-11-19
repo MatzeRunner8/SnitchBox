@@ -7,6 +7,7 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -146,6 +147,8 @@ internal sealed record ModeItem(string Title, Brush Brush);
 internal sealed class RuleRow(Rule rule)
 {
     public Rule Rule { get; } = rule;
+    /// <summary>Überschrift der Gruppe (KI, Browser, Windows …); leer, wenn nicht gruppiert wird.</summary>
+    public string Group { get; init; } = "";
     public bool Enabled
     {
         get => Rule.Enabled;
@@ -172,6 +175,8 @@ internal sealed class ProcessRow : INotifyPropertyChanged
 
     public string? Path { get; init; }
     public string Name { get; init; } = "";
+    /// <summary>Überschrift der Gruppe; leer für „Alle Programme“ und wenn nicht gruppiert wird.</summary>
+    public string Group { get; init; } = "";
     public ImageSource Icon => Path == null ? Ui.AllProgramsIcon : Ui.IconFor(Path.Split('|')[0], false);
     public string Summary { get => _summary; set => Set(ref _summary, value); }
     public string DownText { get => _down; set => Set(ref _down, value); }
@@ -407,13 +412,27 @@ public partial class MainWindow : Window
             rules = rules.Where(r => r.Process.Contains(search, StringComparison.OrdinalIgnoreCase)
                                      || r.Describe().Contains(search, StringComparison.OrdinalIgnoreCase)
                                      || r.Notes.Contains(search, StringComparison.OrdinalIgnoreCase));
-        var rows = rules.OrderBy(r => r.Factory).ThenBy(r => r.ProcessName, StringComparer.CurrentCultureIgnoreCase).ThenBy(r => r.Created)
-            .Select(r => new RuleRow(r)).ToList();
+        // Gruppiert: erst nach Gruppe (KI, Browser … Windows, Andere), darin wie bisher eigene vor Werksregeln, dann nach Name.
+        var grouped = App.Engine.Read(s => s.Settings.GroupLists);
+        var rows = rules.Select(r => (Rule: r, Group: grouped ? ProcessGroups.Of(r.Process, r.Service, emptyMeansAll: true) : ProcessGroup.AllPrograms))
+            .OrderBy(x => x.Group).ThenBy(x => x.Rule.Factory).ThenBy(x => x.Rule.ProcessName, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Rule.Created)
+            .Select(x => new RuleRow(x.Rule) { Group = grouped ? ProcessGroups.Title(x.Group) : "" }).ToList();
         RulesList.ItemsSource = rows;
+        ApplyGrouping(RulesList, grouped);
         foreach (var row in rows.Where(r => selected.Contains(r.Rule.Id))) RulesList.SelectedItems.Add(row);
         RulesInfo.Text = rows.Count == all.Count
             ? Loc.F("{0} Regeln", "{0} rules", all.Count)
             : Loc.F("{0} von {1} Regeln", "{0} of {1} rules", rows.Count, all.Count);
+    }
+
+    /// <summary>Gruppen-Überschriften einer Liste ein- oder ausschalten (gruppiert wird nach der Eigenschaft „Group“ der Zeilen; die
+    /// Zeilen kommen schon in der richtigen Reihenfolge, die Gruppen erscheinen in der Reihenfolge ihres ersten Eintrags).</summary>
+    private static void ApplyGrouping(ItemsControl list, bool on)
+    {
+        if (list.ItemsSource == null || CollectionViewSource.GetDefaultView(list.ItemsSource) is not { } view) return;
+        if (on == view.GroupDescriptions.Count > 0) return;
+        view.GroupDescriptions.Clear();
+        if (on) view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(RuleRow.Group)));
     }
 
     private void RuleFilter_Changed(object sender, RoutedEventArgs e)
@@ -667,6 +686,12 @@ public partial class MainWindow : Window
         return title.Length > 0 ? title : Rule.NameOf(path);
     }
 
+    /// <summary>Gruppe einer Zeile der Programmliste („Pfad|Dienst“ ist ein Windows-Dienst; leerer Pfad = unbekannter Prozess).</summary>
+    private static ProcessGroup GroupOf(string key) =>
+        key.IndexOf('|') is var bar and >= 0 ? ProcessGroups.Of(key[..bar], key[(bar + 1)..]) : ProcessGroups.Of(key);
+
+    private static string GroupTitleOf(string key) => ProcessGroups.Title(GroupOf(key));
+
     /// <summary>Aktualisiert die Programmliste an Ort und Stelle (sie ändert sich jede Sekunde durch die Datenmengen);
     /// neu aufgebaut wird nur, wenn ein Programm dazukommt. So bleiben Auswahl und Rollposition erhalten.</summary>
     private void ReloadMonitor(bool connectionsChanged)
@@ -676,20 +701,24 @@ public partial class MainWindow : Window
         // Je Programm eine Zeile, bei svchost.exe je Windows-Dienst (Schlüssel „Pfad|Dienst“).
         var groups = records.GroupBy(KeyOf, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
         // Auch Programme zeigen, die nur Daten übertragen (Verbindungen von vor dem Start).
+        // Gruppiert (Einstellung): erst nach Gruppe (KI, Browser … Windows, Andere), darin wie bisher nach Name, Unbekanntes zuletzt.
+        var grouped = App.Engine.Read(s => s.Settings.GroupLists);
         var paths = groups.Keys.Union(traffic.Keys, StringComparer.OrdinalIgnoreCase)
-            .Select(p => (Path: p, Name: DisplayName(p)))
-            .OrderBy(p => p.Path.Length == 0).ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(p => (Path: p, Name: DisplayName(p), Group: grouped ? GroupTitleOf(p) : ""))
+            .OrderBy(p => grouped ? GroupOf(p.Path) : 0).ThenBy(p => p.Path.Length == 0)
+            .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var same = _processRows.Count == paths.Count + 1;
         for (var i = 0; same && i < paths.Count; i++)
-            same = string.Equals(_processRows[i + 1].Path, paths[i].Path, StringComparison.OrdinalIgnoreCase);
+            same = string.Equals(_processRows[i + 1].Path, paths[i].Path, StringComparison.OrdinalIgnoreCase) && _processRows[i + 1].Group == paths[i].Group;
         if (!same)
         {
             _loading = true;
             _processRows.Clear();
             _processRows.Add(new ProcessRow { Path = null, Name = Loc.T("Alle Programme", "All Programs") });
-            foreach (var p in paths) _processRows.Add(new ProcessRow { Path = p.Path, Name = p.Name });
+            foreach (var p in paths) _processRows.Add(new ProcessRow { Path = p.Path, Name = p.Name, Group = p.Group });
+            ApplyGrouping(ProcessList, grouped);
             ProcessList.SelectedItem = _processRows.FirstOrDefault(r => string.Equals(r.Path, _selectedProcess, StringComparison.OrdinalIgnoreCase)) ?? _processRows[0];
             _selectedProcess = (ProcessList.SelectedItem as ProcessRow)?.Path;
             _loading = false;
@@ -851,9 +880,10 @@ public partial class MainWindow : Window
     private void ReloadSettings()
     {
         ReloadNetworkProfiles();
-        var s = App.Engine.Read(st => (st.Settings.MonitorIncoming, st.Settings.BlocklistAutoUpdate));
+        var s = App.Engine.Read(st => (st.Settings.MonitorIncoming, st.Settings.BlocklistAutoUpdate, st.Settings.GroupLists));
         IncomingBox.IsChecked = s.MonitorIncoming;
         AutoUpdateBox.IsChecked = s.BlocklistAutoUpdate;
+        GroupListsBox.IsChecked = s.GroupLists;
         _autostart ??= !App.DemoMode && Autostart.Enabled;
         AutostartBox.IsChecked = _autostart;
         AutostartBox.IsEnabled = !App.DemoMode;
@@ -946,6 +976,13 @@ public partial class MainWindow : Window
     {
         var on = AutoUpdateBox.IsChecked == true;
         App.Engine.Mutate(s => s.Settings.BlocklistAutoUpdate = on);
+    }
+
+    private void GroupLists_Click(object sender, RoutedEventArgs e)
+    {
+        var on = GroupListsBox.IsChecked == true;
+        App.Engine.Mutate(s => s.Settings.GroupLists = on); // baut auch die Regelliste neu auf (RulesChanged)
+        _historyVersion = -1; // die Programmliste beim nächsten Takt neu ordnen
     }
 
     private void ProfileAdd_Click(object sender, RoutedEventArgs e)

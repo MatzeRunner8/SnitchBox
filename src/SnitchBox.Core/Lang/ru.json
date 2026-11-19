@@ -369,5 +369,13 @@
  "Console window host": "Узел окна консоли",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Часть Windows: отправляет диагностические данные и данные об использовании в Майкрософт. Windows продолжит работать, если запретить это.",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Часть Windows: загружает советы, уведомления, новости или рекламу. Windows продолжит работать, если запретить это.",
- "Part of Windows.": "Часть Windows."
+ "Part of Windows.": "Часть Windows.",
+ "AI": "ИИ",
+ "Browsers": "Браузеры",
+ "Office and creative": "Офис и творчество",
+ "Development": "Разработка",
+ "VPN and security": "VPN и безопасность",
+ "Other programs": "Другие программы",
+ "Group programs by type (AI, browsers, Windows …)": "Группировать программы по типу (ИИ, браузеры, Windows…)",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Список правил и сетевой монитор показывают программы группами с заголовками; ничего не скрывается."
 }

@@ -409,6 +409,21 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   Dateien ohne Symbol zeigten das leere Standardsymbol); ein Hauptprogramm oder die eigene Datei einer App zählt nur, wenn sie
   wirklich ein Symbol enthält.
 
+## Build 36 – Programme nach Art gruppiert
+- ProcessGroups (Kern): Jedes Programm gehört zu einer Gruppe – Alle Programme (Regeln für jeden Prozess), KI (Claude, Claude Code,
+  ChatGPT), Browser (Chrome, Brave, Firefox, Edge samt WebView2 und ihren Updatern), Office und Kreativ (Office, OneDrive, Outlook, Teams,
+  Adobe), Entwicklung (VS Code, Visual Studio, Git, GitHub), VPN und Sicherheit (NordVPN), Windows (Windows Update, Defender,
+  Windows-Programme, Dienste, auch eine Dienst-Regel ohne Programm, der Kern), Andere Programme. Die Gruppe kommt aus der Erkennung
+  bekannter Apps (KnownApp.Group), der Windows-Bestandteile und Windows-Programme; Updater und Hilfsprogramme bleiben bei ihrer App.
+- Regelliste und Programmliste des Netzwerkmonitors: nach Gruppe sortiert, darin wie bisher (eigene vor Werksregeln, nach Name); jede
+  Gruppe bekommt eine Überschrift mit Name, Anzahl und feiner Linie (WPF-CollectionView-Gruppierung, GroupStyle ohne Expander – nichts
+  klappt zu oder wird ausgeblendet). Die Zeile „Alle Programme“ oben in der Programmliste gehört zu einer Gruppe ohne Überschrift. Die
+  Programmliste aktualisiert sich weiter an Ort und Stelle und wird nur neu aufgebaut, wenn sich ein Programm oder seine Gruppe ändert;
+  Auswahl und Rollposition bleiben.
+- Einstellungen → Allgemein: „Programme nach Art gruppieren (KI, Browser, Windows …)“, Settings.GroupLists, standardmäßig an (auch bei
+  einer älteren config.json ohne den Eintrag); ausgeschaltet gibt es die bisherigen flachen Listen.
+- 8 neue Texte in allen 12 Sprachen.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

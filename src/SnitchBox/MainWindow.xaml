@@ -85,7 +85,11 @@
                         </StackPanel>
                     </DockPanel>
                     <TextBlock x:Name="RulesInfo" DockPanel.Dock="Bottom" Margin="2,8,0,0" Style="{StaticResource Dim}"/>
-                    <ListView x:Name="RulesList" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionMode="Extended" MouseDoubleClick="RulesList_MouseDoubleClick" KeyDown="RulesList_KeyDown">
+                    <ListView x:Name="RulesList" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionMode="Extended" MouseDoubleClick="RulesList_MouseDoubleClick" KeyDown="RulesList_KeyDown"
+                              VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <ListView.GroupStyle>
+                            <GroupStyle HeaderTemplate="{StaticResource GroupHeader}"/>
+                        </ListView.GroupStyle>
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="{l:L de='Aktiv', en='On'}" Width="60">
@@ -156,7 +160,11 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-                    <ListView x:Name="ProcessList" Grid.Row="1" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="ProcessList_SelectionChanged">
+                    <ListView x:Name="ProcessList" Grid.Row="1" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="ProcessList_SelectionChanged"
+                              VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <ListView.GroupStyle>
+                            <GroupStyle HeaderTemplate="{StaticResource GroupHeader}"/>
+                        </ListView.GroupStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <DockPanel Margin="0,4" ToolTip="{Binding Path}">
@@ -281,6 +289,8 @@
                         <TextBlock x:Name="AutostartHint" Visibility="Collapsed" TextWrapping="Wrap" Margin="22,4,0,2" Foreground="#E0383E"/>
                         <CheckBox x:Name="IncomingBox" Click="Incoming_Click" Margin="0,6,0,0" Content="{l:L de='Auch eingehende Verbindungen überwachen', en='Also monitor incoming connections'}"/>
                         <CheckBox x:Name="AutoUpdateBox" Click="AutoUpdate_Click" Margin="0,6,0,0" Content="{l:L de='Blocklisten täglich aktualisieren', en='Update blocklists daily'}"/>
+                        <CheckBox x:Name="GroupListsBox" Click="GroupLists_Click" Margin="0,6,0,0" Content="{l:L de='Programme nach Art gruppieren (KI, Browser, Windows …)', en='Group programs by type (AI, browsers, Windows …)'}"
+                                  ToolTip="{l:L de='Regelliste und Netzwerkmonitor zeigen die Programme in Gruppen mit Überschrift; ausgeblendet wird nichts.', en='The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.'}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <TextBlock Text="{l:L de='Sprache', en='Language'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <ComboBox x:Name="LanguageBox" MinWidth="220" SelectionChanged="LanguageBox_SelectionChanged"/>

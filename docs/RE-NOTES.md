@@ -392,6 +392,20 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
   first helper with an icon – git-credential-manager.exe – lent its icon to all others, and files without an icon showed the blank
   default icon); a main program or an app's own file counts only if it really contains an icon.
 
+## Build 36 – programs grouped by type
+- ProcessGroups (Core): every program belongs to a group – All programs (rules for any process), AI (Claude, Claude Code, ChatGPT),
+  Browsers (Chrome, Brave, Firefox, Edge with WebView2 and their updaters), Office and creative (Office, OneDrive, Outlook, Teams, Adobe),
+  Development (VS Code, Visual Studio, Git, GitHub), VPN and security (NordVPN), Windows (Windows Update, Defender, Windows programs,
+  services, also a service rule without a program, the kernel), Other programs. The group comes from the recognition of known apps
+  (KnownApp.Group), Windows components and Windows programs; updaters and helpers stay with their app.
+- Rule list and the Network Monitor's program list: sorted by group, then as before (own rules before factory rules, by name); each
+  group gets a heading with name, count and a thin line (WPF CollectionView grouping, GroupStyle without expander – nothing collapses or
+  hides). The row “All programs” at the top of the program list belongs to a group without a heading. The program list keeps updating in
+  place; it is rebuilt only when a program or its group changes, so selection and scroll position stay.
+- Settings → General: “Group programs by type (AI, browsers, Windows …)”, Settings.GroupLists, on by default (also for an older
+  config.json without the entry); switching it off restores the previous flat lists.
+- 8 new texts in all 12 languages.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

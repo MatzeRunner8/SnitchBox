@@ -369,5 +369,13 @@
  "Console window host": "Host okna konsoli",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Część systemu Windows: wysyła dane diagnostyczne i dane o użyciu do firmy Microsoft. Windows działa dalej, jeśli to zablokujesz.",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Część systemu Windows: wczytuje porady, monity, wiadomości lub reklamy. Windows działa dalej, jeśli to zablokujesz.",
- "Part of Windows.": "Część systemu Windows."
+ "Part of Windows.": "Część systemu Windows.",
+ "AI": "AI",
+ "Browsers": "Przeglądarki",
+ "Office and creative": "Biuro i grafika",
+ "Development": "Programowanie",
+ "VPN and security": "VPN i bezpieczeństwo",
+ "Other programs": "Inne programy",
+ "Group programs by type (AI, browsers, Windows …)": "Grupuj programy według rodzaju (AI, przeglądarki, Windows…)",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "Lista reguł i monitor sieci pokazują programy w grupach z nagłówkami; nic nie jest ukrywane."
 }

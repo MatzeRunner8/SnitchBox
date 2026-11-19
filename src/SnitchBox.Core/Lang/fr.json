@@ -369,5 +369,13 @@
  "Console window host": "Hôte de la fenêtre de console",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Fait partie de Windows : envoie des données de diagnostic et d’utilisation à Microsoft. Windows continue de fonctionner si vous l’interdisez.",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Fait partie de Windows : charge des conseils, des invites, des actualités ou de la publicité. Windows continue de fonctionner si vous l’interdisez.",
- "Part of Windows.": "Fait partie de Windows."
+ "Part of Windows.": "Fait partie de Windows.",
+ "AI": "IA",
+ "Browsers": "Navigateurs",
+ "Office and creative": "Bureautique et création",
+ "Development": "Développement",
+ "VPN and security": "VPN et sécurité",
+ "Other programs": "Autres programmes",
+ "Group programs by type (AI, browsers, Windows …)": "Regrouper les programmes par type (IA, navigateurs, Windows…)",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "La liste des règles et le moniteur réseau affichent les programmes par groupes avec des titres ; rien n’est masqué."
 }

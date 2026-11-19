@@ -115,6 +115,21 @@
         </Setter>
     </Style>
 
+    <!-- Überschrift einer Gruppe in Regelliste und Programmliste (KI, Browser, Windows …): Name, Anzahl und eine feine Linie bis zum
+         Rand. Nicht einklappbar – alles bleibt sichtbar. Die Gruppe ohne Namen (Zeile „Alle Programme“ im Netzwerkmonitor) hat keine. -->
+    <DataTemplate x:Key="GroupHeader">
+        <DockPanel x:Name="Panel" Margin="4,12,6,4">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" Opacity="0.9" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding ItemCount, StringFormat=' · {0}'}" FontSize="13" Opacity="0.55" VerticalAlignment="Center"/>
+            <Border Height="1" Background="#50808080" VerticalAlignment="Center" Margin="10,1,0,0"/>
+        </DockPanel>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding Name}" Value="">
+                <Setter TargetName="Panel" Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+
     <!-- Ruhige Fläche zum Gruppieren; halbtransparentes Grau wirkt auf hellem wie dunklem Grund. -->
     <Style x:Key="Card" TargetType="Border">
         <Setter Property="CornerRadius" Value="8"/>

@@ -16,8 +16,9 @@ public enum AppRole
 }
 
 /// <summary>Bekannte App: Markenname (wird nicht übersetzt), Kennung für das Symbol und Fundorte ihres Hauptprogramms, dessen Symbol
-/// auch ihre Updater und Hilfsprogramme zeigen. <paramref name="Packages"/>: Store-Pakete als (Paketfamilie, Programm im Paket).</summary>
-public sealed record KnownApp(string Id, string Title, string[] Files, (string Family, string Exe)[] Packages);
+/// auch ihre Updater und Hilfsprogramme zeigen. <paramref name="Packages"/>: Store-Pakete als (Paketfamilie, Programm im Paket).
+/// <paramref name="Group"/>: Gruppe in den Listen (KI, Browser …), siehe <see cref="ProcessGroups"/>.</summary>
+public sealed record KnownApp(string Id, string Title, string[] Files, (string Family, string Exe)[] Packages, ProcessGroup Group = ProcessGroup.Other);
 
 /// <summary>Ergebnis der Erkennung: App, Rolle und – wo der Dateiname nichts sagt – ein fester Name.</summary>
 public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = null)
@@ -37,35 +38,35 @@ public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = n
 /// Name und Symbol einer Datei kann ihr Hersteller ohnehin frei wählen, verlässlich ist erst die geprüfte Signatur im Warnfenster.</summary>
 public static class KnownApps
 {
-    public static readonly KnownApp Claude = new("claude", "Claude", [@"AnthropicClaude\claude.exe"], [("Claude_pzs8sxrjxfjjc", @"app\claude.exe")]);
+    public static readonly KnownApp Claude = new("claude", "Claude", [@"AnthropicClaude\claude.exe"], [("Claude_pzs8sxrjxfjjc", @"app\claude.exe")], ProcessGroup.AI);
     public static readonly KnownApp ClaudeCode = Claude with { Id = "claude-code", Title = "Claude Code" };
     public static readonly KnownApp ChatGpt = new("chatgpt", "ChatGPT", [],
-        [("OpenAI.Codex_2p2nqsd0c76g0", @"app\ChatGPT.exe"), ("OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0", @"app\ChatGPT.exe")]);
-    public static readonly KnownApp Chrome = new("chrome", "Google Chrome", [@"Google\Chrome\Application\chrome.exe"], []);
-    public static readonly KnownApp Brave = new("brave", "Brave", [@"BraveSoftware\Brave-Browser\Application\brave.exe"], []);
+        [("OpenAI.Codex_2p2nqsd0c76g0", @"app\ChatGPT.exe"), ("OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0", @"app\ChatGPT.exe")], ProcessGroup.AI);
+    public static readonly KnownApp Chrome = new("chrome", "Google Chrome", [@"Google\Chrome\Application\chrome.exe"], [], ProcessGroup.Browser);
+    public static readonly KnownApp Brave = new("brave", "Brave", [@"BraveSoftware\Brave-Browser\Application\brave.exe"], [], ProcessGroup.Browser);
     public static readonly KnownApp Firefox = new("firefox", "Firefox", [@"Mozilla Firefox\firefox.exe"],
-        [("Mozilla.Firefox_n80bbvh6b1yt2", @"VFS\ProgramFiles\Firefox Package Root\firefox.exe")]);
-    public static readonly KnownApp Edge = new("edge", "Microsoft Edge", [@"Microsoft\Edge\Application\msedge.exe"], []);
+        [("Mozilla.Firefox_n80bbvh6b1yt2", @"VFS\ProgramFiles\Firefox Package Root\firefox.exe")], ProcessGroup.Browser);
+    public static readonly KnownApp Edge = new("edge", "Microsoft Edge", [@"Microsoft\Edge\Application\msedge.exe"], [], ProcessGroup.Browser);
     // Fundorte relativ zu den Programmordnern bzw. AppData\Local; „*“ steht für wechselnde Ordner (Version, Ausgabe).
-    public static readonly KnownApp VsCode = new("vscode", "Visual Studio Code", [@"Programs\Microsoft VS Code\Code.exe", @"Microsoft VS Code\Code.exe"], []);
+    public static readonly KnownApp VsCode = new("vscode", "Visual Studio Code", [@"Programs\Microsoft VS Code\Code.exe", @"Microsoft VS Code\Code.exe"], [], ProcessGroup.Development);
     public static readonly KnownApp VsCodeInsiders = new("vscode-insiders", "Visual Studio Code Insiders",
-        [@"Programs\Microsoft VS Code Insiders\Code - Insiders.exe", @"Microsoft VS Code Insiders\Code - Insiders.exe"], []);
-    public static readonly KnownApp VisualStudio = new("visualstudio", "Visual Studio", [@"Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe"], []);
-    public static readonly KnownApp NordVpn = new("nordvpn", "NordVPN", [@"NordVPN\NordVPN.exe"], []);
+        [@"Programs\Microsoft VS Code Insiders\Code - Insiders.exe", @"Microsoft VS Code Insiders\Code - Insiders.exe"], [], ProcessGroup.Development);
+    public static readonly KnownApp VisualStudio = new("visualstudio", "Visual Studio", [@"Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe"], [], ProcessGroup.Development);
+    public static readonly KnownApp NordVpn = new("nordvpn", "NordVPN", [@"NordVPN\NordVPN.exe"], [], ProcessGroup.Vpn);
     // Office: Symbol des Update-Clients (Office-Logo); Word, Excel … zeigen ihr eigenes Symbol (Rolle App).
     public static readonly KnownApp Office = new("office", "Microsoft Office",
-        [@"Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe", @"Microsoft Office\root\Office16\WINWORD.EXE"], []);
-    public static readonly KnownApp OneDrive = new("onedrive", "Microsoft OneDrive", [@"Microsoft\OneDrive\OneDrive.exe", @"Microsoft OneDrive\OneDrive.exe"], []);
-    public static readonly KnownApp Outlook = new("outlook", "Microsoft Outlook", [], [("Microsoft.OutlookForWindows_8wekyb3d8bbwe", "olk.exe")]);
-    public static readonly KnownApp Teams = new("teams", "Microsoft Teams", [], [("MSTeams_8wekyb3d8bbwe", "ms-teams.exe")]);
-    public static readonly KnownApp CreativeCloud = new("adobe-cc", "Adobe Creative Cloud", [@"Adobe\Adobe Creative Cloud\ACC\Creative Cloud.exe"], []);
+        [@"Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe", @"Microsoft Office\root\Office16\WINWORD.EXE"], [], ProcessGroup.Office);
+    public static readonly KnownApp OneDrive = new("onedrive", "Microsoft OneDrive", [@"Microsoft\OneDrive\OneDrive.exe", @"Microsoft OneDrive\OneDrive.exe"], [], ProcessGroup.Office);
+    public static readonly KnownApp Outlook = new("outlook", "Microsoft Outlook", [], [("Microsoft.OutlookForWindows_8wekyb3d8bbwe", "olk.exe")], ProcessGroup.Office);
+    public static readonly KnownApp Teams = new("teams", "Microsoft Teams", [], [("MSTeams_8wekyb3d8bbwe", "ms-teams.exe")], ProcessGroup.Office);
+    public static readonly KnownApp CreativeCloud = new("adobe-cc", "Adobe Creative Cloud", [@"Adobe\Adobe Creative Cloud\ACC\Creative Cloud.exe"], [], ProcessGroup.Office);
     public static readonly KnownApp Acrobat = new("acrobat", "Adobe Acrobat",
-        [@"Adobe\Acrobat DC\Acrobat\Acrobat.exe", @"Adobe\Acrobat Reader DC\Reader\AcroRd32.exe"], []);
+        [@"Adobe\Acrobat DC\Acrobat\Acrobat.exe", @"Adobe\Acrobat Reader DC\Reader\AcroRd32.exe"], [], ProcessGroup.Office);
 
     // Git und GitHub: Git für Windows und GitHub CLI liegen oft portabel irgendwo (MinGit, ZIP-Paket von gh); ihre Programme
     // enthalten kein Symbol – das kommt aus Git Bash bzw. GitHub Desktop, wenn installiert, sonst gezeichnet.
-    public static readonly KnownApp Git = new("git", "Git", [@"Git\git-bash.exe", @"Programs\Git\git-bash.exe"], []);
-    public static readonly KnownApp GitHubDesktop = new("github", "GitHub Desktop", [@"GitHubDesktop\GitHubDesktop.exe"], []);
+    public static readonly KnownApp Git = new("git", "Git", [@"Git\git-bash.exe", @"Programs\Git\git-bash.exe"], [], ProcessGroup.Development);
+    public static readonly KnownApp GitHubDesktop = new("github", "GitHub Desktop", [@"GitHubDesktop\GitHubDesktop.exe"], [], ProcessGroup.Development);
     public static readonly KnownApp GitHubCli = GitHubDesktop with { Id = "github-cli", Title = "GitHub CLI" };
 
     public static readonly KnownApp[] All =

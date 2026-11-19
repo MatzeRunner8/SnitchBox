@@ -875,6 +875,42 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(W(@"C:\Windows\System32\svchost.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }
 
+// ---- Gruppen in den Listen (KI, Browser, Office, Entwicklung, VPN, Windows, Andere)
+{
+    KnownApps.Configure(@"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData", [@"R:\Temp"]);
+    WindowsProcesses.Configure(@"C:\Windows", @"C:\Program Files");
+    WindowsComponents.Configure(@"C:\Windows", @"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData");
+    ProcessGroup G(string p, string service = "", bool all = false) => ProcessGroups.Of(p, service, all);
+    Check(G(@"C:\Program Files\WindowsApps\Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe") == ProcessGroup.AI
+          && G(@"C:\Users\x\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe") == ProcessGroup.AI
+          && G(@"C:\Program Files\WindowsApps\OpenAI.Codex_*_x64__2p2nqsd0c76g0\app\resources\codex.exe") == ProcessGroup.AI,
+        "Claude, Claude Code und ChatGPT samt Hilfsprogrammen in der Gruppe KI");
+    Check(G(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == ProcessGroup.Browser
+          && G(@"C:\Program Files (x86)\Google\GoogleUpdater\*\updater.exe") == ProcessGroup.Browser
+          && G(@"C:\Program Files (x86)\Microsoft\EdgeWebView\Application\*\msedgewebview2.exe") == ProcessGroup.Browser,
+        "Browser samt ihren Updatern in der Gruppe Browser");
+    Check(G(@"C:\Tools\MinGit\ucrt64\bin\git-remote-https.exe") == ProcessGroup.Development && G(@"C:\Tools\GitHubCLI\bin\gh.exe") == ProcessGroup.Development
+          && G(@"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\devenv.exe") == ProcessGroup.Development
+          && G(@"C:\Program Files\NordVPN\nordvpn-service.exe") == ProcessGroup.Vpn
+          && G(@"C:\Program Files\Common Files\microsoft shared\ClickToRun\OfficeClickToRun.exe") == ProcessGroup.Office,
+        "Entwicklung, VPN und Office");
+    Check(G(@"C:\Windows\System32\svchost.exe") == ProcessGroup.Windows && G(@"C:\Windows\System32\svchost.exe", "DiagTrack") == ProcessGroup.Windows
+          && G("", "DiagTrack", true) == ProcessGroup.Windows && G("System") == ProcessGroup.Windows && G("@windows-update") == ProcessGroup.Windows
+          && G(@"C:\Windows\System32\SIHClient.exe") == ProcessGroup.Windows && G(@"C:\Windows\System32\CompatTelRunner.exe") == ProcessGroup.Windows,
+        "Windows: Programme, Dienste (auch Dienst-Regel ohne Programm), Kern, Windows Update");
+    Check(G("", "", true) == ProcessGroup.AllPrograms && G("") == ProcessGroup.Other && G(@"C:\Tools\PhotoCraft\photocraft.exe") == ProcessGroup.Other,
+        "„Jeder Prozess“ in Regeln ganz oben, unbekannte und übrige Programme unter Andere");
+    Check(Enum.GetValues<ProcessGroup>().Select(ProcessGroups.Title).Distinct().Count() == Enum.GetValues<ProcessGroup>().Length
+          && ProcessGroups.Title(ProcessGroup.AI) == "KI" && ProcessGroups.Title(ProcessGroup.Other) == "Andere Programme",
+        "jede Gruppe hat eine eigene Überschrift");
+    Check(new Settings().GroupLists && System.Text.Json.JsonSerializer.Deserialize<Settings>("{}")!.GroupLists
+          && !System.Text.Json.JsonSerializer.Deserialize<Settings>("{\"GroupLists\":false}")!.GroupLists,
+        "Gruppieren ist eingeschaltet, auch bei einer älteren config.json ohne den Eintrag, und lässt sich abschalten");
+    KnownApps.Configure("", "", "");
+    WindowsProcesses.Configure("", "");
+    WindowsComponents.Configure("", "", "", "");
+}
+
 // ---- Windows-Dienste einzeln (svchost.exe): sehen und regeln
 {
     const string Svc = @"C:\Windows\System32\svchost.exe";

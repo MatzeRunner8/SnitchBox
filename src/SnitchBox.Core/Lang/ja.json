@@ -369,5 +369,13 @@
  "Console window host": "コンソール ウィンドウ ホスト",
  "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this.": "Windows の一部です。診断データと利用状況データを Microsoft に送信します。拒否しても Windows は動作します。",
  "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this.": "Windows の一部です。ヒント、通知、ニュース、広告を読み込みます。拒否しても Windows は動作します。",
- "Part of Windows.": "Windows の一部です。"
+ "Part of Windows.": "Windows の一部です。",
+ "AI": "AI",
+ "Browsers": "ブラウザー",
+ "Office and creative": "Office とクリエイティブ",
+ "Development": "開発",
+ "VPN and security": "VPN とセキュリティ",
+ "Other programs": "その他のプログラム",
+ "Group programs by type (AI, browsers, Windows …)": "プログラムを種類別にグループ化 (AI、ブラウザー、Windows など)",
+ "The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.": "ルールの一覧とネットワーク モニターで、プログラムが見出し付きのグループで表示されます。非表示になるものはありません。"
 }
