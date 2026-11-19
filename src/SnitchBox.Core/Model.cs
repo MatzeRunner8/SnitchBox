@@ -72,6 +72,7 @@ public sealed class Rule
         : WindowsComponents.IsComponent(Process) ? WindowsComponents.Title(Process)
         : WindowsComponents.Of(Process) is { } c ? WindowsComponents.Title(c) + " · " + NameOf(Process)
         : KnownApps.Of(Process) is { } app ? app.Label(Process)
+        : WindowsProcesses.Of(Process) is { } win ? win.Label
         : NameOf(Process);
 
     /// <summary>Anzeigename eines Windows-Dienstes (unter Windows vom Dienst-Manager, z. B. „Benutzererfahrung und Telemetrie im

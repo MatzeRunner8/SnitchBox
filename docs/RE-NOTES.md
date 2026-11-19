@@ -359,6 +359,25 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
 - Office (Click-to-Run) and Adobe are not installed on the development PC: their templates follow the vendors' standard install
   locations and are covered by core tests, but not by real files. OneDrive and the new Outlook were checked with the installed apps.
 
+## Build 34 – Windows programs with name and icon
+- WindowsProcesses (Core): about 60 Windows programs get an understandable name and a type – system (service host, sign-in LSASS,
+  background tasks, task host, WMI, device association, print spooler, app link verification …), shell (File Explorer, Start menu,
+  lock screen, Phone Link, Remote Desktop), search, settings, security (Windows Security, SmartScreen, Microsoft account sign-in),
+  telemetry (CompatTelRunner, DeviceCensus, wsqmcons, error reporting), tips/prompts/ads (SoftLandingTask, RUXIM Windows Update prompts,
+  Widgets and their news feed), installation (Windows Installer, WinGet, App Installer, Microsoft Store) and command line (PowerShell,
+  Command Prompt, curl, OpenSSH). Other programs in protected Windows folders are called “Windows · name.exe”.
+- Recognized by file name, but only in folders that only Windows and administrators can write to: System32 and SysWOW64 themselves
+  (plus wbem, WindowsPowerShell\<version>, OpenSSH, ruxim), the Windows folder, ImmersiveControlPanel, SystemApps, and Store packages
+  with Microsoft's publisher IDs (8wekyb3d8bbwe, cw5n1h2txyewy). Subfolders such as System32\spool\drivers\color or Tasks are writable
+  for everyone and do not count; the DriverStore (drivers of other vendors, e.g. NVIDIA) does not either. Windows Update and Virus &
+  threat protection keep their own recognition (WindowsComponents), service rows stay “Windows service: …”. Display only.
+- Icons: most Windows programs contain no icon (ExtractIconEx returns 0 – svchost, lsass, Start menu, search, telemetry), so Windows
+  showed the blank default icon. Programs with an icon of their own keep it (File Explorer, Settings, cmd, print spooler); the others get
+  a tile by type with a Segoe Fluent Icons glyph: monitor (system), grid (shell), magnifier (search), gear (settings), shield (security),
+  pulse line (telemetry), megaphone (tips/ads), package (installation), prompt (command line).
+- Alert window: name plus a hint – for telemetry and tips/ads that Windows keeps working if you deny it, otherwise “Part of Windows.”
+- 43 new texts in all 12 languages.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

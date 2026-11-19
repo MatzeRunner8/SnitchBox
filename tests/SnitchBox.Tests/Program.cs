@@ -807,6 +807,50 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
 }
 
+// ---- Windows-Programme mit verständlichem Namen und Art (nur Anzeige)
+{
+    WindowsProcesses.Configure(@"C:\WINDOWS", @"C:\Program Files");
+    string? W(string p) => WindowsProcesses.Of(p)?.Label;
+    WinCategory? K(string p) => WindowsProcesses.Of(p)?.Category;
+    Check(W(@"C:\Windows\System32\svchost.exe") == "Windows-Diensthost" && W(@"C:\WINDOWS\System32\lsass.exe") == "Windows-Anmeldung (LSASS)"
+          && W(@"C:\Windows\System32\dasHost.exe") == "Geräteverbindungen" && W(@"C:\Windows\explorer.exe") == "Datei-Explorer"
+          && W(@"C:\Windows\ImmersiveControlPanel\SystemSettings.exe") == "Einstellungen"
+          && W(@"C:\Windows\System32\wbem\WmiPrvSE.exe") == "WMI-Anbieterhost"
+          && W(@"C:\Windows\System32\WindowsPowerShell\*\powershell.exe") == "Windows PowerShell"
+          && W(@"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe") == "Windows PowerShell"
+          && W(@"C:\Windows\System32\OpenSSH\ssh.exe") == "OpenSSH",
+        "Windows-Programme in System32, Windows-Ordner, Einstellungen, wbem, PowerShell und OpenSSH erkannt (auch als Muster)");
+    Check(W(@"C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe") == "Startmenü"
+          && W(@"C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\SoftLandingTask\SoftLandingTask.exe") == "Tipps und Vorschläge"
+          && K(@"C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\SearchHost.exe") == WinCategory.Search
+          && W(@"C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\WindowsPackageManagerServer.exe") == "WinGet (Paket-Manager)"
+          && K(@"C:\Program Files\WindowsApps\Microsoft.StartExperiencesApp_*_x64__8wekyb3d8bbwe\MicrosoftStartFeedProvider\MicrosoftStartFeedProvider.exe") == WinCategory.Content
+          && W(@"C:\Program Files\WindowsApps\MicrosoftWindows.Client.WebExperience_525.1.0.0_x64__cw5n1h2txyewy\Dashboard\Widgets.exe") == "Widgets",
+        "Startmenü, Tipps, Suche (SystemApps) und WinGet, Nachrichten-Feed, Widgets (Store-Pakete von Microsoft) erkannt");
+    Check(K(@"C:\Windows\System32\CompatTelRunner.exe") == WinCategory.Telemetry && K(@"C:\Windows\System32\DeviceCensus.exe") == WinCategory.Telemetry
+          && K(@"C:\Windows\System32\ruxim\ruximih.exe") == WinCategory.Content && K(@"C:\Windows\System32\smartscreen.exe") == WinCategory.Security
+          && W(@"C:\Windows\System32\AppHostRegistrationVerifier.exe") == "App-Verknüpfungen prüfen"
+          && W(@"C:\Windows\System32\ganzneu.exe") == "Windows · ganzneu.exe" && W(@"C:\Windows\SysWOW64\cmd.exe") == "Eingabeaufforderung",
+        "Telemetrie, Hinweise, Sicherheit erkannt; unbekannte Programme in System32 heißen „Windows · name.exe“");
+    Check(W(@"C:\Windows\System32\spool\drivers\color\svchost.exe") == null && W(@"C:\Windows\Temp\lsass.exe") == null
+          && W(@"C:\Windows\System32\Tasks\x.exe") == null && W(@"C:\Users\x\Downloads\svchost.exe") == null
+          && W(@"C:\Windows\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_cc526ccc3287f5cd\Display.NvContainer\NVDisplay.Container.exe") == null
+          && W(@"C:\Program Files\WindowsApps\Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe") == null
+          && W(@"C:\Program Files\WindowsApps\Fremd.App_1.0.0.0_x64__abcdefghijklm\winget.exe") == null
+          && W(@"C:\Windows\System32\..\..\x\svchost.exe") == null && W("System") == null && W(@"C:\Windows\System32\svchost.dll") == null,
+        "für alle beschreibbare Unterordner, Temp, Treiber anderer Hersteller und fremde Store-Pakete zählen nicht als Windows");
+    Check(new Rule { Process = @"C:\Windows\System32\CompatTelRunner.exe" }.ProcessName == "Telemetrie: Kompatibilität"
+          && new Rule { Process = @"C:\Windows\System32\svchost.exe", Service = "DiagTrack" }.ProcessName.StartsWith("Windows-Dienst: ")
+          && new Rule { Process = @"C:\Windows\System32\SIHClient.exe" }.ProcessName == "Windows · SIHClient.exe",
+        "Regelliste zeigt Windows-Programme mit Namen; Dienst-Regeln bleiben „Windows-Dienst: …“");
+    WindowsComponents.Configure(@"C:\Windows", @"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData");
+    Check(new Rule { Process = @"C:\Windows\System32\SIHClient.exe" }.ProcessName == "Windows Update · SIHClient.exe",
+        "Windows Update geht der allgemeinen Windows-Erkennung vor");
+    WindowsComponents.Configure("", "", "", "");
+    WindowsProcesses.Configure("", "");
+    Check(W(@"C:\Windows\System32\svchost.exe") == null, "ohne festgelegte Orte wird nichts erkannt");
+}
+
 // ---- Windows-Dienste einzeln (svchost.exe): sehen und regeln
 {
     const string Svc = @"C:\Windows\System32\svchost.exe";

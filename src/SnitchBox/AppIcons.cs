@@ -38,6 +38,50 @@ internal static class AppIcons
         });
     }
 
+    /// <summary>Symbol eines Windows-Programms: sein eigenes, wenn die Datei eines enthält (Explorer, Einstellungen, cmd), sonst das
+    /// Symbol seiner Art – die meisten Windows-Programme (svchost, lsass, Startmenü, Suche, Telemetrie) bringen keines mit, Windows
+    /// zeigte dann nur das leere Standardsymbol.</summary>
+    public static ImageSource ForWindows(WinMatch match, string processPath)
+    {
+        if (ExistingFile(processPath) is { } file && HasOwnIcon(file) && Native.IconOf(file) is { } own) return own;
+        return Composed.GetOrAdd("windows|" + match.Category, _ => CategoryTile(match.Category));
+    }
+
+    private static readonly ConcurrentDictionary<string, bool> OwnIcons = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Enthält die Datei ein Symbol? (Sonst liefert Windows für sie das allgemeine Programmsymbol.)</summary>
+    private static bool HasOwnIcon(string file) => OwnIcons.GetOrAdd(file, static f =>
+    {
+        try { return ExtractIconExW(f, -1, null, null, 0) > 0; }
+        catch { return false; }
+    });
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint ExtractIconExW(string file, int index, IntPtr[]? large, IntPtr[]? small, uint count);
+
+    /// <summary>Kachel je Art: Bildschirm (System), Raster (Oberfläche), Lupe (Suche), Zahnrad (Einstellungen), Schild (Sicherheit),
+    /// Pulslinie (Telemetrie), Megafon (Tipps, Hinweise, Werbung), Paket (Installation), Eingabeaufforderung (Kommandozeile).</summary>
+    private static ImageSource CategoryTile(WinCategory category)
+    {
+        var (color, glyph) = category switch
+        {
+            WinCategory.Shell => (0x0067C0u, ""),
+            WinCategory.Search => (0x0067C0u, ""),
+            WinCategory.Settings => (0x5D6B7Au, ""),
+            WinCategory.Security => (0x107C10u, ""),
+            WinCategory.Telemetry => (0xCA5010u, ""),
+            WinCategory.Content => (0x8764B8u, ""),
+            WinCategory.Install => (0x038387u, ""),
+            WinCategory.CommandLine => (0x2B2F36u, ""),
+            _ => (0x0078D4u, ""),
+        };
+        var group = new DrawingGroup();
+        group.Children.Add(new GeometryDrawing(Brush(color), null, new RectangleGeometry(new Rect(2, 2, 28, 28), 7, 7)));
+        if (Glyph(glyph, "Segoe Fluent Icons, Segoe MDL2 Assets", FontWeights.Normal, new Rect(8, 8, 16, 16)) is { } g)
+            group.Children.Add(new GeometryDrawing(Brushes.White, null, g));
+        return Freeze(group);
+    }
+
     /// <summary>Hauptprogramm einer bekannten App: Store-Paket, sonst die Programmordner und AppData\Local des Benutzers.</summary>
     private static string? MainFile(KnownApp app)
     {

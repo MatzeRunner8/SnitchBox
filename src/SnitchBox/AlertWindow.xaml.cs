@@ -57,7 +57,20 @@ public partial class AlertWindow : Window
                 ComponentHint.Visibility = Visibility.Visible;
             }
         }
-        var port =$"{c.Port} ({(c.Protocol == Proto.Tcp ? "TCP" : "UDP")})";
+        else if (WindowsProcesses.Of(c.ProcessPath) is { } win)
+        {
+            NameText.Text = win.Label;
+            ComponentHint.Text = "ⓘ " + (win.Category switch
+            {
+                WinCategory.Telemetry => Loc.T("Teil von Windows: sendet Diagnose- und Nutzungsdaten an Microsoft. Windows funktioniert auch, wenn du das verbietest.",
+                                               "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this."),
+                WinCategory.Content => Loc.T("Teil von Windows: lädt Tipps, Hinweise, Nachrichten oder Werbung. Windows funktioniert auch, wenn du das verbietest.",
+                                             "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this."),
+                _ => Loc.T("Teil von Windows.", "Part of Windows."),
+            });
+            ComponentHint.Visibility = Visibility.Visible;
+        }
+        var port = $"{c.Port} ({(c.Protocol == Proto.Tcp ? "TCP" : "UDP")})";
         // Der Satz nennt die Gegenstelle fett, damit das Wichtigste sofort ins Auge fällt.
         var (before, after) = c.Direction == Direction.Outgoing
             ? (Loc.T("möchte sich mit ", "wants to connect to "), Loc.F(" auf Port {0} verbinden", " on port {0}", port))

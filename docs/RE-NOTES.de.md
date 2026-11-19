@@ -372,6 +372,28 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
   der Hersteller und sind durch Kern-Tests abgedeckt, aber nicht mit echten Dateien geprüft. OneDrive und das neue Outlook wurden mit den
   installierten Apps geprüft.
 
+## Build 34 – Windows-Programme mit Namen und Symbol
+- WindowsProcesses (Kern): rund 60 Windows-Programme bekommen einen verständlichen Namen und eine Art – System (Diensthost, Anmeldung
+  LSASS, Hintergrundaufgaben, Aufgabenhost, WMI, Geräteverbindungen, Druckwarteschlange, App-Verknüpfungen prüfen …), Oberfläche
+  (Datei-Explorer, Startmenü, Sperrbildschirm, Smartphone-Link, Remotedesktop), Suche, Einstellungen, Sicherheit (Windows-Sicherheit,
+  SmartScreen, Microsoft-Konto-Anmeldung), Telemetrie (CompatTelRunner, DeviceCensus, wsqmcons, Fehlerberichterstattung), Tipps/Hinweise/
+  Werbung (SoftLandingTask, RUXIM-Hinweise von Windows Update, Widgets und ihr Nachrichten-Feed), Installation (Windows Installer, WinGet,
+  App-Installer, Microsoft Store) und Kommandozeile (PowerShell, Eingabeaufforderung, curl, OpenSSH). Andere Programme in geschützten
+  Windows-Ordnern heißen „Windows · name.exe“.
+- Erkannt am Dateinamen, aber nur in Ordnern, in die allein Windows und Administratoren schreiben: System32 und SysWOW64 selbst (dazu
+  wbem, WindowsPowerShell\<Version>, OpenSSH, ruxim), der Windows-Ordner, ImmersiveControlPanel, SystemApps und Store-Pakete mit den
+  Herausgeber-Kennungen von Microsoft (8wekyb3d8bbwe, cw5n1h2txyewy). Unterordner wie System32\spool\drivers\color oder Tasks sind für
+  alle beschreibbar und zählen nicht, der DriverStore (Treiber anderer Hersteller, etwa NVIDIA) auch nicht. Windows Update und der
+  Viren- & Bedrohungsschutz behalten ihre eigene Erkennung (WindowsComponents), Dienst-Zeilen bleiben „Windows-Dienst: …“. Nur Anzeige.
+- Symbole: Die meisten Windows-Programme enthalten kein Symbol (ExtractIconEx liefert 0 – svchost, lsass, Startmenü, Suche, Telemetrie),
+  Windows zeigte dann das leere Standardsymbol. Programme mit eigenem Symbol behalten es (Datei-Explorer, Einstellungen, cmd,
+  Druckwarteschlange), die übrigen bekommen eine Kachel nach ihrer Art mit einem Zeichen aus Segoe Fluent Icons: Bildschirm (System),
+  Raster (Oberfläche), Lupe (Suche), Zahnrad (Einstellungen), Schild (Sicherheit), Pulslinie (Telemetrie), Megafon (Tipps/Werbung),
+  Paket (Installation), Eingabeaufforderung (Kommandozeile).
+- Warnfenster: Name und Hinweis – bei Telemetrie und Tipps/Werbung, dass Windows auch funktioniert, wenn man es verbietet, sonst „Teil
+  von Windows.“
+- 43 neue Texte in allen 12 Sprachen.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

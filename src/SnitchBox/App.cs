@@ -153,6 +153,8 @@ public sealed class App : Application
         KnownApps.Configure(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             AlertRules.TempRoots);
+        // Windows-Programme mit verständlichem Namen und Kategorie-Symbol (nur an geschützten Windows-Orten).
+        WindowsProcesses.Configure(windows, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
         var store = Store.Load();
         // Gewählte Sprache aus den Einstellungen (--lang hat Vorrang).
         if (langArg == null && store.Settings.Language != null) Loc.Language = store.Settings.Language;

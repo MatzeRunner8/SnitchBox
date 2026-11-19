@@ -89,6 +89,7 @@ internal static class Ui
         }
         if (WindowsComponents.IsComponent(path)) return UnknownIcon;
         if (KnownApps.Of(path) is { } app) return AppIcons.For(app, path);
+        if (WindowsProcesses.Of(path) is { } win) return AppIcons.ForWindows(win, path);
         return AppIcons.ExistingFile(path) is { } file ? Native.IconOf(file) ?? UnknownIcon : UnknownIcon;
     }
 
@@ -215,7 +216,8 @@ internal sealed class ConnectionRow(ConnectionRecord record) : INotifyPropertyCh
         : Rule.NameOf(r.ProcessPath);
     /// <summary>Die Spalte ist schmal: dort Symbol und Dateiname, im Tooltip der Name einer bekannten App und der volle Pfad.</summary>
     public string ProcessTip => r.ProcessPath.Length == 0 ? Loc.T("Unbekannt", "Unknown")
-        : (KnownApps.Of(r.ProcessPath) is { } app ? app.Label(r.ProcessPath) + "\n" : "") + r.ProcessPath + (r.Service.Length > 0 ? " · " + r.Service : "");
+        : (KnownApps.Of(r.ProcessPath) is { } app ? app.Label(r.ProcessPath) + "\n"
+           : r.Service.Length == 0 && WindowsProcesses.Of(r.ProcessPath) is { } win ? win.Label + "\n" : "") + r.ProcessPath + (r.Service.Length > 0 ? " · " + r.Service : "");
     public ImageSource Icon => Ui.IconFor(r.ProcessPath, false);
     public string Host => r.Host;
     public string Address => r.Remote.ToString();
@@ -660,6 +662,7 @@ public partial class MainWindow : Window
         if (path.Length == 0) return Loc.T("Unbekannter Prozess", "Unknown Process");
         if (WindowsComponents.Of(path) is { } component) return WindowsComponents.Title(component) + " · " + Rule.NameOf(path);
         if (KnownApps.Of(path) is { } app) return app.Label(path);
+        if (WindowsProcesses.Of(path) is { } win) return win.Label;
         var title = Native.InfoOf(path).Title;
         return title.Length > 0 ? title : Rule.NameOf(path);
     }
