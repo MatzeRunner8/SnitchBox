@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 
 namespace SnitchBox.Core;
@@ -23,16 +24,28 @@ public enum AppRole
 public sealed record KnownApp(string Id, string Title, string[] Files, (string Family, string Exe)[] Packages, ProcessGroup Group = ProcessGroup.Other);
 
 /// <summary>Ergebnis der Erkennung: App, Rolle und – wo der Dateiname nichts sagt – ein fester Name.</summary>
-public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = null)
+public sealed record AppMatch(KnownApp App, AppRole Role, string? FixedLabel = null, bool Writable = false)
 {
-    /// <summary>Name für Listen und Warnfenster: „Google Chrome“, „Brave · Updater“, „ChatGPT · codex.exe“.</summary>
-    public string Label(string processPath) => FixedLabel ?? Role switch
+    /// <summary>Name für Listen und Warnfenster: „Google Chrome“, „Brave · Updater“, „ChatGPT · codex.exe“. An einem Ort, den auch
+    /// ein gewöhnlicher Benutzer beschreiben kann (<see cref="Writable"/>: AppData, Temp, ProgramData, beliebiger Ordner), verbergen ein
+    /// fester Name und „· Updater“ den Dateinamen nicht: „Discord · Updater (Update.exe)“ – dort kann jeder eine Datei ablegen.</summary>
+    public string Label(string processPath)
     {
-        AppRole.App or AppRole.CommandLine => App.Title,
-        AppRole.Updater => Loc.F("{0} · Updater", "{0} · Updater", App.Title),
-        AppRole.Game => App.Title + " · " + GameName(processPath),
-        _ => App.Title + " · " + Rule.NameOf(processPath),
-    };
+        var file = Rule.NameOf(processPath);
+        if (FixedLabel != null) return Writable ? FixedLabel + " (" + file + ")" : FixedLabel;
+        return Role switch
+        {
+            AppRole.App or AppRole.CommandLine => App.Title,
+            AppRole.Updater => Writable ? Loc.F("{0} · Updater ({1})", "{0} · Updater ({1})", App.Title, file) : Loc.F("{0} · Updater", "{0} · Updater", App.Title),
+            AppRole.Game => App.Title + " · " + GameName(processPath),
+            _ => App.Title + " · " + file,
+        };
+    }
+
+    /// <summary>Stammt eine Datei laut geprüfter Signatur vom Hersteller der App? (Unterzeichner enthält einen der erwarteten Namen.)
+    /// Nur damit darf das Warnfenster an einem beschreibbaren Ort Hinweise wie „Updater von …“ geben.</summary>
+    public bool SignedByMaker(string signer) =>
+        signer.Length > 0 && KnownApps.MakersOf(App).Any(m => signer.Contains(m, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Ordner des Spiels hinter „steamapps\common\“ („Counter-Strike Global Offensive“); bei einem Muster („*“) der Dateiname.</summary>
     private static string GameName(string processPath)
@@ -127,7 +140,8 @@ public static class KnownApps
         (Claude, AppRole.App, @"{WA}\Claude_{V}__pzs8sxrjxfjjc\app\claude.exe", null),
         (Claude, AppRole.Helper, @"{WA}\Claude_{V}__pzs8sxrjxfjjc\{ANY}", null),
         (Claude, AppRole.App, @"{LOCAL}\AnthropicClaude\claude.exe", null),
-        (Claude, AppRole.App, @"{LOCAL}\AnthropicClaude\app-{V}\claude.exe", null),
+        // Versionsordner („app-1.0.9213“) als {V}, nicht „app-{V}“: eine gespeicherte Regel hat dort „*“ (AlertRules.ProcessPattern).
+        (Claude, AppRole.App, @"{LOCAL}\AnthropicClaude\{V}\claude.exe", null),
         (Claude, AppRole.Updater, @"{LOCAL}\AnthropicClaude\Update.exe", null),
         (Claude, AppRole.Helper, @"{LOCAL}\AnthropicClaude\{ANY}", null),
         (ClaudeCode, AppRole.CommandLine, @"{LOCAL}\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\{ANY}\claude.exe", null),
@@ -188,6 +202,8 @@ public static class KnownApps
         (VsCode, AppRole.Updater, @"{PF}\Microsoft VS Code\{ANY}\inno_updater.exe", null),
         (VsCode, AppRole.Helper, @"{PF}\Microsoft VS Code\{ANY}", null),
         (VsCode, AppRole.Updater, @"{TEMP}\vscode-stable-{V}\CodeSetup-{V}", null),
+        // Als Regel gespeichert ist der Temp-Unterordner „*“ ({STAR} passt nur auf das Muster, nie auf einen echten Pfad).
+        (VsCode, AppRole.Updater, @"{TEMP}\{STAR}\CodeSetup-stable-{V}", null),
         (VsCode, AppRole.Helper, @"{HOME}\.vscode\extensions\{ANY}", null),
         (VsCodeInsiders, AppRole.App, @"{LOCAL}\Programs\Microsoft VS Code Insiders\Code - Insiders.exe", null),
         (VsCodeInsiders, AppRole.Updater, @"{LOCAL}\Programs\Microsoft VS Code Insiders\{ANY}\inno_updater.exe", null),
@@ -196,6 +212,7 @@ public static class KnownApps
         (VsCodeInsiders, AppRole.Updater, @"{PF}\Microsoft VS Code Insiders\{ANY}\inno_updater.exe", null),
         (VsCodeInsiders, AppRole.Helper, @"{PF}\Microsoft VS Code Insiders\{ANY}", null),
         (VsCodeInsiders, AppRole.Updater, @"{TEMP}\vscode-insider-{V}\CodeSetup-{V}", null),
+        (VsCodeInsiders, AppRole.Updater, @"{TEMP}\{STAR}\CodeSetup-insider-{V}", null),
         (VsCodeInsiders, AppRole.Helper, @"{HOME}\.vscode-insiders\extensions\{ANY}", null),
 
         // Visual Studio (Ordner „18“ bzw. „2022“, Ausgabe Community/Professional/Enterprise/BuildTools). Der Installer lädt Updates mit
@@ -279,6 +296,7 @@ public static class KnownApps
         (Nvidia, AppRole.Updater, @"{DRIVE}\NVIDIA\DisplayDriver\{ANY}", null),
 
         // Steam: Client und Dienst; Spiele in jeder Bibliothek (…\steamapps\common\<Spiel>\…, auf jedem Laufwerk) mit Spielnamen.
+        (Steam, AppRole.Helper, @"{DRIVE}\{DIRS}steamapps\common\Steamworks Shared\{ANY}", null),
         (Steam, AppRole.Game, @"{DRIVE}\{DIRS}steamapps\common\{V}\{ANY}", null),
         (Steam, AppRole.App, @"{PF}\Steam\steam.exe", null),
         (Steam, AppRole.Helper, @"{PF}\Steam\{ANY}", null),
@@ -286,14 +304,14 @@ public static class KnownApps
 
         // Discord: Update.exe ist der Squirrel-Updater (startet auch die App), die App liegt in app-<Version>.
         (Discord, AppRole.Updater, @"{LOCAL}\Discord\Update.exe", null),
-        (Discord, AppRole.App, @"{LOCAL}\Discord\app-{V}\Discord.exe", null),
+        (Discord, AppRole.App, @"{LOCAL}\Discord\{V}\Discord.exe", null),
         (Discord, AppRole.App, @"{LOCAL}\Discord\Discord.exe", null),
         (Discord, AppRole.Helper, @"{LOCAL}\Discord\{ANY}", null),
         (DiscordPtb, AppRole.Updater, @"{LOCAL}\DiscordPTB\Update.exe", null),
-        (DiscordPtb, AppRole.App, @"{LOCAL}\DiscordPTB\app-{V}\DiscordPTB.exe", null),
+        (DiscordPtb, AppRole.App, @"{LOCAL}\DiscordPTB\{V}\DiscordPTB.exe", null),
         (DiscordPtb, AppRole.Helper, @"{LOCAL}\DiscordPTB\{ANY}", null),
         (DiscordCanary, AppRole.Updater, @"{LOCAL}\DiscordCanary\Update.exe", null),
-        (DiscordCanary, AppRole.App, @"{LOCAL}\DiscordCanary\app-{V}\DiscordCanary.exe", null),
+        (DiscordCanary, AppRole.App, @"{LOCAL}\DiscordCanary\{V}\DiscordCanary.exe", null),
         (DiscordCanary, AppRole.Helper, @"{LOCAL}\DiscordCanary\{ANY}", null),
 
         // Spotify: Programm unter AppData\Roaming\Spotify, heruntergeladene Updates unter AppData\Local\Spotify\Update; Store-App.
@@ -317,7 +335,7 @@ public static class KnownApps
 
         // GitHub Desktop (Squirrel, je Benutzer) bringt ein eigenes Git mit – das zählt zu GitHub Desktop.
         (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\GitHubDesktop.exe", null),
-        (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\app-{V}\GitHubDesktop.exe", null),
+        (GitHubDesktop, AppRole.App, @"{LOCAL}\GitHubDesktop\{V}\GitHubDesktop.exe", null),
         (GitHubDesktop, AppRole.Updater, @"{LOCAL}\GitHubDesktop\Update.exe", null),
         (GitHubDesktop, AppRole.Helper, @"{LOCAL}\GitHubDesktop\{ANY}", null),
         // GitHub CLI: MSI-Installation, sonst das ZIP-Paket bzw. Scoop (…\bin\gh.exe), auch portabel an beliebigem Ort.
@@ -334,12 +352,41 @@ public static class KnownApps
     ];
 
     private static (Regex Pattern, AppMatch Match)[] _compiled = [];
+    // Ergebnis je Pfad: Die Listen fragen jede Zeile mehrmals je Sekunde ab, ein Fehlschlag prüfte sonst jedes Mal alle Vorlagen.
+    // Configure ersetzt den Speicher; höchstens 20.000 Einträge.
+    private static ConcurrentDictionary<string, AppMatch?> _cache = new(StringComparer.OrdinalIgnoreCase);
+
+    // Vorlagen, deren Ort auch ein gewöhnlicher Benutzer beschreiben kann (AppData, Benutzerordner, Temp, ProgramData, irgendwo).
+    private static readonly string[] WritableRoots = ["{LOCAL}", "{ROAMING}", "{HOME}", "{TEMP}", "{PD}", "{DRIVE}"];
+
+    /// <summary>Namen, die im Unterzeichner einer echten Datei der App vorkommen (geprüft mit Signature.Check; NVIDIA-Treiber sind
+    /// von Microsoft für die Hardware-Kompatibilität signiert, der Git Credential Manager von Microsoft).</summary>
+    public static IReadOnlyList<string> MakersOf(KnownApp app) => app.Id switch
+    {
+        "claude" or "claude-code" => ["Anthropic"],
+        "chatgpt" => ["OpenAI"],
+        "chrome" => ["Google"],
+        "brave" => ["Brave Software"],
+        "firefox" => ["Mozilla"],
+        "edge" or "vscode" or "vscode-insiders" or "visualstudio" or "office" or "onedrive" or "outlook" or "teams" => ["Microsoft"],
+        "nordvpn" => ["Nord"],
+        "adobe-cc" or "acrobat" => ["Adobe"],
+        "git" => ["Johannes Schindelin", "Microsoft", "GitHub"],
+        "github" or "github-cli" => ["GitHub"],
+        "nvidia" => ["NVIDIA", "Microsoft Windows Hardware Compatibility"],
+        "steam" => ["Valve"],
+        "discord" or "discord-ptb" or "discord-canary" => ["Discord"],
+        "spotify" => ["Spotify"],
+        "apple-music" or "apple" => ["Apple"],
+        _ => [],
+    };
 
     /// <summary>Orte festlegen (unter Windows beim Start aus den Systemordnern); vorher wird nichts erkannt. <paramref name="tempRoots"/>:
     /// die Temp-Ordner wie in <see cref="AlertRules.TempRoots"/> (ein ganzes Laufwerk zählt nie), AppData\Local\Temp gilt immer.</summary>
     public static void Configure(string programFiles, string programFilesX86, string programData, IEnumerable<string>? tempRoots = null, string windowsDir = "")
     {
         static string E(string dir) => Regex.Escape(dir.TrimEnd('\\'));
+        _cache = new(StringComparer.OrdinalIgnoreCase);
         var roots = new[] { programFiles, programFilesX86 }.Where(d => d.Length > 0).Select(E).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (roots.Length == 0) { _compiled = []; return; }
         var temps = (tempRoots ?? []).Select(t => t.TrimEnd('\\')).Where(t => t.Length > 3 && t[1] == ':' && t.Contains('\\'))
@@ -353,7 +400,9 @@ public static class KnownApps
             ["{HOME}"] = @"[A-Za-z]:\\Users\\[^\\]+",
             ["{PD}"] = programData.Length > 0 ? E(programData) : "(?!)",
             ["{TEMP}"] = "(?:" + string.Join("|", temps) + ")",
-            ["{WIN}"] = windowsDir.Length > 3 ? E(windowsDir) : @"[A-Za-z]:\\Windows",
+            ["{WIN}"] = windowsDir.Length > 3 ? E(windowsDir) : "(?!)",
+            // Nur ein „*“ aus einem Regel-Muster (ein echter Pfad enthält keins).
+            ["{STAR}"] = @"\*",
             // Für Werkzeuge, die portabel an beliebigem Ort liegen: Laufwerk, beliebig viele Ordner (auch keiner), Git-Architektur.
             ["{DRIVE}"] = "[A-Za-z]:",
             ["{DIRS}"] = @"(?:[^\\]+\\)*",
@@ -364,17 +413,24 @@ public static class KnownApps
         _compiled = Templates.Select(t =>
         {
             var re = string.Join("", Regex.Split(t.Template, @"(\{[A-Z]+\})").Select(part => tokens.TryGetValue(part, out var v) ? v : Regex.Escape(part)));
-            return (new Regex("^" + re + "$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant), new AppMatch(t.App, t.Role, t.Label));
+            var writable = WritableRoots.Any(r => t.Template.StartsWith(r, StringComparison.Ordinal));
+            return (new Regex("^" + re + "$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant), new AppMatch(t.App, t.Role, t.Label, writable));
         }).ToArray();
     }
 
-    /// <summary>Die bekannte App zu einem Programm (voller Pfad, auch ein Regel-Muster mit „*“), sonst null.</summary>
+    /// <summary>Die bekannte App zu einem Programm (voller Pfad, auch ein Regel-Muster mit „*“), sonst null. Ein „:“ nach dem Laufwerk
+    /// (alternativer Datenstrom, „C:\Windows\Tasks:x.exe“) zählt nie.</summary>
     public static AppMatch? Of(string processPath)
     {
-        if (processPath.Length < 4 || processPath[1] != ':' || processPath.Contains("..") || processPath.Contains('/')
+        if (processPath.Length < 4 || processPath[1] != ':' || processPath.IndexOf(':', 2) >= 0 || processPath.Contains("..") || processPath.Contains('/')
             || !processPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return null;
+        var cache = _cache;
+        if (cache.TryGetValue(processPath, out var known)) return known;
+        AppMatch? result = null;
         foreach (var (pattern, match) in _compiled)
-            if (pattern.IsMatch(processPath)) return match;
-        return null;
+            if (pattern.IsMatch(processPath)) { result = match; break; }
+        if (cache.Count >= 20_000) cache.Clear();
+        cache[processPath] = result;
+        return result;
     }
 }

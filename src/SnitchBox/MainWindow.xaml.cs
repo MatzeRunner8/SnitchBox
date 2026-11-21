@@ -94,6 +94,13 @@ internal static class Ui
         return AppIcons.ExistingFile(path) is { } file ? Native.IconOf(file) ?? UnknownIcon : UnknownIcon;
     }
 
+    /// <summary>Name eines erkannten Programms in derselben Reihenfolge wie Regelliste und Warnfenster: Windows Update und
+    /// Virenschutz, bekannte App, Windows-Programm; null, wenn es nicht erkannt wird.</summary>
+    public static string? KnownLabel(string path) =>
+        WindowsComponents.Of(path) is { } component ? WindowsComponents.Title(component) + " · " + Rule.NameOf(path)
+        : KnownApps.Of(path) is { } app ? app.Label(path)
+        : WindowsProcesses.Of(path)?.Label;
+
     /// <summary>Farbe der Betriebsart: Orange fragt nach, Grün erlaubt alles, Rot verbietet alles.</summary>
     public static Brush ModeBrush(OperationMode m) => m switch
     {
@@ -221,8 +228,7 @@ internal sealed class ConnectionRow(ConnectionRecord record) : INotifyPropertyCh
         : Rule.NameOf(r.ProcessPath);
     /// <summary>Die Spalte ist schmal: dort Symbol und Dateiname, im Tooltip der Name einer bekannten App und der volle Pfad.</summary>
     public string ProcessTip => r.ProcessPath.Length == 0 ? Loc.T("Unbekannt", "Unknown")
-        : (KnownApps.Of(r.ProcessPath) is { } app ? app.Label(r.ProcessPath) + "\n"
-           : r.Service.Length == 0 && WindowsProcesses.Of(r.ProcessPath) is { } win ? win.Label + "\n" : "") + r.ProcessPath + (r.Service.Length > 0 ? " · " + r.Service : "");
+        : (r.Service.Length == 0 && Ui.KnownLabel(r.ProcessPath) is { } label ? label + "\n" : "") + r.ProcessPath + (r.Service.Length > 0 ? " · " + r.Service : "");
     public ImageSource Icon => Ui.IconFor(r.ProcessPath, false);
     public string Host => r.Host;
     public string Address => r.Remote.ToString();
@@ -409,7 +415,10 @@ public partial class MainWindow : Window
             _ => rules,
         };
         if (search.Length > 0)
+            // Auch der angezeigte Name („Google Updater“, „Telemetrie: Kompatibilität“) und der Dienst.
             rules = rules.Where(r => r.Process.Contains(search, StringComparison.OrdinalIgnoreCase)
+                                     || r.ProcessName.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+                                     || r.Service.Contains(search, StringComparison.OrdinalIgnoreCase)
                                      || r.Describe().Contains(search, StringComparison.OrdinalIgnoreCase)
                                      || r.Notes.Contains(search, StringComparison.OrdinalIgnoreCase));
         // Gruppiert: erst nach Gruppe (KI, Browser … Windows, Andere), darin wie bisher eigene vor Werksregeln, dann nach Name.
@@ -679,9 +688,7 @@ public partial class MainWindow : Window
             return Loc.F("Windows-Dienst: {0}", "Windows service: {0}", Rule.ServiceTitle(service) ?? service);
         }
         if (path.Length == 0) return Loc.T("Unbekannter Prozess", "Unknown Process");
-        if (WindowsComponents.Of(path) is { } component) return WindowsComponents.Title(component) + " · " + Rule.NameOf(path);
-        if (KnownApps.Of(path) is { } app) return app.Label(path);
-        if (WindowsProcesses.Of(path) is { } win) return win.Label;
+        if (Ui.KnownLabel(path) is { } label) return label;
         var title = Native.InfoOf(path).Title;
         return title.Length > 0 ? title : Rule.NameOf(path);
     }
@@ -690,7 +697,17 @@ public partial class MainWindow : Window
     private static ProcessGroup GroupOf(string key) =>
         key.IndexOf('|') is var bar and >= 0 ? ProcessGroups.Of(key[..bar], key[(bar + 1)..]) : ProcessGroups.Of(key);
 
-    private static string GroupTitleOf(string key) => ProcessGroups.Title(GroupOf(key));
+    /// <summary>Erstes Element eines Typs in der Darstellung (etwa die Rollleiste einer Liste).</summary>
+    private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T found) return found;
+            if (FindChild<T>(child) is { } deeper) return deeper;
+        }
+        return null;
+    }
 
     /// <summary>Aktualisiert die Programmliste an Ort und Stelle (sie ändert sich jede Sekunde durch die Datenmengen);
     /// neu aufgebaut wird nur, wenn ein Programm dazukommt. So bleiben Auswahl und Rollposition erhalten.</summary>
@@ -704,8 +721,12 @@ public partial class MainWindow : Window
         // Gruppiert (Einstellung): erst nach Gruppe (KI, Browser … Windows, Andere), darin wie bisher nach Name, Unbekanntes zuletzt.
         var grouped = App.Engine.Read(s => s.Settings.GroupLists);
         var paths = groups.Keys.Union(traffic.Keys, StringComparer.OrdinalIgnoreCase)
-            .Select(p => (Path: p, Name: DisplayName(p), Group: grouped ? GroupTitleOf(p) : ""))
-            .OrderBy(p => grouped ? GroupOf(p.Path) : 0).ThenBy(p => p.Path.Length == 0)
+            .Select(p =>
+            {
+                var group = grouped ? GroupOf(p) : ProcessGroup.AllPrograms; // einmal je Zeile
+                return (Path: p, Name: DisplayName(p), Order: (int)group, Group: grouped ? ProcessGroups.Title(group) : "");
+            })
+            .OrderBy(p => p.Order).ThenBy(p => p.Path.Length == 0)
             .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -715,6 +736,9 @@ public partial class MainWindow : Window
         if (!same)
         {
             _loading = true;
+            // Beim Neuaufbau (ein Programm kam dazu) die Rollposition behalten; gruppiert werden dabei auch die Gruppen neu angelegt.
+            var scroller = FindChild<ScrollViewer>(ProcessList);
+            var offset = scroller?.VerticalOffset ?? 0;
             _processRows.Clear();
             _processRows.Add(new ProcessRow { Path = null, Name = Loc.T("Alle Programme", "All Programs") });
             foreach (var p in paths) _processRows.Add(new ProcessRow { Path = p.Path, Name = p.Name, Group = p.Group });
@@ -723,6 +747,8 @@ public partial class MainWindow : Window
             _selectedProcess = (ProcessList.SelectedItem as ProcessRow)?.Path;
             _loading = false;
             connectionsChanged = true;
+            if (scroller != null && offset > 0)
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => scroller.ScrollToVerticalOffset(offset));
         }
 
         static Brush State(IEnumerable<ConnectionRecord> rs) => rs.Any(r => r.Pending) ? Ui.Ask : rs.Any(r => r.Allowed == false) ? Ui.Deny : Ui.None;

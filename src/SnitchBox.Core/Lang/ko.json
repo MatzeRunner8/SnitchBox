@@ -381,5 +381,9 @@
  "Games": "게임",
  "Drivers and hardware": "드라이버 및 하드웨어",
  "Communication": "커뮤니케이션",
- "Music and media": "음악 및 미디어"
+ "Music and media": "음악 및 미디어",
+ "{0} · Updater ({1})": "{0} · 업데이터({1})",
+ "Located in the folder of {0}, but not signed by its maker – be careful.": "{0} 폴더에 있지만 해당 제조사의 서명이 없습니다. 주의하세요.",
+ "Located in a Windows folder, but not signed by Microsoft.": "Windows 폴더에 있지만 Microsoft의 서명이 없습니다.",
+ "Part of Windows: scripts and other programs also use this tool to connect – check what started it.": "Windows의 일부: 스크립트와 다른 프로그램도 이 도구로 연결합니다. 무엇이 실행했는지 확인하세요."
 }

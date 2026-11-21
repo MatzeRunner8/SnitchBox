@@ -448,6 +448,46 @@ Adversariale Prüfung mit mehreren Agenten (5 Prüfer, ein Gegenprüfer je Fund)
 - Keins der drei ist auf dem Entwicklungsrechner installiert: Die Vorlagen folgen den Standard-Installationsorten und sind durch Kern-Tests
   abgedeckt; Symbole bis zur Installation nur als Buchstabenkachel.
 
+## Build 39 – Prüfrunde der Builds 31–38
+Drei unabhängige Prüfer (Erkennung im Kern, Symbole/Win32, Einbindung in die Oberfläche) haben den Code der Builds 31–38 gelesen; jeder
+Befund wurde vor der Korrektur am Code nachgeprüft. Bestätigt und behoben:
+- Von SnitchBox selbst angelegte Regeln wurden teils nicht erkannt: AlertRules.ProcessPattern macht „app-1.0.9213“ und den ersten
+  Temp-Unterordner zu „*“, die Vorlagen erwarteten aber wörtlich „app-“ (Discord, PTB, Canary, altes Claude, GitHub Desktop) bzw.
+  „vscode-stable-“. Die Vorlagen nutzen jetzt {V}; neuer Platzhalter {STAR} (passt nur auf das „*“ eines gespeicherten Musters) für das
+  VS-Code-Update. Neuer Test: Für 25 Beispielpfade wird das gespeicherte Muster genauso erkannt wie der echte Pfad.
+- Beruhigende Hinweise im Warnfenster ohne Prüfung: „Updater von …“, „Hilfsprogramm von …“ und „Teil von Windows“ erschienen für jede
+  Datei an einem Ort, den jeder Benutzer beschreiben kann (AppData, Temp, ProgramData, „irgendwo“-Vorlagen), und für jedes Programm in
+  System32. Jetzt wissen die Vorlagen, ob ihr Ort beschreibbar ist (AppMatch.Writable); dort und bei allen Windows-Programmen erscheint
+  der Hinweis erst nach der Signaturprüfung und nur, wenn der Unterzeichner zum Hersteller passt (KnownApps.MakersOf – NVIDIA-Treiber
+  sind etwa von „Microsoft Windows Hardware Compatibility Publisher“ signiert, Git von „Johannes Schindelin“, Windows-Programme von
+  Microsoft); sonst ein roter Vorsichtshinweis („liegt im Ordner von …, ist aber nicht von dessen Hersteller signiert“).
+  Kommandozeilen-Werkzeuge (PowerShell, cmd, curl, OpenSSH) bekommen eine Warnung statt einer Beruhigung, Verbindungen eines
+  svchost-Dienstes keinen allgemeinen Hinweis. An beschreibbaren Orten verbergen feste Namen und „· Updater“ den Dateinamen nicht mehr
+  („Discord · Updater (Update.exe)“, „Visual Studio Installer (BackgroundDownload.exe)“).
+- Alternative Datenströme („C:\Windows\Tasks:evil.exe“ – Tasks und Tracing sind für alle beschreibbar) zählten als Windows-Programm: Ein
+  „:“ nach dem Laufwerk weisen jetzt KnownApps, WindowsProcesses, WindowsComponents und die Symbolsuche ab.
+- Symbole: Die neueste Store-Paketversion wurde durch Vergleich eines Paketnamens mit einem Pfad gewählt (jetzt nach Version);
+  Zwischenspeicher hielten Fehlschläge und veraltete Ergebnisse für die ganze Laufzeit (nach einem Store-Update konnte die
+  Buchstabenkachel für immer bleiben) – jetzt Speicher mit Verfallszeit (TimedCache: vorhandene Datei 1 min, Paketordner 5 min, echte
+  Symbole 30 min, Ersatz 2 min) und Größengrenze; Native.IconOf merkt sich keine Fehlschläge mehr; nicht mehr jede Listenaktualisierung
+  prüft jede Zeile auf der Platte; bei einem gelöschten Programm werden nur Versionsordner zu „*“ (AlertRules.VersionPattern) – vorher
+  konnte „C:\Windows\Temp\{GUID}\setup.exe“ das Symbol eines beliebigen anderen Installers zeigen; nur lokale Laufwerke (keine
+  Netzfreigabe – eine nicht erreichbare würde die Oberfläche anhalten); die Ordnersuche überspringt Verknüpfungen (Junctions, symbolische
+  Links – auch zu \\server-Freigaben) und ausgelagerte Ordner; die Paketabfrage wiederholt, wenn sich die Paketzahl zwischen ihren beiden
+  Aufrufen ändert.
+- Tempo: KnownApps.Of und WindowsProcesses.Of merken sich das Ergebnis je Pfad (sie prüften ~190 reguläre Ausdrücke je Aufruf, mehrmals je
+  Zeile und Sekunde); der Netzwerkmonitor berechnet die Gruppe je Zeile nur einmal.
+- Kleinere Korrekturen: Der Tooltip der Verbindungsliste benennt Windows-Update-Programme wie die Programmliste (gemeinsame
+  Namensfunktion); die Regelsuche findet auch die angezeigten Namen und Dienste („Google Updater“, „Telemetrie: Kompatibilität“); die
+  Programmliste behält beim Neuaufbau ihre Rollposition; „system“ in Kleinschreibung wird wie bei den Regeln zu Windows gruppiert;
+  Steamworks Shared ist kein Spiel; der Platzhalter {WIN} fällt nicht mehr auf „jedes Laufwerk“ zurück.
+- Geprüft und in Ordnung: Die Erkennung ändert nie, welche Regel greift; die Reihenfolge (Dienst, Windows Update/Defender, bekannte Apps,
+  Windows-Programme) ist überall gleich; Aufbau der regulären Ausdrücke und Store-Herausgeberkennungen; P/Invoke-Signaturen und Puffer;
+  Threads (nur Oberflächen-Thread, eingefrorene Bilder); Gruppierung, Auswahl und Speichern der Einstellung. Bekannte Grenzen: Programme
+  auf Netzfreigaben oder UNC-Pfaden bekommen kein Symbol; bei Erhöhung über ein anderes Administratorkonto zeigen Apps des angemeldeten
+  Benutzers Buchstabenkacheln.
+- 11 neue Kern-Tests (322 insgesamt), 4 neue Texte in allen 12 Sprachen.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

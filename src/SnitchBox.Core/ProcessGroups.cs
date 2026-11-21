@@ -14,7 +14,7 @@ public static class ProcessGroups
     {
         if (service.Length > 0) return ProcessGroup.Windows; // Windows-Dienst, auch eine Dienst-Regel ohne Programm
         if (processPath.Length == 0) return emptyMeansAll ? ProcessGroup.AllPrograms : ProcessGroup.Other;
-        if (processPath == Rule.KernelProcess || WindowsComponents.IsComponent(processPath)
+        if (processPath.Equals(Rule.KernelProcess, StringComparison.OrdinalIgnoreCase) || WindowsComponents.IsComponent(processPath)
             || WindowsComponents.Of(processPath) != null) return ProcessGroup.Windows;
         if (KnownApps.Of(processPath) is { } app) return app.App.Group;
         return WindowsProcesses.Of(processPath) != null ? ProcessGroup.Windows : ProcessGroup.Other;

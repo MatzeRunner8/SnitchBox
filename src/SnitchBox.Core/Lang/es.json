@@ -381,5 +381,9 @@
  "Games": "Juegos",
  "Drivers and hardware": "Controladores y hardware",
  "Communication": "Comunicación",
- "Music and media": "Música y multimedia"
+ "Music and media": "Música y multimedia",
+ "{0} · Updater ({1})": "{0} · Actualizador ({1})",
+ "Located in the folder of {0}, but not signed by its maker – be careful.": "Está en la carpeta de {0}, pero no lo firma su fabricante: ten cuidado.",
+ "Located in a Windows folder, but not signed by Microsoft.": "Está en una carpeta de Windows, pero no está firmado por Microsoft.",
+ "Part of Windows: scripts and other programs also use this tool to connect – check what started it.": "Parte de Windows: los scripts y otros programas también usan esta herramienta para conectarse; comprueba quién la inició."
 }

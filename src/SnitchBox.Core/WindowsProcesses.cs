@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 
 namespace SnitchBox.Core;
@@ -95,10 +96,14 @@ public static class WindowsProcesses
     };
 
     private static Regex? _windowsDir, _microsoftPackage;
+    // Ergebnis je Pfad (die Listen fragen jede Zeile mehrmals je Sekunde ab); gespeichert wird die Art und der Katalogeintrag, nicht
+    // der Name – der hängt von der eingestellten Sprache ab. Configure ersetzt den Speicher; höchstens 20.000 Einträge.
+    private static ConcurrentDictionary<string, (bool Hit, WinCategory Category, Func<string>? Title)> _cache = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Orte festlegen (unter Windows beim Start); vorher wird nichts erkannt.</summary>
     public static void Configure(string windowsDir, string programFiles)
     {
+        _cache = new(StringComparer.OrdinalIgnoreCase);
         if (windowsDir.Length < 3) { _windowsDir = _microsoftPackage = null; return; }
         var win = Regex.Escape(windowsDir.TrimEnd('\\'));
         // Ordner (mit „\“ am Ende), in denen nur Windows und Administratoren Programme ablegen können.
@@ -108,16 +113,28 @@ public static class WindowsProcesses
             + @"\\WindowsApps\\[^\\]+__(?:8wekyb3d8bbwe|cw5n1h2txyewy)\\(?:[^\\]+\\)*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
-    /// <summary>Das Windows-Programm zu einem Pfad (auch ein Regel-Muster wie „…\WindowsPowerShell\*\powershell.exe“), sonst null.</summary>
+    /// <summary>Das Windows-Programm zu einem Pfad (auch ein Regel-Muster wie „…\WindowsPowerShell\*\powershell.exe“), sonst null.
+    /// Ein „:“ nach dem Laufwerk (alternativer Datenstrom wie „C:\Windows\Tasks:x.exe“ – Tasks ist für alle beschreibbar) zählt nie.</summary>
     public static WinMatch? Of(string processPath)
     {
-        if (_windowsDir == null || processPath.Length < 4 || processPath[1] != ':' || processPath.Contains("..") || processPath.Contains('/')
-            || !processPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return null;
+        // Felder einmal lesen: Configure könnte sie zwischendurch ersetzen.
+        var windowsDir = _windowsDir;
+        var microsoftPackage = _microsoftPackage;
+        var cache = _cache;
+        if (windowsDir == null || processPath.Length < 4 || processPath[1] != ':' || processPath.IndexOf(':', 2) >= 0 || processPath.Contains("..")
+            || processPath.Contains('/') || !processPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return null;
         var name = Rule.NameOf(processPath);
-        var dir = processPath[..^name.Length];
-        var inWindows = _windowsDir.IsMatch(dir);
-        if (!inWindows && _microsoftPackage?.IsMatch(dir) != true) return null;
-        if (Catalog.TryGetValue(name, out var entry)) return new WinMatch(entry.Category, entry.Title());
-        return inWindows ? new WinMatch(WinCategory.System, "Windows · " + name) : null;
+        if (!cache.TryGetValue(processPath, out var found))
+        {
+            var dir = processPath[..^name.Length];
+            var inWindows = windowsDir.IsMatch(dir);
+            found = !inWindows && microsoftPackage?.IsMatch(dir) != true ? (false, default, null)
+                : Catalog.TryGetValue(name, out var entry) ? (true, entry.Category, entry.Title)
+                : inWindows ? (true, WinCategory.System, null)
+                : (false, default, null);
+            if (cache.Count >= 20_000) cache.Clear();
+            cache[processPath] = found;
+        }
+        return !found.Hit ? null : new WinMatch(found.Category, found.Title?.Invoke() ?? "Windows · " + name);
     }
 }

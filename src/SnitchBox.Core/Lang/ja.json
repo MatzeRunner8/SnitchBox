@@ -381,5 +381,9 @@
  "Games": "ゲーム",
  "Drivers and hardware": "ドライバーとハードウェア",
  "Communication": "コミュニケーション",
- "Music and media": "音楽とメディア"
+ "Music and media": "音楽とメディア",
+ "{0} · Updater ({1})": "{0} · アップデーター ({1})",
+ "Located in the folder of {0}, but not signed by its maker – be careful.": "{0} のフォルダーにありますが、そのメーカーの署名がありません。注意してください。",
+ "Located in a Windows folder, but not signed by Microsoft.": "Windows のフォルダーにありますが、Microsoft の署名がありません。",
+ "Part of Windows: scripts and other programs also use this tool to connect – check what started it.": "Windows の一部です。スクリプトや他のプログラムもこのツールで接続します。何が起動したかを確認してください。"
 }

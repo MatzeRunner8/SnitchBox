@@ -18,7 +18,8 @@
             <StackPanel VerticalAlignment="Center">
                 <TextBlock x:Name="NameText" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
                 <TextBlock x:Name="SummaryText" TextWrapping="Wrap" Margin="0,5,0,0" FontSize="14.5" LineHeight="21"/>
-                <!-- Nur bei Windows Update / Viren- & Bedrohungsschutz: was ein Verbot bewirkt. -->
+                <!-- Hinweis zu Windows Update / Viren- & Bedrohungsschutz, bekannten Apps und Windows-Programmen (was ein Verbot bewirkt,
+                     bei beschreibbaren Orten erst nach der Signaturprüfung); eine Warnung erscheint rot. -->
                 <TextBlock x:Name="ComponentHint" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,8,0,0" FontWeight="SemiBold"
                            Foreground="{StaticResource AccentBrush}"/>
             </StackPanel>

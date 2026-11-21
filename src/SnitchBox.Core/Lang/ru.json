@@ -381,5 +381,9 @@
  "Games": "Игры",
  "Drivers and hardware": "Драйверы и оборудование",
  "Communication": "Общение",
- "Music and media": "Музыка и медиа"
+ "Music and media": "Музыка и медиа",
+ "{0} · Updater ({1})": "{0} · Средство обновления ({1})",
+ "Located in the folder of {0}, but not signed by its maker – be careful.": "Находится в папке {0}, но не подписан его производителем – будьте осторожны.",
+ "Located in a Windows folder, but not signed by Microsoft.": "Находится в папке Windows, но не подписан Майкрософт.",
+ "Part of Windows: scripts and other programs also use this tool to connect – check what started it.": "Часть Windows: этим средством для подключения пользуются и сценарии, и другие программы – проверьте, кто его запустил."
 }

@@ -17,8 +17,33 @@ namespace SnitchBox;
 /// zusätzlich ein Abzeichen unten rechts – so gehören „updater.exe“ und „chrome.exe“ auf einen Blick zusammen.</summary>
 internal static class AppIcons
 {
-    private static readonly ConcurrentDictionary<string, string?> Resolved = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, ImageSource> Composed = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Zwischenspeicher mit Verfallszeit (nur im Oberflächen-Thread benutzt). SnitchBox läuft wochenlang: Apps werden
+    /// installiert, aktualisiert (neuer Versionsordner, neues Store-Paket) oder entfernt; ein Ergebnis darf deshalb nicht für immer
+    /// gelten, ein Fehlschlag (noch nicht installiert, Datei gerade im Austausch) erst recht nicht. Höchstens <c>max</c> Einträge.</summary>
+    private sealed class TimedCache<T>(TimeSpan good, TimeSpan bad, Func<T, bool> isGood, int max = 4000)
+    {
+        private readonly ConcurrentDictionary<string, (T Value, long Expires)> _items = new(StringComparer.OrdinalIgnoreCase);
+
+        public T Get(string key, Func<string, T> factory)
+        {
+            var now = Environment.TickCount64;
+            if (_items.TryGetValue(key, out var e) && e.Expires > now) return e.Value;
+            var value = factory(key);
+            if (_items.Count >= max)
+            {
+                foreach (var item in _items) if (item.Value.Expires <= now) _items.TryRemove(item.Key, out _);
+                if (_items.Count >= max) _items.Clear();
+            }
+            _items[key] = (value, now + (long)(isGood(value) ? good : bad).TotalMilliseconds);
+            return value;
+        }
+    }
+
+    // Vorhandene Datei je Pfad (auch für vorhandene: sonst prüfte jede Listenaktualisierung jede Zeile auf der Platte nach).
+    private static readonly TimedCache<string?> Existing = new(TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), r => r != null);
+    // Zusammengesetzte Symbole je App und Rolle; das echte Symbol des Hauptprogramms lange, die Ersatzkachel nur kurz (App vielleicht
+    // gleich installiert oder gerade im Update).
+    private static readonly TimedCache<(ImageSource Image, bool Real)> Composed = new(TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(2), r => r.Real);
 
     /// <summary>Symbol einer bekannten App in ihrer Rolle: das Programm selbst zeigt sein eigenes Symbol (Word, Photoshop, ChatGPT),
     /// Updater, Hilfsprogramme und Kommandozeile das des Hauptprogramms mit Abzeichen (zwischengespeichert je App und Rolle).</summary>
@@ -29,16 +54,18 @@ internal static class AppIcons
             // Programm oder Spiel mit eigenem Symbol (Word, Photoshop, ein Steam-Spiel): dieses.
             if (ExistingFile(processPath) is { } own && HasOwnIcon(own) && Native.IconOf(own) is { } ownIcon) return ownIcon;
             // Programm mit eigenem Namen, aber nicht (mehr) installiert (Word, Photoshop): sein Anfangsbuchstabe, nicht der der Suite.
-            if (match.Role == AppRole.App && match.FixedLabel != null) return Composed.GetOrAdd(match.App.Id + "|" + match.FixedLabel, _ => LetterTile(match.App, match.FixedLabel));
+            if (match.Role == AppRole.App && match.FixedLabel != null)
+                return Composed.Get(match.App.Id + "|" + match.FixedLabel, _ => (LetterTile(match.App, match.FixedLabel), true)).Image;
         }
         // Updater, Hilfsprogramme, Kommandozeile: immer das Hauptprogramm der App (ein Symbol je App und Rolle, gleich für alle ihre
         // Dateien); ist es nicht installiert, die gezeichnete Kachel – nie das Symbol der gerade gezeigten Datei.
-        return Composed.GetOrAdd(match.App.Id + "|" + match.Role, _ =>
+        return Composed.Get(match.App.Id + "|" + match.Role, _ =>
         {
             var main = MainFile(match.App);
-            var baseIcon = (main != null ? Native.IconOf(main) : null) ?? LetterTile(match.App);
-            return match.Role == AppRole.App ? baseIcon : WithBadge(baseIcon, match.Role);
-        });
+            var mainIcon = main != null ? Native.IconOf(main) : null;
+            var baseIcon = mainIcon ?? LetterTile(match.App);
+            return (match.Role == AppRole.App ? baseIcon : WithBadge(baseIcon, match.Role), mainIcon != null);
+        }).Image;
     }
 
     /// <summary>Symbol eines Windows-Programms: sein eigenes, wenn die Datei eines enthält (Explorer, Einstellungen, cmd), sonst das
@@ -47,13 +74,14 @@ internal static class AppIcons
     public static ImageSource ForWindows(WinMatch match, string processPath)
     {
         if (ExistingFile(processPath) is { } file && HasOwnIcon(file) && Native.IconOf(file) is { } own) return own;
-        return Composed.GetOrAdd("windows|" + match.Category, _ => CategoryTile(match.Category));
+        return Composed.Get("windows|" + match.Category, _ => (CategoryTile(match.Category), true)).Image;
     }
 
-    private static readonly ConcurrentDictionary<string, bool> OwnIcons = new(StringComparer.OrdinalIgnoreCase);
+    // „Kein Symbol“ nur kurz merken: eine Datei, die gerade ausgetauscht wird, liefert vorübergehend nichts.
+    private static readonly TimedCache<bool> OwnIcons = new(TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(2), r => r);
 
     /// <summary>Enthält die Datei ein Symbol? (Sonst liefert Windows für sie das allgemeine Programmsymbol.)</summary>
-    private static bool HasOwnIcon(string file) => OwnIcons.GetOrAdd(file, static f =>
+    private static bool HasOwnIcon(string file) => OwnIcons.Get(file, static f =>
     {
         try { return ExtractIconExW(f, -1, null, null, 0) > 0; }
         catch { return false; }
@@ -103,21 +131,31 @@ internal static class AppIcons
     }
 
     /// <summary>Vorhandene Datei zu einer Prozessangabe: der Pfad selbst, sonst die neueste Datei, auf die das Muster passt (ein Pfad
-    /// einer alten Version wird dazu erst zum Muster, wie es auch eine Regel bekäme); null, wenn nichts passt.</summary>
+    /// einer alten Version wird dazu erst zum Muster – nur Versionsordner, siehe <see cref="AlertRules.VersionPattern"/>); null, wenn
+    /// nichts passt. Nur lokale Laufwerke: Ein Netzlaufwerk bremste die Oberfläche bei jeder Prüfung (oder hinge bis zur Zeitüberschreitung).</summary>
     public static string? ExistingFile(string path)
     {
-        if (path.Length < 4 || path[1] != ':' || path.Contains("..") || path.StartsWith('@')) return null;
-        if (!path.Contains('*') && File.Exists(path)) return path;
-        return Resolved.GetOrAdd(path, static p =>
+        if (path.Length < 4 || path[1] != ':' || path[2] != '\\' || path.Contains("..") || !IsLocalDrive(path[0])) return null;
+        return Existing.Get(path, static p =>
         {
             try
             {
-                var pattern = p.Contains('*') ? p : AlertRules.ProcessPattern(p);
+                if (!p.Contains('*') && File.Exists(p)) return p;
+                var pattern = p.Contains('*') ? p : AlertRules.VersionPattern(p);
                 return pattern.Contains('*') ? FromPackage(pattern) ?? Glob(pattern) : null;
             }
             catch { return null; }
         });
     }
+
+    private static readonly TimedCache<bool> LocalDrives = new(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5), _ => true, 64);
+
+    /// <summary>Festplatte oder Wechseldatenträger (auch eine RAM-Disk), nicht Netz- oder CD-Laufwerk.</summary>
+    private static bool IsLocalDrive(char letter) => LocalDrives.Get(letter.ToString(), static l =>
+    {
+        try { return new DriveInfo(l + @":\").DriveType is DriveType.Fixed or DriveType.Removable; }
+        catch { return false; }
+    });
 
     // WindowsApps\Name_*_x64__Herausgeber\Rest: Paketfamilie „Name_Herausgeber“.
     private static readonly Regex PackageSegment = new(@"\\WindowsApps\\([^\\_]+)_\*_[^\\_]*__([a-z0-9]+)\\(.+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -131,6 +169,14 @@ internal static class AppIcons
         return file != null && File.Exists(file) ? file : null;
     }
 
+    // Verknüpfungen (Junctions, symbolische Links – auch zu einer Freigabe \\server\…) und ausgelagerte Ordner nicht betreten: Das
+    // Programm läuft mit Administratorrechten, und in Temp-Ordnern kann jeder Ordner anlegen.
+    private static readonly EnumerationOptions GlobOptions = new()
+    {
+        IgnoreInaccessible = true, RecurseSubdirectories = false, MatchType = MatchType.Win32,
+        AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.Offline,
+    };
+
     /// <summary>Muster mit „*“ in Ordnernamen auflösen; höchstens einige hundert Ordner (ein Temp-Ordner kann sehr voll sein).</summary>
     private static string? Glob(string pattern)
     {
@@ -143,7 +189,7 @@ internal static class AppIcons
             foreach (var d in dirs)
             {
                 if (!parts[i].Contains('*')) { next.Add(Path.Combine(d, parts[i])); continue; }
-                try { next.AddRange(Directory.EnumerateDirectories(d, parts[i]).Take(400 - next.Count)); } catch { }
+                try { next.AddRange(Directory.EnumerateDirectories(d, parts[i], GlobOptions).Take(400 - next.Count)); } catch { }
                 if (next.Count >= 400) break;
             }
             dirs = next;
@@ -153,37 +199,50 @@ internal static class AppIcons
             .FirstOrDefault();
     }
 
-    private static readonly ConcurrentDictionary<string, string?> PackageRoots = new(StringComparer.OrdinalIgnoreCase);
+    // Nach einem Store-Update liegt das Paket in einem neuen Ordner, der alte verschwindet: Ergebnis nur einige Minuten merken.
+    private static readonly TimedCache<string?> PackageRoots = new(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(1), r => r != null, 256);
 
-    /// <summary>Installationsordner eines Store-Pakets des Benutzers (neueste Version), sonst null.</summary>
-    private static string? PackageRoot(string family) => PackageRoots.GetOrAdd(family, static f =>
+    /// <summary>Installationsordner eines Store-Pakets des Benutzers (höchste Version, falls während eines Updates mehrere
+    /// registriert sind), sonst null.</summary>
+    private static string? PackageRoot(string family) => PackageRoots.Get(family, static f =>
     {
         try
         {
-            uint count = 0, bufferLength = 0;
-            var rc = GetPackagesByPackageFamily(f, ref count, null, ref bufferLength, IntPtr.Zero);
-            if (rc != 122 /*ERROR_INSUFFICIENT_BUFFER*/ || count == 0 || bufferLength == 0) return null;
-            var names = new IntPtr[count];
-            // Die Namen-Zeiger zeigen in diesen Puffer; deshalb fester, nicht verschiebbarer Speicher.
-            var buffer = Marshal.AllocHGlobal((int)bufferLength * 2);
-            try
+            // Zwischen Größenabfrage und Abruf kann ein Paket dazukommen (Update läuft): dann mit der neuen Größe noch einmal.
+            for (var attempt = 0; attempt < 3; attempt++)
             {
-                if (GetPackagesByPackageFamily(f, ref count, names, ref bufferLength, buffer) != 0) return null;
-                string? best = null;
-                foreach (var namePtr in names.Take((int)count))
+                uint count = 0, bufferLength = 0;
+                var rc = GetPackagesByPackageFamily(f, ref count, null, ref bufferLength, IntPtr.Zero);
+                if (rc != 122 /*ERROR_INSUFFICIENT_BUFFER*/ || count == 0 || bufferLength == 0) return null;
+                var names = new IntPtr[count];
+                // Die Namen-Zeiger zeigen in diesen Puffer; deshalb fester, nicht verschiebbarer Speicher.
+                var buffer = Marshal.AllocHGlobal((int)bufferLength * 2);
+                try
                 {
-                    var fullName = Marshal.PtrToStringUni(namePtr);
-                    if (fullName == null) continue;
-                    uint len = 0;
-                    if (GetPackagePathByFullName(fullName, ref len, null) != 122) continue;
-                    var sb = new StringBuilder((int)len);
-                    if (GetPackagePathByFullName(fullName, ref len, sb) != 0) continue;
-                    var path = sb.ToString();
-                    if (Directory.Exists(path) && (best == null || string.CompareOrdinal(fullName, best) > 0)) best = path;
+                    rc = GetPackagesByPackageFamily(f, ref count, names, ref bufferLength, buffer);
+                    if (rc == 122) continue;
+                    if (rc != 0) return null;
+                    string? best = null;
+                    Version? bestVersion = null;
+                    foreach (var namePtr in names.Take((int)count))
+                    {
+                        var fullName = Marshal.PtrToStringUni(namePtr);
+                        if (fullName == null) continue;
+                        uint len = 0;
+                        if (GetPackagePathByFullName(fullName, ref len, null) != 122) continue;
+                        var sb = new StringBuilder((int)len);
+                        if (GetPackagePathByFullName(fullName, ref len, sb) != 0) continue;
+                        var path = sb.ToString();
+                        // Paketname: Name_Version_Architektur_Ressource_Herausgeber; verglichen wird die Version, nicht der Text.
+                        var parts = fullName.Split('_');
+                        var version = parts.Length > 1 && Version.TryParse(parts[1], out var v) ? v : new Version(0, 0);
+                        if (Directory.Exists(path) && (bestVersion == null || version > bestVersion)) { best = path; bestVersion = version; }
+                    }
+                    return best;
                 }
-                return best;
+                finally { Marshal.FreeHGlobal(buffer); }
             }
-            finally { Marshal.FreeHGlobal(buffer); }
+            return null;
         }
         catch { return null; }
     });

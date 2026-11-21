@@ -681,7 +681,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(L(@"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe") == "Claude Code"
           && L(@"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe") == "Claude Code"
           && R(@"C:\Users\x\.local\bin\claude.exe") == AppRole.CommandLine
-          && L(@"C:\Users\x\AppData\Local\AnthropicClaude\Update.exe") == "Claude · Updater",
+          && L(@"C:\Users\x\AppData\Local\AnthropicClaude\Update.exe") == "Claude · Updater (Update.exe)",
         "Claude Code (Kommandozeile) und der Updater der älteren Claude-Fassung erkannt");
     Check(L(WA + @"OpenAI.Codex_*_x64__2p2nqsd0c76g0\app\ChatGPT.exe") == "ChatGPT"
           && L(WA + @"OpenAI.Codex_26.1111.9265.0_x64__2p2nqsd0c76g0\app\resources\codex.exe") == "ChatGPT · codex.exe"
@@ -727,10 +727,10 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     };
     Check(RuleSet.Build(appRules, "boot").Evaluate(appConn, now).Action == null, "die Erkennung ändert nicht, welche Regel greift");
 
-    KnownApps.Configure(@"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData", [@"R:\Temp", @"C:\Windows\Temp", @"C:\"]);
+    KnownApps.Configure(@"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData", [@"R:\Temp", @"C:\Windows\Temp", @"C:\"], @"C:\Windows");
     const string Code = @"C:\Users\Justman\AppData\Local\Programs\Microsoft VS Code\";
     Check(L(Code + "Code.exe") == "Visual Studio Code"
-          && L(Code + @"e646868227\tools\inno_updater.exe") == "Visual Studio Code · Updater"
+          && L(Code + @"e646868227\tools\inno_updater.exe") == "Visual Studio Code · Updater (inno_updater.exe)"
           && L(Code + @"bin\copilot-shim\copilot.exe") == "Visual Studio Code · copilot.exe"
           && L(@"C:\Users\Justman\.vscode\extensions\rust-lang.rust-analyzer-0.3.3105-win32-x64\server\rust-analyzer.exe") == "Visual Studio Code · rust-analyzer.exe"
           && R(@"R:\Temp\vscode-stable-user-x64\CodeSetup-stable-1.106.0.exe") == AppRole.Updater
@@ -741,8 +741,8 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && L(@"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\PerfWatson2.exe") == "Visual Studio · PerfWatson2.exe"
           && L(@"C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe") == "Visual Studio Installer"
           && R(@"C:\Program Files (x86)\Microsoft Visual Studio\Installer\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == AppRole.Updater
-          && L(@"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == "Visual Studio Installer"
-          && L(@"C:\Users\x\AppData\Local\Temp\obkz3fue.blc\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == "Visual Studio Installer"
+          && L(@"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == "Visual Studio Installer (BackgroundDownload.exe)"
+          && L(@"C:\Users\x\AppData\Local\Temp\obkz3fue.blc\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe") == "Visual Studio Installer (BackgroundDownload.exe)"
           && L(@"C:\Program Files (x86)\Microsoft Visual Studio\Shared\x.exe") == "Visual Studio · x.exe",
         "Visual Studio, seine Hilfsprogramme und der Installer (auch als Kopie in Temp) erkannt");
     Check(L(@"C:\Program Files\NordVPN\NordVPN.exe") == "NordVPN"
@@ -756,7 +756,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && L(@"D:\Downloads\vscode-stable-user-x64\CodeSetup-stable-1.exe") == null
           && L(@"C:\Users\x\Downloads\Code.exe") == null && L(@"C:\Tools\NordVPN\NordVPN.exe") == null,
         "ein ganzes Laufwerk zählt nie als Temp-Ordner; gleiche Namen anderswo sind keine bekannte App");
-    Check(new Rule { Process = @"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe" }.ProcessName == "Visual Studio Installer"
+    Check(new Rule { Process = @"R:\Temp\*\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe" }.ProcessName == "Visual Studio Installer (BackgroundDownload.exe)"
           && new Rule { Process = @"C:\Program Files\NordUpdater\NordUpdateService.exe" }.ProcessName == "NordUpdater",
         "Regelliste zeigt Visual Studio Installer und NordUpdater");
 
@@ -775,7 +775,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && L(WA + @"MSTeams_*_x64__8wekyb3d8bbwe\ms-teams.exe") == "Microsoft Teams",
         "Office-Programme (Klick-und-Los und MSI), neues Outlook und Teams erkannt");
     const string OD = @"C:\Users\Justman\AppData\Local\Microsoft\OneDrive\";
-    Check(L(OD + "OneDrive.exe") == "Microsoft OneDrive" && L(OD + "OneDriveStandaloneUpdater.exe") == "Microsoft OneDrive · Updater"
+    Check(L(OD + "OneDrive.exe") == "Microsoft OneDrive" && L(OD + "OneDriveStandaloneUpdater.exe") == "Microsoft OneDrive · Updater (OneDriveStandaloneUpdater.exe)"
           && R(OD + @"26.198.1011.0006\OneDriveSetup.exe") == AppRole.Updater
           && L(OD + @"26.198.1011.0006\FileCoAuth.exe") == "Microsoft OneDrive · FileCoAuth.exe"
           && L(@"C:\Program Files\Microsoft OneDrive\OneDriveStandaloneUpdater.exe") == "Microsoft OneDrive · Updater",
@@ -817,7 +817,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && L(@"C:\Program Files\Git\cmd\git.exe") == "Git",
         "Git erkannt: MinGit portabel und Git für Windows (mingw64, libexec, usr\\bin)");
     Check(L(@"C:\Users\x\AppData\Local\GitHubDesktop\app-3.5.2\GitHubDesktop.exe") == "GitHub Desktop"
-          && L(@"C:\Users\x\AppData\Local\GitHubDesktop\Update.exe") == "GitHub Desktop · Updater"
+          && L(@"C:\Users\x\AppData\Local\GitHubDesktop\Update.exe") == "GitHub Desktop · Updater (Update.exe)"
           && L(@"C:\Users\x\AppData\Local\GitHubDesktop\app-3.5.2\resources\app\git\mingw64\bin\git-remote-https.exe") == "GitHub Desktop · git-remote-https.exe"
           && L(@"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\mingw64\bin\git-remote-https.exe")
              == "Visual Studio · git-remote-https.exe",
@@ -855,12 +855,58 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && ProcessGroups.Title(ProcessGroup.Hardware) == "Treiber und Hardware",
         "NVIDIA in „Treiber und Hardware“, Steam samt Spielen in „Spiele“");
 
+    // Prüfrunde 31–38: Was SnitchBox als Regel speichert (AlertRules.ProcessPattern: Versions-, Hash-, Temp-Unterordner werden „*“),
+    // muss genauso erkannt werden wie der echte Pfad.
+    AlertRules.TempRoots = [@"R:\Temp", @"C:\Windows\Temp"];
+    var roundTrip = new[]
+    {
+        WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\Claude.exe", WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\resources\cowork-svc.exe",
+        @"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe",
+        @"C:\Users\x\AppData\Local\AnthropicClaude\app-1.0.3218\claude.exe", WA + @"OpenAI.Codex_26.1111.9265.0_x64__2p2nqsd0c76g0\app\ChatGPT.exe",
+        @"C:\Program Files\Google\Chrome\Application\157.0.8103.79\elevation_service.exe", @"C:\Program Files\Google\Chrome\Application\157.0.8103.79\Installer\setup.exe",
+        @"C:\Program Files (x86)\Google\GoogleUpdater\159.0.8140.0\updater.exe", @"C:\Program Files (x86)\BraveSoftware\Update\1.3.361.151\BraveUpdateCore.exe",
+        @"C:\Program Files (x86)\Microsoft\EdgeWebView\Application\157.0.4341.46\msedgewebview2.exe",
+        @"C:\Users\Justman\AppData\Local\Programs\Microsoft VS Code\e646868227\tools\inno_updater.exe",
+        @"R:\Temp\vscode-stable-user-x64\CodeSetup-stable-1.106.0.exe", @"R:\Temp\vscode-insider-user-x64\CodeSetup-insider-1.107.0.exe",
+        @"R:\Temp\obkz3fue.blc\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe",
+        @"C:\Program Files\NordVPN\8.15.2.0\NordVPNApp.exe", @"C:\Program Files\Common Files\microsoft shared\ClickToRun\Updates\16.0.19328.20000\OfficeClickToRun.exe",
+        @"C:\Users\Justman\AppData\Local\Microsoft\OneDrive\26.198.1011.0006\OneDriveSetup.exe",
+        @"C:\Users\x\AppData\Local\Discord\app-1.0.9213\Discord.exe", @"C:\Users\x\AppData\Local\Discord\app-1.0.9213\modules\discord_hook-1\discord_hook\DiscordHookHelper64.exe",
+        @"C:\Users\x\AppData\Local\DiscordPTB\app-1.0.1200\DiscordPTB.exe", @"C:\Users\x\AppData\Local\DiscordCanary\app-1.0.700\DiscordCanary.exe",
+        @"C:\Users\x\AppData\Local\GitHubDesktop\app-3.5.2\GitHubDesktop.exe", WA + @"SpotifyAB.SpotifyMusic_1.275.582.0_x86__zpdnekdrzrea0\Spotify.exe",
+        WA + @"AppleInc.AppleMusicWin_1.2.5.0_x64__nzyj5cx40ttqa\AppleMusic.exe", DS + "nvngx_update.exe", @"D:\SteamLibrary\steamapps\common\Portal 2\portal2.exe",
+    };
+    var lost = roundTrip.Where(p => L(AlertRules.ProcessPattern(p)) != L(p) || L(p) == null).ToList();
+    Check(lost.Count == 0, "gespeicherte Regel-Muster werden wie der echte Pfad erkannt: " + string.Join(" | ", lost.Select(p => AlertRules.ProcessPattern(p) + " → " + L(AlertRules.ProcessPattern(p)))));
+    Check(L(@"C:\Users\x\AppData\Local\Discord\*\Discord.exe") == "Discord" && L(@"R:\Temp\*\CodeSetup-stable-1.106.0.exe") == "Visual Studio Code · Updater (CodeSetup-stable-1.106.0.exe)"
+          && L(@"R:\Temp\vscode-x\CodeSetup-stable-1.exe") == null && L(@"R:\Temp\abc\CodeSetup-stable-1.exe") == null,
+        "Squirrel-Versionsordner und VS-Code-Update als „*“ erkannt; ein beliebiger Temp-Ordner mit CodeSetup ist kein VS Code");
+    AlertRules.TempRoots = [];
+
+    // An Orten, die jeder Benutzer beschreiben kann, bleibt der Dateiname sichtbar; Herstellerprüfung über die Signatur.
+    const string DiscordUpdate = @"C:\Users\Justman\AppData\Local\Discord\Update.exe";
+    Check(KnownApps.Of(DiscordUpdate)!.Writable && !KnownApps.Of(@"C:\Program Files\Google\Chrome\Application\chrome.exe")!.Writable
+          && !KnownApps.Of(WA + @"Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe")!.Writable && KnownApps.Of(@"C:\Tools\GitHubCLI\bin\gh.exe")!.Writable
+          && L(@"C:\NVIDIA\DisplayDriver\610.88\evil.exe") == "NVIDIA · Updater (evil.exe)"
+          && L(@"R:\Temp\x\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\evil.exe") == "Visual Studio Installer (evil.exe)"
+          && L(@"C:\Program Files (x86)\Google\GoogleUpdater\*\updater.exe") == "Google Updater",
+        "beschreibbare Orte: fester Name und „Updater“ mit Dateiname; geschützte Orte unverändert");
+    Check(KnownApps.Of(@"C:\Tools\GitHubCLI\bin\gh.exe")!.SignedByMaker("GitHub, Inc.") && !KnownApps.Of(@"C:\Tools\GitHubCLI\bin\gh.exe")!.SignedByMaker("Evil Corp")
+          && KnownApps.Of(@"C:\Tools\MinGit\cmd\git.exe")!.SignedByMaker("Johannes Schindelin")
+          && KnownApps.Of(@"C:\Tools\MinGit\ucrt64\bin\git-credential-manager.exe")!.SignedByMaker("Microsoft Corporation")
+          && KnownApps.Of(DS + "nvngx_update.exe")!.SignedByMaker("Microsoft Windows Hardware Compatibility Publisher")
+          && KnownApps.Of(DiscordUpdate)!.SignedByMaker("Discord Inc.") && !KnownApps.Of(DiscordUpdate)!.SignedByMaker(""),
+        "Hersteller laut Signatur (auch WHQL-signierte NVIDIA-Treiber und Microsofts Git Credential Manager)");
+    Check(L(@"C:\Program Files\Google\Chrome\Application\chrome.exe:evil.exe") == null && L(@"C:\Users\x\AppData\Local\Discord:Update.exe") == null,
+        "alternativer Datenstrom („…:evil.exe“) ist keine bekannte App");
+    Check(R(@"D:\SteamLibrary\steamapps\common\Steamworks Shared\_CommonRedist\x.exe") == AppRole.Helper, "Steamworks Shared ist kein Spiel");
+
     const string DC = @"C:\Users\Justman\AppData\Local\Discord\";
-    Check(L(DC + "Update.exe") == "Discord · Updater" && R(DC + "Update.exe") == AppRole.Updater
+    Check(L(DC + "Update.exe") == "Discord · Updater (Update.exe)" && R(DC + "Update.exe") == AppRole.Updater
           && L(DC + @"app-1.0.9213\Discord.exe") == "Discord" && L(DC + @"app-*\Discord.exe") == "Discord"
           && L(DC + @"app-1.0.9213\modules\discord_hook-1\discord_hook\DiscordHookHelper64.exe") == "Discord · DiscordHookHelper64.exe"
           && L(@"C:\Users\x\AppData\Local\DiscordPTB\app-1.0.1200\DiscordPTB.exe") == "Discord PTB"
-          && L(@"C:\Users\x\AppData\Local\DiscordCanary\Update.exe") == "Discord Canary · Updater",
+          && L(@"C:\Users\x\AppData\Local\DiscordCanary\Update.exe") == "Discord Canary · Updater (Update.exe)",
         "Discord (auch PTB und Canary): App im Versionsordner, Squirrel-Updater, Module");
     Check(L(@"C:\Users\Justman\AppData\Roaming\Spotify\Spotify.exe") == "Spotify"
           && L(@"C:\Users\Justman\AppData\Roaming\Spotify\SpotifyMigrator.exe") == "Spotify · SpotifyMigrator.exe"
@@ -920,6 +966,10 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && W(@"C:\Program Files\WindowsApps\Fremd.App_1.0.0.0_x64__abcdefghijklm\winget.exe") == null
           && W(@"C:\Windows\System32\..\..\x\svchost.exe") == null && W("System") == null && W(@"C:\Windows\System32\svchost.dll") == null,
         "für alle beschreibbare Unterordner, Temp, Treiber anderer Hersteller und fremde Store-Pakete zählen nicht als Windows");
+    Check(W(@"C:\Windows\Tasks:evil.exe") == null && W(@"C:\Windows\Tracing:svchost.exe") == null && W(@"C:\Windows\System32\svchost.exe:x.exe") == null,
+        "alternativer Datenstrom in einem Windows-Ordner (Tasks, Tracing sind für alle beschreibbar) zählt nicht als Windows");
+    Check(W(@"C:\Windows\System32\svchost.exe") == "Windows-Diensthost" && W(@"C:\WINDOWS\SYSTEM32\SVCHOST.EXE") == "Windows-Diensthost",
+        "zwischengespeichertes Ergebnis gilt unabhängig von der Schreibweise");
     Check(new Rule { Process = @"C:\Windows\System32\CompatTelRunner.exe" }.ProcessName == "Telemetrie: Kompatibilität"
           && new Rule { Process = @"C:\Windows\System32\svchost.exe", Service = "DiagTrack" }.ProcessName.StartsWith("Windows-Dienst: ")
           && new Rule { Process = @"C:\Windows\System32\SIHClient.exe" }.ProcessName == "Windows · SIHClient.exe",
@@ -938,6 +988,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     WindowsProcesses.Configure(@"C:\Windows", @"C:\Program Files");
     WindowsComponents.Configure(@"C:\Windows", @"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData");
     ProcessGroup G(string p, string service = "", bool all = false) => ProcessGroups.Of(p, service, all);
+    const string WA2 = @"C:\Program Files\WindowsApps\";
     Check(G(@"C:\Program Files\WindowsApps\Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe") == ProcessGroup.AI
           && G(@"C:\Users\x\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe") == ProcessGroup.AI
           && G(@"C:\Program Files\WindowsApps\OpenAI.Codex_*_x64__2p2nqsd0c76g0\app\resources\codex.exe") == ProcessGroup.AI,
@@ -955,6 +1006,16 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && G("", "DiagTrack", true) == ProcessGroup.Windows && G("System") == ProcessGroup.Windows && G("@windows-update") == ProcessGroup.Windows
           && G(@"C:\Windows\System32\SIHClient.exe") == ProcessGroup.Windows && G(@"C:\Windows\System32\CompatTelRunner.exe") == ProcessGroup.Windows,
         "Windows: Programme, Dienste (auch Dienst-Regel ohne Programm), Kern, Windows Update");
+    Check(G("system") == ProcessGroup.Windows, "„system“ in Kleinschreibung ist wie bei den Regeln der Windows-Kern");
+    WindowsComponents.Configure(@"C:\Windows", @"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData");
+    Check(WindowsComponents.Of(@"C:\Windows\System32:SIHClient.exe") == null && WindowsComponents.Of(@"C:\Windows\System32\SIHClient.exe") == WindowsComponents.Update,
+        "alternativer Datenstrom ist kein Windows Update");
+    Check(AlertRules.VersionPattern(@"C:\Windows\Temp\{0F3A1B2C-1234-4ABC-9DEF-0123456789AB}\setup.exe") == @"C:\Windows\Temp\{0F3A1B2C-1234-4ABC-9DEF-0123456789AB}\setup.exe"
+          && AlertRules.VersionPattern(@"R:\Temp\obkz3fue.blc\setup.exe") == @"R:\Temp\obkz3fue.blc\setup.exe"
+          && AlertRules.VersionPattern(@"C:\Program Files\Google\Chrome\Application\157.0.8103.79\setup.exe") == @"C:\Program Files\Google\Chrome\Application\*\setup.exe"
+          && AlertRules.VersionPattern(@"C:\Users\x\AppData\Local\Discord\app-1.0.9213\Discord.exe") == @"C:\Users\x\AppData\Local\Discord\*\Discord.exe"
+          && AlertRules.VersionPattern(WA2 + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\claude.exe") == WA2 + @"Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe",
+        "Symbol einer alten Version: nur Versionsordner werden „*“, nicht Temp-, GUID- oder Hash-Ordner (sonst Symbol eines fremden Installers)");
     Check(G("", "", true) == ProcessGroup.AllPrograms && G("") == ProcessGroup.Other && G(@"C:\Tools\PhotoCraft\photocraft.exe") == ProcessGroup.Other,
         "„Jeder Prozess“ in Regeln ganz oben, unbekannte und übrige Programme unter Andere");
     Check(Enum.GetValues<ProcessGroup>().Select(ProcessGroups.Title).Distinct().Count() == Enum.GetValues<ProcessGroup>().Length

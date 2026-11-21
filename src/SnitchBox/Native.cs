@@ -395,26 +395,35 @@ internal static unsafe class Native
 
     private static readonly ConcurrentDictionary<string, ImageSource?> Icons = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Programmsymbol für Listen und Warnfenster; null, wenn die Datei keines hat.</summary>
+    /// <summary>Programmsymbol für Listen und Warnfenster; null, wenn die Datei keines hat. Ein Fehlschlag wird nicht gemerkt (die Datei
+    /// war vielleicht gerade im Austausch – aufgerufen wird nur für vorhandene Dateien), und nach 4000 Pfaden beginnt der Speicher neu:
+    /// SnitchBox läuft wochenlang, und Programme in Temp- oder Versionsordnern bringen immer neue Pfade.</summary>
     public static ImageSource? IconOf(string path)
     {
         if (path.Length == 0 || path == "System") return null;
-        return Icons.GetOrAdd(path, static p =>
+        if (Icons.TryGetValue(path, out var cached)) return cached;
+        ImageSource? icon = null;
+        try
         {
-            try
+            var info = new SHFILEINFOW();
+            if (SHGetFileInfoW(path, 0, ref info, (uint)Marshal.SizeOf<SHFILEINFOW>(), 0x100 /*SHGFI_ICON, groß*/) != IntPtr.Zero && info.hIcon != IntPtr.Zero)
             {
-                var info = new SHFILEINFOW();
-                if (SHGetFileInfoW(p, 0, ref info, (uint)Marshal.SizeOf<SHFILEINFOW>(), 0x100 /*SHGFI_ICON, groß*/) == IntPtr.Zero || info.hIcon == IntPtr.Zero) return null;
                 try
                 {
                     var src = Imaging.CreateBitmapSourceFromHIcon(info.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
                     src.Freeze();
-                    return src;
+                    icon = src;
                 }
                 finally { DestroyIcon(info.hIcon); }
             }
-            catch { return null; }
-        });
+        }
+        catch { icon = null; }
+        if (icon != null)
+        {
+            if (Icons.Count >= 4000) Icons.Clear();
+            Icons[path] = icon;
+        }
+        return icon;
     }
 
     private static readonly ConcurrentDictionary<string, (string Title, string Publisher)> Infos = new(StringComparer.OrdinalIgnoreCase);
@@ -424,6 +433,7 @@ internal static unsafe class Native
     public static (string Title, string Publisher) InfoOf(string path)
     {
         if (path.Length == 0 || path == "System") return ("", "");
+        if (Infos.Count >= 4000 && !Infos.ContainsKey(path)) Infos.Clear(); // wochenlanger Lauf: nicht ohne Grenze wachsen
         return Infos.GetOrAdd(path, static p =>
         {
             string title = "", publisher = "";

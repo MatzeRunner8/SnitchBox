@@ -381,5 +381,9 @@
  "Games": "Oyunlar",
  "Drivers and hardware": "Sürücüler ve donanım",
  "Communication": "İletişim",
- "Music and media": "Müzik ve medya"
+ "Music and media": "Müzik ve medya",
+ "{0} · Updater ({1})": "{0} · Güncelleyici ({1})",
+ "Located in the folder of {0}, but not signed by its maker – be careful.": "{0} klasöründe bulunuyor ancak üreticisi tarafından imzalanmamış – dikkatli olun.",
+ "Located in a Windows folder, but not signed by Microsoft.": "Bir Windows klasöründe bulunuyor ancak Microsoft tarafından imzalanmamış.",
+ "Part of Windows: scripts and other programs also use this tool to connect – check what started it.": "Windows’un parçası: Betikler ve diğer programlar da bu araçla bağlantı kurar – onu neyin başlattığını kontrol edin."
 }

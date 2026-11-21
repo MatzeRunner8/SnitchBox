@@ -243,6 +243,25 @@ public static class AlertRules
         RegexOptions.CultureInvariant);
     // Store-Pakete: Claude_5.11492.5.0_x64__pzs8sxrjxfjjc → Claude_*_x64__pzs8sxrjxfjjc (Name und Herausgeber bleiben).
     private static readonly Regex PackageDir = new(@"^([^_\\]+)_\d+(\.\d+){1,3}_(.+)$", RegexOptions.CultureInvariant);
+    // Nur Versionsordner (ohne GUID- und Hash-Ordner), für VersionPattern.
+    private static readonly Regex VersionOnlyDir = new(@"^(v?\d+(\.\d+){1,3}([-+][0-9A-Za-z.]+)?|app-\d+(\.\d+)+)$", RegexOptions.CultureInvariant);
+
+    /// <summary>Für das Symbol eines Programms, dessen Datei es nicht mehr gibt (alte Version in Verlauf oder Regel): nur Versions- und
+    /// Paketversions-Ordner werden zu „*“, damit sich die aktuelle Version findet. Anders als <see cref="ProcessPattern"/> bleiben der
+    /// Temp-Unterordner und GUID- oder Hash-Ordner stehen – sonst stünde „C:\Windows\Temp\*\setup.exe“ für jedes beliebige
+    /// Installationsprogramm, und ein gelöschtes Programm bekäme das Symbol eines fremden.</summary>
+    public static string VersionPattern(string path)
+    {
+        if (path.Contains('*') || path.IndexOf('\\') < 0) return path;
+        var parts = path.Split('\\');
+        for (var i = 1; i < parts.Length - 1; i++)
+        {
+            if (parts[i].Length == 0) continue;
+            if (VersionOnlyDir.IsMatch(parts[i])) parts[i] = "*";
+            else if (PackageDir.Match(parts[i]) is { Success: true } m) parts[i] = m.Groups[1].Value + "_*_" + m.Groups[3].Value;
+        }
+        return string.Join('\\', parts);
+    }
 
     /// <summary>Prozessangabe für eine Regel, die auch für die nächste Kopie oder Version des Programms gilt. Wechselnde Ordnernamen
     /// werden zu „*“: der erste Unterordner eines Temp-Ordners (Installer wie der von Visual Studio kopieren sich bei jedem Start in

@@ -17,6 +17,36 @@ public partial class AlertWindow : Window
     private readonly List<(AlertScope Scope, RadioButton Button)> _scopes = [];
     private readonly bool _remember;
     private bool _silent;
+    // Hinweis, der von der geprüften Signatur abhängt (bekannte App an beschreibbarem Ort, Windows-Programm); null = keiner.
+    private Func<SignatureInfo, string?>? _hintAfterSignature;
+
+    private void ShowHint(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        ComponentHint.Text = text.StartsWith('⚠') ? text : "ⓘ " + text;
+        ComponentHint.Foreground = text.StartsWith('⚠') ? Ui.Deny : (System.Windows.Media.Brush)FindResource("AccentBrush");
+        ComponentHint.Visibility = Visibility.Visible;
+    }
+
+    private static string? AppHint(AppMatch app) => app.Role switch
+    {
+        AppRole.Updater => Loc.F("Updater von {0}: Verbietest du das, bekommt {0} keine Updates mehr – auch keine Sicherheitsupdates.",
+                                 "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.", app.App.Title),
+        AppRole.Helper => Loc.F("Hilfsprogramm von {0}.", "Helper program of {0}.", app.App.Title),
+        _ => null,
+    };
+
+    private static string WindowsHint(WinCategory category) => category switch
+    {
+        WinCategory.Telemetry => Loc.T("Teil von Windows: sendet Diagnose- und Nutzungsdaten an Microsoft. Windows funktioniert auch, wenn du das verbietest.",
+                                       "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this."),
+        WinCategory.Content => Loc.T("Teil von Windows: lädt Tipps, Hinweise, Nachrichten oder Werbung. Windows funktioniert auch, wenn du das verbietest.",
+                                     "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this."),
+        // PowerShell, cmd, curl, ssh: echt von Microsoft heißt nicht harmlos – sie führen aus, was andere Programme oder Skripte verlangen.
+        WinCategory.CommandLine => "⚠ " + Loc.T("Teil von Windows: Auch Skripte und andere Programme bauen damit Verbindungen auf – prüfe, wer es gestartet hat.",
+                                                "Part of Windows: scripts and other programs also use this tool to connect – check what started it."),
+        _ => Loc.T("Teil von Windows.", "Part of Windows."),
+    };
 
     internal PendingAlert Alert { get; }
 
@@ -42,33 +72,31 @@ public partial class AlertWindow : Window
         }
         else if (KnownApps.Of(c.ProcessPath) is { } app)
         {
-            // Bekannte App: Name und Rolle statt „updater.exe“; ob die Datei wirklich vom Hersteller stammt, zeigt die Signaturzeile.
+            // Bekannte App: Name und Rolle statt „updater.exe“. Der Hinweis („Updater von …“) bewegt zum Erlauben; an einem Ort, den jeder
+            // Benutzer beschreiben kann (AppData, Temp, irgendwo), erscheint er erst, wenn die Signatur zeigt, dass die Datei vom
+            // Hersteller stammt – sonst ein Vorsichtshinweis (siehe ShowSignature).
             NameText.Text = app.Label(c.ProcessPath);
-            var hint = app.Role switch
+            if (c.Service.Length == 0)
             {
-                AppRole.Updater => Loc.F("Updater von {0}: Verbietest du das, bekommt {0} keine Updates mehr – auch keine Sicherheitsupdates.",
-                                         "Updater of {0}: if you deny this, {0} no longer gets updates – including security updates.", app.App.Title),
-                AppRole.Helper => Loc.F("Hilfsprogramm von {0}.", "Helper program of {0}.", app.App.Title),
-                _ => null,
-            };
-            if (hint != null)
-            {
-                ComponentHint.Text = "ⓘ " + hint;
-                ComponentHint.Visibility = Visibility.Visible;
+                if (!app.Writable) ShowHint(AppHint(app));
+                else _hintAfterSignature = sig => sig.State == SignatureState.Valid && app.SignedByMaker(sig.Signer) ? AppHint(app)
+                    : sig.State is SignatureState.Valid or SignatureState.Invalid or SignatureState.Unsigned
+                        ? "⚠ " + Loc.F("Liegt im Ordner von {0}, ist aber nicht von dessen Hersteller signiert – Vorsicht.",
+                                       "Located in the folder of {0}, but not signed by its maker – be careful.", app.App.Title)
+                        : null;
             }
         }
         else if (WindowsProcesses.Of(c.ProcessPath) is { } win)
         {
             NameText.Text = win.Label;
-            ComponentHint.Text = "ⓘ " + (win.Category switch
-            {
-                WinCategory.Telemetry => Loc.T("Teil von Windows: sendet Diagnose- und Nutzungsdaten an Microsoft. Windows funktioniert auch, wenn du das verbietest.",
-                                               "Part of Windows: sends diagnostic and usage data to Microsoft. Windows keeps working if you deny this."),
-                WinCategory.Content => Loc.T("Teil von Windows: lädt Tipps, Hinweise, Nachrichten oder Werbung. Windows funktioniert auch, wenn du das verbietest.",
-                                             "Part of Windows: loads tips, prompts, news or ads. Windows keeps working if you deny this."),
-                _ => Loc.T("Teil von Windows.", "Part of Windows."),
-            });
-            ComponentHint.Visibility = Visibility.Visible;
+            // „Teil von Windows“ nur mit Microsoft-Signatur: In System32 legen auch Treiber anderer Hersteller Programme ab. Bei einem
+            // Windows-Dienst steht dessen Name im Fenster, ein allgemeiner Hinweis entfällt.
+            if (c.Service.Length == 0)
+                _hintAfterSignature = sig => sig.State == SignatureState.Valid && sig.Signer.Contains("Microsoft", StringComparison.OrdinalIgnoreCase)
+                    ? WindowsHint(win.Category)
+                    : sig.State is SignatureState.Valid or SignatureState.Invalid or SignatureState.Unsigned
+                        ? "⚠ " + Loc.T("Liegt in einem Windows-Ordner, ist aber nicht von Microsoft signiert.", "Located in a Windows folder, but not signed by Microsoft.")
+                        : null;
         }
         var port = $"{c.Port} ({(c.Protocol == Proto.Tcp ? "TCP" : "UDP")})";
         // Der Satz nennt die Gegenstelle fett, damit das Wichtigste sofort ins Auge fällt.
@@ -158,6 +186,7 @@ public partial class AlertWindow : Window
                 break;
         }
         PublisherText.ToolTip = PublisherText.Text;
+        if (_hintAfterSignature != null) ShowHint(_hintAfterSignature(sig));
     }
 
     private void AddScope(AlertScope scope, string text)

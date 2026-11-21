@@ -43,7 +43,8 @@ public static class WindowsComponents
     /// <summary>Der Bestandteil, zu dem ein Programm (voller Pfad, auch ein Muster) gehört, sonst null.</summary>
     public static string? Of(string processPath)
     {
-        if (processPath.Length == 0 || IsComponent(processPath) || processPath.Contains("..") || processPath.IndexOf('\\') < 0) return null;
+        if (processPath.Length == 0 || IsComponent(processPath) || processPath.Contains("..") || processPath.IndexOf('\\') < 0
+            || processPath.IndexOf(':', 2) >= 0) return null; // alternativer Datenstrom („Ordner:datei.exe“) zählt nie
         var name = Rule.NameOf(processPath);
         var dir = processPath[..^name.Length];
         if (UpdateFiles.Contains(name)

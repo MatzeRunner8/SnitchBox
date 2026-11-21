@@ -381,5 +381,9 @@
  "Games": "游戏",
  "Drivers and hardware": "驱动程序和硬件",
  "Communication": "通信",
- "Music and media": "音乐和媒体"
+ "Music and media": "音乐和媒体",
+ "{0} · Updater ({1})": "{0} · 更新程序 ({1})",
+ "Located in the folder of {0}, but not signed by its maker – be careful.": "位于 {0} 的文件夹中，但没有其制造商的签名——请小心。",
+ "Located in a Windows folder, but not signed by Microsoft.": "位于 Windows 文件夹中，但没有 Microsoft 的签名。",
+ "Part of Windows: scripts and other programs also use this tool to connect – check what started it.": "Windows 的一部分：脚本和其他程序也会用此工具建立连接——请检查是谁启动了它。"
 }

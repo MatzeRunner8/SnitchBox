@@ -429,6 +429,42 @@ Adversarial multi-agent review (5 reviewers, one skeptic per finding), then two 
 - None of the three is installed on the development PC: the templates follow the standard install locations and are covered by core
   tests; icons only as letter tiles until the apps are installed.
 
+## Build 39 – review of builds 31–38
+Three independent reviewers (core recognition, icons/Win32, UI integration) read the code of builds 31–38; every finding was
+re-checked against the code before fixing. Confirmed and fixed:
+- Rules created by SnitchBox itself were partly not recognized: AlertRules.ProcessPattern turns “app-1.0.9213” and the first Temp
+  subfolder into “*”, but the templates expected the literal “app-” (Discord, PTB, Canary, old Claude, GitHub Desktop) or
+  “vscode-stable-”. Templates now use {V}; new token {STAR} (matches only the “*” of a stored pattern) for the VS Code update. New test:
+  for 25 sample paths, the stored pattern is recognized exactly like the real path.
+- Trust hints in the alert window without a check: “Updater of …”, “Helper program of …” and “Part of Windows” appeared for any file at a
+  place every user can write to (AppData, Temp, ProgramData, “anywhere” templates) and for every program in System32. Now: templates know
+  whether their location is user-writable (AppMatch.Writable); there, and for all Windows programs, the hint appears only after the
+  signature check and only if the signer matches the maker (KnownApps.MakersOf – e.g. NVIDIA drivers are signed by “Microsoft Windows
+  Hardware Compatibility Publisher”, Git by “Johannes Schindelin”, Windows programs by Microsoft); otherwise a red caution (“located in
+  the folder of …, but not signed by its maker”). Command-line tools (PowerShell, cmd, curl, OpenSSH) get a caution instead of
+  reassurance; svchost service connections no generic hint. In user-writable places, fixed names and “· Updater” no longer hide the
+  file name (“Discord · Updater (Update.exe)”, “Visual Studio Installer (BackgroundDownload.exe)”).
+- Alternate data streams (“C:\Windows\Tasks:evil.exe” – Tasks and Tracing are writable for everyone) counted as Windows programs:
+  a “:” after the drive is now rejected by KnownApps, WindowsProcesses, WindowsComponents and the icon lookup.
+- Icons: the newest Store package version was chosen by comparing a package name with a path (now by version); caches kept failures and
+  stale results for the whole session (after a Store update the letter tile could stay forever) – now time-limited caches (TimedCache:
+  existing file 1 min, package folder 5 min, real icons 30 min, fallbacks 2 min) with size limits; Native.IconOf no longer remembers
+  failures; every list refresh no longer checks each row's file on disk; for a deleted program only version folders become “*”
+  (AlertRules.VersionPattern) – before, “C:\Windows\Temp\{GUID}\setup.exe” could show the icon of any other installer; only local
+  drives (no network share – an offline share would stall the UI); the folder search skips reparse points (junctions, symbolic links –
+  also to \\server shares) and offline folders; the package query retries when the package count changes between its two calls.
+- Speed: KnownApps.Of and WindowsProcesses.Of remember results per path (they ran ~190 regexes per call, several times per row every
+  second); the Network Monitor computes each row's group once.
+- Smaller fixes: the connection-list tooltip names Windows Update programs like the program list (one shared label helper); the rule
+  search also finds the shown names and services (“Google Updater”, “Telemetry: compatibility”); the program list keeps its scroll position
+  when it is rebuilt; “system” in lower case is grouped as Windows like in the rules; Steamworks Shared is not a game; the {WIN} token no
+  longer falls back to “any drive”.
+- Checked and fine: recognition never changes which rule matches; precedence (service, Windows Update/Defender, known apps, Windows
+  programs) is the same everywhere; regex construction and Store publisher IDs; P/Invoke signatures and buffers; threading (UI thread only,
+  frozen images); grouping, selection and settings persistence. Known limits: programs on network shares or UNC paths get no icon; with
+  over-the-shoulder elevation by another admin account, per-user apps of the signed-in user show letter tiles.
+- 11 new core tests (322 in total), 4 new texts in all 12 languages.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).
