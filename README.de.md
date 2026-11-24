@@ -25,6 +25,7 @@ oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide br
 - Profile wechseln automatisch je Netzwerk (etwa „Zuhause“ am eigenen Router, „Unterwegs“ überall sonst); ein von Hand gewähltes Profil gilt bis zum nächsten Netzwerkwechsel
 - Verbieten wirkt sofort: bestehende Verbindungen, die eine Regeländerung neu verbietet, werden getrennt (IPv4 und IPv6)
 - Netzwerkmonitor: jeder Verbindungsaufbau je Programm und Gegenstelle, Datenmengen und aktuelle Rate je Programm, Datenmengen je Gegenstelle (Rate im Tooltip), Gesamtdatenrate, Regel direkt aus einer Zeile
+- Route verfolgen zu jeder Gegenstelle (wie tracert, aber in etwa 2 Sekunden): jeder Hop mit Adresse, Routername und drei Antwortzeiten; auf Wunsch auf einer Weltkarte mit den Ländern der Router – die Ländertabelle (DB-IP, rund 4 MB) wird erst geladen, wenn du die Karte einschaltest; die Länder ermittelt SnitchBox auf dem PC, dafür geht keine Adresse an einen Dienst
 - Blocklisten abonnieren (.lsrules, hosts-Dateien, Domainlisten), tägliche Aktualisierung; Import/Export von .lsrules
 - Symbol im Infobereich, Start beim Anmelden über die Aufgabenplanung (ohne UAC-Rückfrage)
 - Solange nicht gefiltert wird (Netzwerkfilter aus oder Treiber läuft nicht), zeigen Infobereich und Taskleiste ein rotes Schild mit weißem Kreuz
@@ -113,5 +114,8 @@ Details zum Original, zur Technik und zu den Änderungen je Build: [docs/RE-NOTE
 
 Eigener Code: MIT-Lizenz (siehe [LICENSE](LICENSE)). WinDivert 2.2.2 in `third_party/windivert` behält seine eigene Lizenz
 (LGPLv3 oder GPLv2, siehe [third_party/windivert/LICENSE](third_party/windivert/LICENSE)).
+Weltkarte: made with Natural Earth – free vector and raster map data @ naturalearthdata.com (gemeinfrei, siehe
+[third_party/naturalearth](third_party/naturalearth/README.md)). Länder der IP-Adressen (nur nach dem Herunterladen im Fenster „Route verfolgen“):
+[IP Geolocation by DB-IP](https://db-ip.com), „IP to Country Lite“, Lizenz CC BY 4.0.
 Little Snitch ist eine Marke der Objective Development Software GmbH. SnitchBox ist ein unabhängiges Projekt; übernommen sind nur
 das Bedienkonzept und das offene `.lsrules`-Format, kein Code und keine Grafik.

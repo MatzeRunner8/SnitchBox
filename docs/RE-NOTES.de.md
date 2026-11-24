@@ -488,6 +488,58 @@ Befund wurde vor der Korrektur am Code nachgeprüft. Bestätigt und behoben:
   Benutzers Buchstabenkacheln.
 - 11 neue Kern-Tests (322 insgesamt), 4 neue Texte in allen 12 Sprachen.
 
+## Build 40 – Route verfolgen mit Weltkarte
+Wunsch des Nutzers: den Weg zu einer Gegenstelle verfolgen und auf Wunsch auf einer Karte zeigen.
+- Netzwerkmonitor: Knopf „Route verfolgen …“ und derselbe Eintrag im Kontextmenü der Verbindungsliste; ohne Auswahl öffnet das Fenster mit
+  leerem Ziel (Adresse oder Name). Mehrere Fenster gleichzeitig gehen.
+- Proben (IcmpProber): ICMP-Echo mit begrenzter TTL über die ICMP-Schnittstelle von Windows (IcmpSendEcho2/Icmp6SendEcho2, wie tracert),
+  Abschluss über ein Ereignis und den Thread-Pool – kein blockierter Thread. Anders als System.Net.NetworkInformation.Ping liefert das
+  auch bei „TTL abgelaufen“ die Laufzeit (Ping meldet dort 0 ms). Der WinDivert-Filter fängt ICMP nicht ab; der Trace geht also auch bei
+  verbietenden Regeln.
+- Ablauf (Tracer, Kern): drei Proben je Hop. Hop 1 zuerst und allein, dann Runden im Sekundenabstand, die TTL 2…30 im Abstand von 15 ms
+  abschicken, statt Hop für Hop zu warten; sobald das Ziel antwortet, gehen spätere Runden nur noch bis zu seinem Hop. Ein Trace dauert
+  etwa 2 s (tracert bei stummen Routern bis zu zwei Minuten). Gemessen am Anschluss des Nutzers: Eine FRITZ!Box beantwortet TTL 1 nicht,
+  solange weitergeleitete Proben zum selben Ziel unterwegs sind (vermutlich NAT-Zustand) – daher Hop 1 zuerst; wer dasselbe Ziel
+  innerhalb weniger Sekunden erneut verfolgt, kann dort trotzdem „*“ sehen. Endzustände: erreicht, nicht erreichbar (Meldung eines
+  Routers), ab Hop N keine Antwort (Ziel beantwortet keinen Ping), abgebrochen.
+- Hop-Liste: Adresse(n) (mehrere bei Lastverteilung), Routername per Rückwärts-DNS (abschaltbar, wie tracert), drei Zeiten, Land
+  (private Netze, CGNAT, verbindungslokale Adressen werden benannt).
+- Weltkarte (MapView, auf Wunsch): Natural Earth 1:50 Mio. (gemeinfrei) als eingebettete Datei mit 114 KB (scripts/make_worldmap.py,
+  Projektion „Natural Earth“, ohne Antarktis, 13 kleine Gebiete als Punkt, Namen in allen 12 Sprachen). Länder der Route hervorgehoben,
+  Stationen (aufeinanderfolgende Hops in einem Land) mit ihrem ersten Hop nummeriert, Start grün, Ziel orange, Großkreise mit
+  Richtungspfeil, an der Datumsgrenze geteilt. Mausrad zoomt um den Mauszeiger, Ziehen verschiebt, Doppelklick zoomt hinein; Tooltip je
+  Station mit ihren Hops; Farben für Hell und Dunkel.
+- Länder: DB-IP „IP to Country Lite“ (CC BY 4.0, Namensnennung „IP Geolocation by DB-IP“ mit Link im Fenster). Heruntergeladen erst nach
+  Rückfrage (rund 4 MB von download.db-ip.com, aktueller Monat, sonst der vorige), Größengrenzen für Download und Entpacken, geprüft, bevor
+  sie die alte Tabelle in %ProgramData%\SnitchBox\geo ersetzt; Link „aktualisieren“ mit dem Stand der Tabelle. Die Zuordnung geschieht auf
+  dem PC (eigener Leser für das MaxMind-DB-Format: jeder Zugriff mit Grenzprüfung, Tiefen- und Arbeitsgrenze; getestet mit eigenem
+  Schreiber, 4000 zufällig beschädigten Dateien und 20.000 Abfragen gegen eine Python-Referenz an der echten Datei). Länder nach
+  Registrierung der Adresse – Anycast-Adressen (1.1.1.1 → Australien) und Router großer Netze können woanders stehen; das Fenster sagt das.
+- Einstellungen: „Namen auflösen“ (an) und „Weltkarte“ (aus) werden gemerkt.
+- Prüfung (vier unabhängige Prüfer – ICMP/Ablauf, Daten- und Download-Sicherheit, Fensterabläufe, Kartenzeichnung –, jeder Befund von
+  einem Gegenprüfer nachgeprüft; 16 bestätigt, 1 widerlegt, 1 offen, alle bestätigten behoben): „Abbrechen“ wirkte spät im Trace erst
+  nach bis zu 3 s (die ICMP-Schnittstelle lässt sich nicht abbrechen; RunAsync wartet jetzt nicht mehr und verwirft späte Antworten); eine
+  präparierte Ländertabelle konnte über viele Verweise auf einen großen Text Gigabytes je Abfrage anfordern (das Arbeitsbudget rechnet jetzt
+  auch nach Größe ab); die Download-Adresse nutzte den Kalender der Regionaleinstellung (thailändisch ergab 2569-11 und immer 404); ein
+  hängender Download hing bis zum Schließen des Fensters (Gesamtfrist 120 s); zwei Fenster, die zugleich luden, kamen sich in die Quere
+  (nur ein Download zur Zeit, eigene Zwischendatei); das Ende an der Höchstzahl der Hops (Routing-Schleife, Weg länger als 30 Hops) hieß
+  „ab Hop 31 keine Antwort“ (eigener Endzustand); nach einem gescheiterten Neustart kam ein älteres Ergebnis zurück; Rückwärts-DNS-
+  Ergebnisse kamen nach dem Abschalten von „Namen auflösen“ zurück; Länder in der Liste ohne die Quellenangabe von DB-IP; ein DNS-Fehler
+  genau beim Abbrechen entkam als unbehandelte Ausnahme; feste Spalten schnitten die Länderspalte in schmalen Fenstern ab (die Namensspalte
+  gibt jetzt nach, Mindestbreite 840); der Teiler vergaß die Kartengröße nach dem Ausblenden; Trace-Fenster gingen mit dem Netzwerkmonitor
+  zu (jetzt eigenständig); die Karte behielt nach einer Größenänderung den alten Zoom und folgte nach einem Klick mit 1 Pixel Zittern der
+  Route nicht mehr (Ziehschwelle).
+- Gefunden im Live-Test: Ein totes Ziel im eigenen Netz ergab 30 Zeilen „*“ und an Hop 30 zuletzt „nicht erreichbar“ von der eigenen
+  Adresse (ARP braucht rund 3 s). Ein „nicht erreichbar“ vom PC selbst gilt jetzt für Hop 1 – eine Zeile, wie bei tracert.
+- Nachprüfung der Korrekturen (zwei weitere Prüfer: Vollständigkeit und neue Fehler, mit Mutationsläufen): Die Regel „nicht erreichbar
+  vom PC selbst“ darf nicht mehr greifen, sobald ein Router geantwortet hat (ein kurzer WLAN-Aussetzer mitten im Trace hätte ihn sonst
+  auf Hop 1 gekürzt – jetzt zählt eine solche Probe als Fehler, und eine späte Antwort des ersten Routers nimmt eine frühere
+  Systemmeldung zurück); Trace-Fenster öffnen wieder per CenterOwner (bleiben im Arbeitsbereich des Bildschirms mit dem Hauptfenster,
+  passend zu dessen Größe) und lösen sich danach vom Besitzer; die Quellenangabe von DB-IP erscheint auch, wenn ein anderes Fenster die
+  Tabelle geladen hat; nach „Abbrechen“ nicht mehr abgewartete Proben zeigen „–“ statt „…“; der Status nach einem Download holt keine
+  veraltete Zeile mehr zurück; zwei Tests prüfen jetzt wirklich das späte Abbrechen und die Reihenfolge der Systemmeldung.
+- 65 neue Kern-Tests (387 insgesamt), 61 neue Texte in allen 12 Sprachen.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

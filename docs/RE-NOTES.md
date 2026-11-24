@@ -465,6 +465,53 @@ re-checked against the code before fixing. Confirmed and fixed:
   over-the-shoulder elevation by another admin account, per-user apps of the signed-in user show letter tiles.
 - 11 new core tests (322 in total), 4 new texts in all 12 languages.
 
+## Build 40 – trace route with world map
+User request: trace the route to a remote and, on request, show it on a map.
+- Network Monitor: button “Trace Route…” and the same entry in the context menu of the connection list; without a selection the window
+  opens with an empty destination (address or name). Several trace windows can be open at once.
+- Probes (IcmpProber): ICMP echo with a limited TTL through the Windows ICMP API (IcmpSendEcho2/Icmp6SendEcho2, like tracert), completed
+  via an event and the thread pool – no blocked threads. Unlike System.Net.NetworkInformation.Ping it reports the round-trip time for
+  “TTL expired” too (Ping returns 0 ms there). The WinDivert filter does not intercept ICMP, so tracing works even when rules deny.
+- Procedure (Tracer, core): three probes per hop. Hop 1 first and alone, then rounds one second apart that send TTL 2…30 15 ms apart
+  instead of waiting hop by hop; once the destination answers, later rounds only go up to its hop. A trace takes about 2 s (tracert: up
+  to two minutes with silent routers). Measured on the user’s line: a FRITZ!Box does not answer TTL 1 while forwarded probes to the same
+  destination are in flight (presumably NAT state) – hence hop 1 first; repeating a trace to the same destination within a few seconds can
+  still show “*” there. End states: reached, not reachable (router message), no answer from hop N on (destination ignores pings), cancelled.
+- Hop list: address(es) (several with load balancing), router name via reverse DNS (switchable, like tracert), three times, country
+  (private networks, CGNAT, link-local are named as such).
+- World map (MapView, on request): Natural Earth 1:50m (public domain) as an embedded 114 KB file (scripts/make_worldmap.py, Natural Earth
+  projection, no Antarctica, 13 small territories as points, names in all 12 languages). Countries on the route are highlighted, stops
+  (consecutive hops in one country) numbered with their first hop, start green, destination orange, great circles with direction arrows,
+  split at the date line. Mouse wheel zooms around the pointer, dragging pans, double-click zooms in; tooltip per stop with its hops;
+  colors for light and dark mode.
+- Countries: DB-IP “IP to Country Lite” (CC BY 4.0, attribution “IP Geolocation by DB-IP” with link in the window). Downloaded only after
+  asking (about 4 MB from download.db-ip.com, current month, otherwise the previous one), size limits for download and unpacking,
+  validated before it replaces the old table in %ProgramData%\SnitchBox\geo; “update” link with the table’s date. The lookup happens on the
+  PC (own reader for the MaxMind DB format: every read bounds-checked, depth and work limits; tested with an own writer, 4000 randomly damaged
+  files and 20,000 lookups against a Python reference on the real file). Countries follow address registration – anycast addresses (1.1.1.1
+  → Australia) and routers of large networks can be elsewhere; the window says so.
+- Settings: “Resolve names” (default on) and “World map” (default off) are remembered.
+- Review (four independent reviewers – ICMP/tracer, data and download security, window flow, map rendering – each finding re-checked by
+  a skeptic; 16 confirmed, 1 refuted, 1 open, all confirmed ones fixed): “Cancel” took up to 3 s late in a trace (the ICMP API cannot be
+  cancelled; RunAsync now stops waiting and drops late answers); a crafted country table could make one lookup allocate gigabytes through
+  many pointers to one large string (the work budget now also charges by size); the download URL used the regional calendar (Thai settings
+  gave 2569-11 and always 404); a stalled download hung until the window closed (overall deadline 120 s); two windows downloading at once
+  collided (one download at a time, unique temp file); a hop-limit end (routing loop, route longer than 30 hops) was reported as “no reply
+  from hop 31” (own end state); after a failed new start an older result came back; reverse-DNS results came back after “Resolve names”
+  was switched off; countries in the list without the DB-IP credit; a DNS failure at the moment of cancelling escaped as an unhandled
+  exception; fixed columns cut off the country column in narrow windows (the name column now takes the slack, minimum width 840); the
+  splitter forgot the map size after hiding it; trace windows closed together with the Network Monitor (they are independent now); the
+  map kept its old zoom after a resize and stopped following the route after a click with 1 px of jitter (drag threshold).
+- Found in a live test: a dead host in the own subnet produced 30 rows of “*” and finally “unreachable” from the PC’s own address at
+  hop 30 (ARP takes about 3 s). An “unreachable” sent by this PC itself now counts for hop 1 – one row, as with tracert.
+- Re-check of the fixes (two more reviewers: completeness and regressions, including mutation runs): the “unreachable from this PC”
+  rule must not apply once a router has answered (a short Wi-Fi drop in the middle of a trace would have cut it to hop 1 – now such a probe
+  counts as an error, and a late answer from the first router withdraws an earlier system message); trace windows open via CenterOwner
+  again (kept inside the work area of the main window’s monitor, sized to that monitor) and then drop the owner; the DB-IP credit also
+  appears when another window downloaded the table; probes not awaited after “Cancel” show “–” instead of “…”; the status after a download
+  no longer brings back an outdated line; two tests now really cover the late cancel and the order of the system message.
+- 65 new core tests (387 in total), 61 new texts in all 12 languages.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

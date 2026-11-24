@@ -1,4 +1,4 @@
-// Kern-Tests für SnitchBox; laufen auf jedem System: dotnet run --project tests/SnitchBox.Tests
+﻿// Kern-Tests für SnitchBox; laufen auf jedem System: dotnet run --project tests/SnitchBox.Tests
 using System.Buffers.Binary;
 using System.Net;
 using SnitchBox.Core;
@@ -1534,6 +1534,9 @@ Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.
     Check(Loc.T("Erlauben", "Allow") != "Allow" && Loc.F("{0} Regeln", "{0} rules", 7).Contains('7'), "Übersetzung wird verwendet");
     Loc.Language = "de";
 }
+
+// ---- Routenverfolgung, Länder-Datenbank, Weltkarte (Build 40)
+GeoTraceTests.Run(Check);
 
 try { Directory.Delete(Paths.Override!, true); } catch { }
 Console.WriteLine(failed == 0 ? $"Alle {count} Prüfungen bestanden." : $"{failed} von {count} Prüfungen fehlgeschlagen.");

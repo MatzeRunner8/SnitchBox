@@ -1,0 +1,105 @@
+<Window x:Class="SnitchBox.TraceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:SnitchBox"
+        Width="1000" Height="780" MinWidth="840" MinHeight="460" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <DockPanel Margin="16,12,16,14">
+        <!-- Ziel und Schalter -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <TextBlock Text="{l:L de='Ziel', en='Destination'}" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource Dim}"/>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                <CheckBox x:Name="NamesBox" VerticalAlignment="Center" Margin="16,0,0,0" Click="NamesBox_Click"
+                          Content="{l:L de='Namen auflösen', en='Resolve names'}"
+                          ToolTip="{l:L de='Namen der Router über DNS abfragen (wie tracert)', en='Look up router names via DNS (like tracert)'}"/>
+                <CheckBox x:Name="MapBox" VerticalAlignment="Center" Margin="16,0,0,0" Click="MapBox_Click"
+                          Content="{l:L de='Weltkarte', en='World Map'}"
+                          ToolTip="{l:L de='Den Weg auf einer Weltkarte zeigen (Länder der Router)', en='Show the route on a world map (countries of the routers)'}"/>
+            </StackPanel>
+            <Button x:Name="StartButton" DockPanel.Dock="Right" Padding="16,5" Margin="10,0,0,0" IsDefault="True" Click="Start_Click"
+                    Content="{l:L de='Verfolgen', en='Trace'}"/>
+            <TextBox x:Name="TargetBox" VerticalContentAlignment="Center" MinWidth="200"
+                     ToolTip="{l:L de='Adresse oder Name, z. B. 1.1.1.1 oder example.com', en='Address or name, e.g. 1.1.1.1 or example.com'}"/>
+        </DockPanel>
+        <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Margin="2,0,0,8" TextWrapping="Wrap"/>
+
+        <!-- Hinweis und Quellenangaben (eigene Zeile, rechtsbündig) -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="2,8,0,0">
+            <TextBlock x:Name="HintText" Style="{StaticResource Dim}" TextWrapping="Wrap"/>
+            <TextBlock x:Name="CreditText" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" Margin="0,4,0,0" Style="{StaticResource Dim}" Visibility="Collapsed">
+                <Run x:Name="CountryStand"/>
+                <Hyperlink Click="UpdateCountries_Click"><Run Text="{l:L de='aktualisieren', en='update'}"/></Hyperlink>
+                <Run Text=" · "/>
+                <Hyperlink Click="DbIp_Click"><Run Text="IP Geolocation by DB-IP"/></Hyperlink>
+                <Run Text=" · "/>
+                <Hyperlink Click="NaturalEarth_Click"><Run Text="{l:L de='Karte: Natural Earth', en='Map: Natural Earth'}"/></Hyperlink>
+            </TextBlock>
+        </StackPanel>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="ListRow" Height="*" MinHeight="110"/>
+                <RowDefinition x:Name="SplitRow" Height="0"/>
+                <RowDefinition x:Name="MapRow" Height="0"/>
+            </Grid.RowDefinitions>
+            <ListView x:Name="HopList" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.View>
+                    <GridView>
+                        <GridView.ColumnHeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" ToolTip="{Binding}" TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </GridView.ColumnHeaderTemplate>
+                        <GridViewColumn Header="{l:L de='Hop', en='Hop'}" Width="56" DisplayMemberBinding="{Binding Number}"/>
+                        <GridViewColumn Header="{l:L de='Adresse', en='Address'}" Width="170">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding AddressText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="{l:L de='Name', en='Name'}" Width="270">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding NameText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="{l:L de='Zeiten', en='Times'}" Width="230">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding TimesText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="{l:L de='Land', en='Country'}" Width="190">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding CountryText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+            <GridSplitter x:Name="Splitter" Grid.Row="1" Height="10" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Transparent" Visibility="Collapsed"/>
+            <Border x:Name="MapFrame" Grid.Row="2" CornerRadius="8" BorderBrush="#40808080" BorderThickness="1" Visibility="Collapsed" Padding="1">
+                <Grid ClipToBounds="True">
+                    <l:MapView x:Name="Map"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8">
+                        <Button Width="32" Padding="0,3" Content="+" FontWeight="SemiBold" Click="ZoomIn_Click" ToolTip="{l:L de='Vergrößern (Mausrad)', en='Zoom in (mouse wheel)'}"/>
+                        <Button Width="32" Padding="0,3" Margin="4,0,0,0" Content="−" FontWeight="SemiBold" Click="ZoomOut_Click" ToolTip="{l:L de='Verkleinern', en='Zoom out'}"/>
+                        <Button Padding="10,3" Margin="8,0,0,0" Content="{l:L de='Route', en='Route'}" Click="FitRoute_Click" ToolTip="{l:L de='Ausschnitt auf die Route', en='Zoom to the route'}"/>
+                        <Button Padding="10,3" Margin="4,0,0,0" Content="{l:L de='Welt', en='World'}" Click="FitWorld_Click" ToolTip="{l:L de='Ganze Welt zeigen', en='Show the whole world'}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

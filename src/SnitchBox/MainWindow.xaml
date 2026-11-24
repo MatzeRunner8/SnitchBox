@@ -1,4 +1,4 @@
-<Window x:Class="SnitchBox.MainWindow"
+﻿<Window x:Class="SnitchBox.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:l="clr-namespace:SnitchBox"
@@ -186,6 +186,11 @@
                     </ListView>
                     <GridSplitter Grid.Row="1" Grid.Column="1" Width="8" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
                     <ListView x:Name="ConnectionList" Grid.Row="1" Grid.Column="2" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{l:L de='Route verfolgen …', en='Trace Route…'}" Click="MonitorTrace_Click"/>
+                            </ContextMenu>
+                        </ListView.ContextMenu>
                         <ListView.View>
                             <!-- Breiten gemessen (Segoe UI 14, Zellrand 6+6, Kopfrand 12+12): Sie passen zusammen mit 160 px für die
                                  Gegenstelle in das Fenster in Standardgröße (1280). Ein zu langer Spaltenkopf endet mit „…“ und Tooltip. -->
@@ -237,6 +242,8 @@
                     </ListView>
                     <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0">
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                            <Button Padding="12,5" Margin="0,0,12,0" Content="{l:L de='Route verfolgen …', en='Trace Route…'}" Click="MonitorTrace_Click"
+                                    ToolTip="{l:L de='Den Weg zur gewählten Gegenstelle verfolgen (wie tracert), auf Wunsch auf einer Weltkarte', en='Trace the route to the selected remote (like tracert), optionally on a world map'}"/>
                             <Button Style="{StaticResource AllowButton}" Margin="0,0,6,0" Content="{l:L de='Erlauben …', en='Allow…'}" Click="MonitorAllow_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung erlaubt', en='Create a rule that allows the selected connection'}"/>
                             <Button Style="{StaticResource DenyButton}" Margin="0,0,6,0" Content="{l:L de='Verbieten …', en='Deny…'}" Click="MonitorDeny_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung verbietet', en='Create a rule that denies the selected connection'}"/>
                             <Button Padding="12,5" Content="{l:L de='Verlauf leeren', en='Clear History'}" Click="MonitorClear_Click" Margin="12,0,0,0"/>

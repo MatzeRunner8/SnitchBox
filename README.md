@@ -25,6 +25,7 @@ or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both nee
 - Profiles switch automatically per network (e.g. “Home” on your router, “On the go” everywhere else); a profile chosen by hand lasts until the next network change
 - Denying takes effect immediately: established connections that a rule change newly denies are cut (IPv4 and IPv6)
 - Network Monitor: every connection attempt per program and remote, data volume and current rate per program, data volume per remote (rate in a tooltip), total data rate, create a rule straight from a row
+- Trace route to any remote (like tracert, but in about 2 seconds): every hop with address, router name and three response times; optionally on a world map with the countries of the routers – the country table (DB-IP, about 4 MB) is downloaded only when you turn the map on; countries are looked up on your PC, no address is sent to any service for that
 - Subscribe to blocklists (.lsrules, hosts files, domain lists) with daily updates; import/export of .lsrules
 - Tray icon; starts at sign-in via Task Scheduler (no UAC prompt)
 - While nothing is being filtered (network filter off or driver not running), the tray and the taskbar show a red shield with a white cross
@@ -113,5 +114,8 @@ Details on the original, the technology and the changes per build: [docs/RE-NOTE
 
 Own code: MIT License (see [LICENSE](LICENSE)). WinDivert 2.2.2 in `third_party/windivert` keeps its own license
 (LGPLv3 or GPLv2, see [third_party/windivert/LICENSE](third_party/windivert/LICENSE)).
+World map: made with Natural Earth – free vector and raster map data @ naturalearthdata.com (public domain, see
+[third_party/naturalearth](third_party/naturalearth/README.md)). Countries of IP addresses (only after download in the trace window):
+[IP Geolocation by DB-IP](https://db-ip.com), “IP to Country Lite”, licensed under CC BY 4.0.
 Little Snitch is a trademark of Objective Development Software GmbH. SnitchBox is an independent project; only the user interface
 concept and the open `.lsrules` format were adopted, no code and no graphics.

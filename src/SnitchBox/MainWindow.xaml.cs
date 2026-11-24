@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -19,6 +19,22 @@ namespace SnitchBox;
 
 internal static class Ui
 {
+    /// <summary>Eine Spalte einer GridView füllt den Platz, den die übrigen (festen) Spalten lassen.</summary>
+    public static void FitColumn(ListView list, int flexible, double minimum)
+    {
+        void Apply()
+        {
+            if (list.View is not GridView view || list.ActualWidth < 50) return;
+            double others = 0;
+            for (var i = 0; i < view.Columns.Count; i++)
+                if (i != flexible) others += view.Columns[i].ActualWidth > 0 ? view.Columns[i].ActualWidth : view.Columns[i].Width;
+            // 36: Platz für die senkrechte Rollleiste und den Innenrand der Liste.
+            view.Columns[flexible].Width = Math.Max(minimum, list.ActualWidth - others - 36);
+        }
+        list.SizeChanged += (_, _) => Apply();
+        list.Loaded += (_, _) => Apply();
+    }
+
     private static SolidColorBrush B(byte r, byte g, byte b)
     {
         var br = new SolidColorBrush(Color.FromRgb(r, g, b));
@@ -287,9 +303,9 @@ public partial class MainWindow : Window
         ProcessList.ItemsSource = _processRows;
         // Je Liste füllt eine Spalte den übrigen Platz; so braucht keine Liste eine waagerechte Rollleiste
         // (die legte sich unter Windows 11 quer über die letzte Zeile).
-        FitColumn(RulesList, 3, 220);
-        FitColumn(ConnectionList, 2, 160);
-        FitColumn(BlocklistList, 4, 200);
+        Ui.FitColumn(RulesList, 3, 220);
+        Ui.FitColumn(ConnectionList, 2, 160);
+        Ui.FitColumn(BlocklistList, 4, 200);
         App.Engine.RulesChanged += OnRulesChanged;
         if (App.NetworkWatcher != null) App.NetworkWatcher.Checked += OnNetworksChecked;
         Closed += (_, _) =>
@@ -302,21 +318,6 @@ public partial class MainWindow : Window
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
         ReloadAll();
-    }
-
-    private static void FitColumn(ListView list, int flexible, double minimum)
-    {
-        void Apply()
-        {
-            if (list.View is not GridView view || list.ActualWidth < 50) return;
-            double others = 0;
-            for (var i = 0; i < view.Columns.Count; i++)
-                if (i != flexible) others += view.Columns[i].ActualWidth > 0 ? view.Columns[i].ActualWidth : view.Columns[i].Width;
-            // 36: Platz für die senkrechte Rollleiste und den Innenrand der Liste.
-            view.Columns[flexible].Width = Math.Max(minimum, list.ActualWidth - others - 36);
-        }
-        list.SizeChanged += (_, _) => Apply();
-        list.Loaded += (_, _) => Apply();
     }
 
     /// <summary>Nach jeder Netzwerkprüfung; neu aufgebaut wird nur, wenn sich etwas Sichtbares geändert hat (siehe
@@ -834,6 +835,14 @@ public partial class MainWindow : Window
                 : Loc.F("Die Regel ist gespeichert, greift bei dieser Verbindung aber nicht. Vorrang hat:\n{0}",
                         "The rule was saved but does not take effect for this connection. Taking precedence:\n{0}", d.Reason),
             App.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>Routenverfolgung zur gewählten Gegenstelle (ohne Auswahl: Fenster mit leerem Ziel). Mehrere Fenster gleichzeitig gehen.</summary>
+    private void MonitorTrace_Click(object sender, RoutedEventArgs e)
+    {
+        var record = (ConnectionList.SelectedItem as ConnectionRow)?.Record;
+        var window = record == null ? new TraceWindow() : new TraceWindow(record.Host, record.Remote.ToAddress());
+        window.ShowNear(this);
     }
 
     private void MonitorAllow_Click(object sender, RoutedEventArgs e) => MonitorRule(true);

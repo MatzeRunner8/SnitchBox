@@ -8,5 +8,7 @@
   <ItemGroup>
     <!-- Übersetzungen (englischer Text → Übersetzung), nur die zweibuchstabigen Sprachdateien; _source.json ist die Vorlage. -->
     <EmbeddedResource Include="Lang\??.json" LogicalName="Lang.%(Filename).json" />
+    <!-- Weltkarte für die Routenverfolgung (Natural Earth, gemeinfrei; erzeugt von scripts/make_worldmap.py). -->
+    <EmbeddedResource Include="../../third_party/naturalearth/worldmap.bin" LogicalName="worldmap.bin" Link="worldmap.bin" />
   </ItemGroup>
 </Project>

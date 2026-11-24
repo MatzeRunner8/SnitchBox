@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SnitchBox.Core;
@@ -158,6 +158,10 @@ public sealed class Settings
     /// <summary>Regelliste und Programmliste des Netzwerkmonitors nach Art gruppieren (KI, Browser, Windows …); fehlt der Eintrag in
     /// einer älteren config.json, gilt eingeschaltet.</summary>
     public bool GroupLists { get; set; } = true;
+    /// <summary>Routenverfolgung: Namen der Router über DNS abfragen (wie tracert).</summary>
+    public bool TraceResolveNames { get; set; } = true;
+    /// <summary>Routenverfolgung: Weltkarte zeigen (nur auf Wunsch; braucht die Ländertabelle von DB-IP).</summary>
+    public bool TraceShowMap { get; set; }
     /// <summary>Oberflächensprache (zweibuchstabiger Code); null = wie Windows.</summary>
     public string? Language { get; set; }
     /// <summary>Build, in dem zuletzt vor einem unsicheren Autostart-Ziel gewarnt wurde (einmal je Build).</summary>
