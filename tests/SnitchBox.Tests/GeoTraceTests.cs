@@ -13,6 +13,7 @@ static class GeoTraceTests
         Fuzz(check);
         Map(check);
         Tracing(check);
+        Groups(check);
     }
 
     // ---- Adressbereiche
@@ -437,5 +438,152 @@ static class GeoTraceTests
         tracer.Changed += () => Interlocked.Increment(ref events);
         t = tracer.RunAsync(Target, default).GetAwaiter().GetResult();
         check(events > 0 && t.Hops.Count == 2 && tracer.Snapshot().End == TraceEnd.Reached, "Trace: Ereignisse und Zwischenstand");
+    }
+
+    // ---- Mehrere Ziele auf einmal (Übersicht „wohin sendet dieses Programm“)
+    sealed class GroupNet : ITraceProber
+    {
+        public static readonly IPAddress Gateway = IPAddress.Parse("192.168.178.1");
+        /// <summary>Ziel → Hop, an dem es antwortet (0 = nie, dann antworten Router bis Hop 4).</summary>
+        public readonly Dictionary<IPAddress, int> DestHop = [];
+        public readonly List<(IPAddress Target, int Ttl)> Sent = [];
+        public int Delay, DelayFirst, InFlight, MaxTargetsInFlight;
+        /// <summary>Der erste Router antwortet nicht (Firewall, die keine „TTL abgelaufen“ schickt).</summary>
+        public bool SilentGateway;
+        /// <summary>Adressen, auf die der erste Router selbst antwortet (seine WAN-Adresse).</summary>
+        public readonly HashSet<IPAddress> GatewayOwn = [];
+        private readonly Dictionary<IPAddress, int> _busy = [];
+        public async Task<ProbeResult> ProbeAsync(IPAddress target, int ttl, int timeoutMs, CancellationToken cancel)
+        {
+            lock (Sent)
+            {
+                Sent.Add((target, ttl));
+                if (ttl > 1)
+                {
+                    _busy[target] = _busy.GetValueOrDefault(target) + 1;
+                    MaxTargetsInFlight = Math.Max(MaxTargetsInFlight, _busy.Count(b => b.Value > 0));
+                }
+            }
+            try
+            {
+                if (Delay > 0 && ttl > 1) await Task.Delay(Delay, CancellationToken.None);
+                if (DelayFirst > 0 && ttl == 1) await Task.Delay(DelayFirst, CancellationToken.None);
+                if (GatewayOwn.Contains(target)) return new ProbeResult(ProbeStatus.Reply, target, 1);
+                if (SilentGateway && ttl == 1) return new ProbeResult(ProbeStatus.Timeout, null, 0);
+                var dest = DestHop[target];
+                if (dest > 0 && ttl >= dest) return new ProbeResult(ProbeStatus.Reply, target, 10);
+                if (ttl == 1) return new ProbeResult(ProbeStatus.TimeExceeded, Gateway, 1);
+                return dest == 0 && ttl > 4 ? new ProbeResult(ProbeStatus.Timeout, null, 0) : new ProbeResult(ProbeStatus.TimeExceeded, IPAddress.Parse("62.155.1." + ttl), 5);
+            }
+            finally
+            {
+                if (ttl > 1) lock (Sent) _busy[target]--;
+            }
+        }
+    }
+
+    static void Groups(Action<bool, string> check)
+    {
+        var a = IPAddress.Parse("193.99.144.80");
+        var b = IPAddress.Parse("140.82.121.4");
+        var c = IPAddress.Parse("192.168.178.20"); // im eigenen Netz: kein Gateway
+        var d = IPAddress.Parse("52.84.150.39");   // antwortet nicht auf Ping
+        var net = new GroupNet { Delay = 20 };
+        net.DestHop[a] = 5; net.DestHop[b] = 7; net.DestHop[c] = 1; net.DestHop[d] = 0;
+        var options = new TraceOptions { RoundIntervalMs = 10, StaggerMs = 0 };
+        var items = new[] { a, b, c, d }.Select(t => (new Tracer(net, options), t)).ToList();
+        TraceGroup.RunAsync(items, 2, default, t => t.Equals(c) ? null : "21|192.168.178.1").GetAwaiter().GetResult();
+        var snaps = items.Select(i => i.Item1.Snapshot()).ToList();
+        check(snaps[0].End == TraceEnd.Reached && snaps[0].Hops.Count == 5 && snaps[1].End == TraceEnd.Reached && snaps[1].Hops.Count == 7
+              && snaps[2].End == TraceEnd.Reached && snaps[2].Hops.Count == 1 && snaps[3].End == TraceEnd.NoAnswer && snaps[3].Hops.Count == 4,
+            "Gruppe: alle Ziele verfolgt (" + string.Join(" ", snaps.Select(x => x.End + ":" + x.Hops.Count)) + ")");
+        int Ttl1(IPAddress t) => net.Sent.Count(x => x.Target.Equals(t) && x.Ttl == 1);
+        check(Ttl1(a) == 3 && Ttl1(b) == 0 && Ttl1(d) == 0 && Ttl1(c) == 3, $"Gruppe: Hop 1 übernommen (a {Ttl1(a)}, b {Ttl1(b)}, c {Ttl1(c)}, d {Ttl1(d)})");
+        check(snaps[1].Hops[0].Address!.Equals(GroupNet.Gateway) && snaps[1].Hops[0].Probes.All(p => p is { Status: ProbeStatus.TimeExceeded }), "Gruppe: übernommener Hop 1 vollständig");
+        var firstRound = net.Sent.FindIndex(x => x.Ttl > 1);
+        check(firstRound > 0 && net.Sent.Skip(firstRound).All(x => x.Ttl > 1), "Gruppe: Hop 1 aller Ziele vor den Runden");
+        check(net.MaxTargetsInFlight <= 2, $"Gruppe: höchstens 2 Ziele gleichzeitig ({net.MaxTargetsInFlight})");
+
+        // Das erste Ziel ist das Gateway selbst: sein Hop 1 ist sein Ende und wird nicht weitergegeben.
+        net = new GroupNet();
+        net.DestHop[GroupNet.Gateway] = 1; net.DestHop[a] = 5;
+        items = new[] { GroupNet.Gateway, a }.Select(t => (new Tracer(net, options), t)).ToList();
+        TraceGroup.RunAsync(items, 4, default, _ => "21|192.168.178.1").GetAwaiter().GetResult();
+        snaps = items.Select(i => i.Item1.Snapshot()).ToList();
+        check(snaps[0].End == TraceEnd.Reached && snaps[0].Hops.Count == 1 && snaps[1].End == TraceEnd.Reached && snaps[1].Hops.Count == 5
+              && net.Sent.Count(x => x.Target.Equals(a) && x.Ttl == 1) == 3, "Gruppe: Gateway als Ziel gibt Hop 1 nicht weiter");
+
+        // Abbrechen: alle Läufe enden als abgebrochen, auch die noch nicht begonnenen.
+        net = new GroupNet { Delay = 2000 };
+        foreach (var t in new[] { a, b, d }) net.DestHop[t] = 9;
+        items = new[] { a, b, d }.Select(t => (new Tracer(net, options), t)).ToList();
+        using var cts = new CancellationTokenSource(300);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        TraceGroup.RunAsync(items, 1, cts.Token, _ => "gw").GetAwaiter().GetResult();
+        check(items.All(i => i.Item1.Snapshot().End == TraceEnd.Cancelled) && sw.ElapsedMilliseconds < 1500, $"Gruppe: Abbrechen ({sw.ElapsedMilliseconds} ms)");
+
+        // Stummer erster Router: nur die ersten beiden Ziele warten auf ihn, die übrigen schicken Hop 1 mit den Runden.
+        net = new GroupNet { SilentGateway = true };
+        var many = Enumerable.Range(1, 6).Select(i => IPAddress.Parse("62.155.9." + i)).ToList();
+        foreach (var t in many) net.DestHop[t] = 6;
+        items = many.Select(t => (new Tracer(net, options), t)).ToList();
+        TraceGroup.RunAsync(items, 6, default, _ => "gw").GetAwaiter().GetResult();
+        var firstRoundAt = net.Sent.FindIndex(x => x.Ttl > 1);
+        check(firstRoundAt == 2 && items.All(i => i.Item1.Snapshot() is { End: TraceEnd.Reached, Hops.Count: 6 }),
+            $"Gruppe: stummer erster Router kostet nur zwei Wartezeiten ({firstRoundAt} Proben vorweg)");
+        check(items.All(i => i.Item1.Snapshot().Hops[0].Probes.All(p => p != null)), "Gruppe: Hop 1 trotzdem dreimal geprüft");
+
+        // Ziele ohne Gateway (im eigenen Netz) fragen Hop 1 gleichzeitig ab.
+        net = new GroupNet { DelayFirst = 200 };
+        var lan = Enumerable.Range(20, 4).Select(i => IPAddress.Parse("192.168.178." + i)).ToList();
+        foreach (var t in lan) net.DestHop[t] = 1;
+        items = lan.Select(t => (new Tracer(net, options), t)).ToList();
+        sw.Restart();
+        TraceGroup.RunAsync(items, 6, default, _ => null).GetAwaiter().GetResult();
+        check(items.All(i => i.Item1.Snapshot() is { End: TraceEnd.Reached, Hops.Count: 1 }) && sw.ElapsedMilliseconds < 1500,
+            $"Gruppe: Ziele ohne Gateway gleichzeitig ({sw.ElapsedMilliseconds} ms statt 2,4 s)");
+
+        // Eine Adresse des Routers selbst (seine WAN-Adresse) übernimmt Hop 1 – die Probe danach zeigt: Er ist Hop 1.
+        net = new GroupNet();
+        var wan = IPAddress.Parse("88.70.1.2");
+        net.DestHop[a] = 5; net.DestHop[wan] = 1; net.GatewayOwn.Add(wan);
+        items = new[] { a, wan }.Select(t => (new Tracer(net, options), t)).ToList();
+        TraceGroup.RunAsync(items, 6, default, _ => "gw").GetAwaiter().GetResult();
+        var hairpin = items[1].Item1.Snapshot();
+        check(hairpin.End == TraceEnd.Reached && hairpin.Hops.Count == 1 && hairpin.Hops[0].Address!.Equals(wan), $"Gruppe: WAN-Adresse des Routers ist Hop 1 ({hairpin.Hops.Count} Hops)");
+
+        // IPv4 und IPv6 über denselben Tunnel: Hop 1 wird nicht über die Adressfamilie hinweg übernommen.
+        net = new GroupNet();
+        var v6 = IPAddress.Parse("2606:4700::6810:1");
+        net.DestHop[a] = 5; net.DestHop[v6] = 5;
+        items = new[] { a, v6 }.Select(t => (new Tracer(net, options), t)).ToList();
+        TraceGroup.RunAsync(items, 6, default, _ => "25|tunnel").GetAwaiter().GetResult();
+        check(net.Sent.Count(x => x.Target.Equals(v6) && x.Ttl == 1) == 3, "Gruppe: Hop 1 nicht von IPv4 nach IPv6 übernommen");
+
+        // Ziele aus den Zeilen des Netzwerkmonitors.
+        var now = DateTime.Now;
+        ConnectionRecord Rec(string ip, string host, int count, int ageSeconds) => new()
+        {
+            ProcessPath = @"C:\Program Files\Claude\claude.exe", Host = host, Remote = IpKey.From(IPAddress.Parse(ip)), Port = 443,
+            Protocol = Proto.Tcp, Direction = Direction.Outgoing, Count = count, LastSeen = now.AddSeconds(-ageSeconds),
+        };
+        var records = new List<ConnectionRecord>
+        {
+            Rec("160.79.104.10", "160.79.104.10", 2, 50), Rec("160.79.104.10", "api.anthropic.com", 3, 10),
+            Rec("34.36.57.103", "34.36.57.103", 1, 5), Rec("127.0.0.1", "localhost", 9, 1), Rec("224.0.0.251", "mdns", 4, 1),
+            Rec("fe80::1", "fe80::1", 1, 1), Rec("0.0.0.0", "0.0.0.0", 1, 1), Rec("255.255.255.255", "255.255.255.255", 1, 1),
+            Rec("192.168.178.1", "fritz.box", 1, 30), Rec("1.1.1.1", "one.one.one.one", 1, 100),
+        };
+        var targets = TraceTargets.From(records, 3, out var omitted);
+        check(targets.Count == 3 && omitted == 1 && targets[0].Address.ToString() == "34.36.57.103" && targets[1].Address.ToString() == "160.79.104.10"
+              && targets[2].Address.ToString() == "192.168.178.1", "Zielliste: zuletzt benutzte zuerst, höchstens 3 (" + string.Join(" ", targets.Select(t => t.Address)) + $", {omitted} ausgelassen)");
+        check(targets[1].Host == "api.anthropic.com" && targets[1].Count == 5 && targets[0].Host == "" && targets[2].Host == "fritz.box",
+            "Zielliste: je Adresse eine Zeile, Name statt Adresse, Verbindungen zusammengezählt");
+        check(TraceTargets.From(records, 20, out _).All(t => t.Address.ToString() is not ("127.0.0.1" or "224.0.0.251" or "fe80::1" or "0.0.0.0" or "255.255.255.255")),
+            "Zielliste: nicht verfolgbare Adressen ausgelassen");
+        records.Add(Rec("192.168.178.255", "192.168.178.255", 9, 0));
+        check(TraceTargets.From(records, 20, out _)[0].Address.ToString() == "192.168.178.255"
+              && TraceTargets.From(records, 20, out _, x => x.ToString() == "192.168.178.255").All(t => t.Address.ToString() != "192.168.178.255"),
+            "Zielliste: Broadcast der eigenen Netze ausschließbar");
     }
 }

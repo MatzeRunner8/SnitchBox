@@ -47,8 +47,9 @@ internal sealed class IcmpProber : ITraceProber
         catch (Exception) { }
         return set;
     }
-    // Wie .NET (Ping): Platz für die größte mögliche Antwort samt zitiertem Originalpaket.
-    private const uint ReplySize = 0xFFFF + 256;
+    // Platz für die Antwort samt zitiertem Originalpaket: Bei 32 Bytes Nutzdaten zitiert eine ICMP-Fehlermeldung höchstens 576 (IPv4)
+    // bzw. 1280 Bytes (IPv6). (.NET-Ping nimmt 64 KB für beliebig große Nutzdaten; hier laufen in der Übersicht Hunderte gleichzeitig.)
+    private const uint ReplySize = 8192;
     private static readonly byte[] Payload = "abcdefghijklmnopqrstuvwabcdefghi"u8.ToArray(); // wie tracert, 32 Bytes
 
     public Task<ProbeResult> ProbeAsync(IPAddress target, int ttl, int timeoutMs, CancellationToken cancel)
@@ -128,6 +129,110 @@ internal sealed class IcmpProber : ITraceProber
         }
         lock (gate) registration = ThreadPool.RegisterWaitForSingleObject(evt, OnSignal, null, timeoutMs + 10_000, true);
         return done.Task;
+    }
+
+    [DllImport("iphlpapi.dll")]
+    private static extern int GetBestRoute2(IntPtr interfaceLuid, uint interfaceIndex, IntPtr sourceAddress, byte[] destination, uint sortOptions,
+        byte[] bestRoute, byte[] bestSource);
+
+    /// <summary>Über welches Gateway Windows ein Ziel erreicht (Schnittstelle und nächster Hop aus der Routing-Tabelle, GetBestRoute2):
+    /// Ziele mit gleichem Schlüssel haben denselben ersten Router. null im eigenen Netz (kein Gateway) oder wenn unbekannt.</summary>
+    public static string? GatewayKey(IPAddress target)
+    {
+        if (target.IsIPv4MappedToIPv6) target = target.MapToIPv4();
+        var v6 = target.AddressFamily == AddressFamily.InterNetworkV6;
+        // SOCKADDR_INET (28 Bytes): Familie @0; IPv4: Adresse @4; IPv6: Adresse @8, Scope @24.
+        var dest = new byte[28];
+        if (v6)
+        {
+            dest[0] = 23;
+            target.GetAddressBytes().CopyTo(dest, 8);
+            BitConverter.TryWriteBytes(dest.AsSpan(24), (uint)target.ScopeId);
+        }
+        else
+        {
+            dest[0] = 2;
+            target.GetAddressBytes().CopyTo(dest, 4);
+        }
+        // MIB_IPFORWARD_ROW2 (104 Bytes): InterfaceLuid @0, InterfaceIndex @8, DestinationPrefix @12 (32), NextHop @44 (SOCKADDR_INET).
+        var row = new byte[256];
+        try
+        {
+            if (GetBestRoute2(IntPtr.Zero, 0, IntPtr.Zero, dest, 0, row, new byte[64]) != 0) return null;
+        }
+        catch (Exception) { return null; }
+        var index = BitConverter.ToUInt32(row, 8);
+        var family = BitConverter.ToUInt16(row, 44);
+        byte[] hop;
+        if (family == 2) hop = row.AsSpan(48, 4).ToArray();
+        else if (family == 23) hop = row.AsSpan(52, 16).ToArray();
+        else return null;
+        if (hop.All(b => b == 0))
+        {
+            // Ohne nächsten Hop: Liegt das Ziel in einem Netz einer eigenen Adresse dieser Schnittstelle (LAN), ist Hop 1 das Ziel selbst –
+            // nichts zu teilen. Sonst ist es ein Tunnel oder eine Punkt-zu-Punkt-Verbindung (WireGuard 0.0.0.0/1, Windows-VPN 10.0.0.0/8,
+            // PPP/Mobilfunk 0.0.0.0/0; ihre eigene Adresse hat meist /32): Dann ist Hop 1 für alle Ziele dieselbe Gegenstelle.
+            return InOwnSubnet(index, target) ? null : index + (v6 ? "|tunnel6" : "|tunnel4");
+        }
+        return index + "|" + new IPAddress(hop);
+    }
+
+    /// <summary>Liegt <paramref name="target"/> im Netz einer eigenen Adresse der Schnittstelle <paramref name="index"/>?</summary>
+    private static bool InOwnSubnet(uint index, IPAddress target)
+    {
+        try
+        {
+            var v6 = target.AddressFamily == AddressFamily.InterNetworkV6;
+            var t = target.GetAddressBytes();
+            foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                var props = nic.GetIPProperties();
+                int nicIndex;
+                try { nicIndex = v6 ? props.GetIPv6Properties().Index : props.GetIPv4Properties().Index; }
+                catch (System.Net.NetworkInformation.NetworkInformationException) { continue; } // Familie auf dieser Karte aus
+                if (nicIndex != index) continue;
+                foreach (var u in props.UnicastAddresses)
+                {
+                    if (u.Address.AddressFamily != target.AddressFamily) continue;
+                    var bits = u.PrefixLength;
+                    if (bits >= (v6 ? 127 : 31)) continue; // /31, /32, /127, /128: Punkt zu Punkt, kein Netz mit weiteren Geräten
+                    var a = u.Address.GetAddressBytes();
+                    var same = true;
+                    for (var i = 0; i < a.Length && same && bits > 0; i++, bits -= 8)
+                    {
+                        var mask = bits >= 8 ? 0xFF : (byte)(0xFF << (8 - bits));
+                        same = (a[i] & mask) == (t[i] & mask);
+                    }
+                    if (same) return true;
+                }
+                return false;
+            }
+        }
+        catch (Exception) { }
+        return true; // unbekannt: lieber nichts teilen
+    }
+
+    /// <summary>Broadcast-Adressen der eigenen IPv4-Netze (z. B. 192.168.178.255): Programme senden dorthin (NetBIOS, Dropbox-LAN-Sync,
+    /// Spiele), verfolgen lässt sich der Weg aber nicht – es antwortet irgendein Gerät oder keins.</summary>
+    public static HashSet<IPAddress> SubnetBroadcasts()
+    {
+        var set = new HashSet<IPAddress>();
+        try
+        {
+            foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                foreach (var u in nic.GetIPProperties().UnicastAddresses)
+                {
+                    if (u.Address.AddressFamily != AddressFamily.InterNetwork || u.IPv4Mask is not { } mask) continue;
+                    var a = u.Address.GetAddressBytes();
+                    var m = mask.GetAddressBytes();
+                    if (u.PrefixLength >= 31) continue; // /31 und /32: Punkt zu Punkt, ohne Broadcast-Adresse (RFC 3021)
+                    var bc = new byte[4];
+                    for (var i = 0; i < 4; i++) bc[i] = (byte)(a[i] | ~m[i]);
+                    set.Add(new IPAddress(bc));
+                }
+        }
+        catch (Exception) { }
+        return set;
     }
 
     private static IPAddress WithoutScope(IPAddress a) => a.AddressFamily == AddressFamily.InterNetworkV6 && a.ScopeId != 0 ? new IPAddress(a.GetAddressBytes()) : a;

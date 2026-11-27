@@ -1524,7 +1524,7 @@ Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.
             var missing = source.Keys.Count(k => !table.TryGetValue(k, out var v) || v.Trim().Length == 0);
             var broken = table.Where(p =>
             {
-                try { _ = string.Format(p.Value, 1, 2, 3); return Holes(p.Key) != Holes(p.Value); }
+                try { _ = string.Format(p.Value, 1, 2, 3, 4, 5, 6); return Holes(p.Key) != Holes(p.Value); }
                 catch (FormatException) { return true; }
             }).Select(p => p.Key).ToList();
             Check(missing == 0 && broken.Count == 0, $"Sprache {code}: {missing} fehlen, {broken.Count} mit kaputten Platzhaltern {string.Join(" | ", broken.Take(3))}");

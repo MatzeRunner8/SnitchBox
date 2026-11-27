@@ -540,6 +540,45 @@ Wunsch des Nutzers: den Weg zu einer Gegenstelle verfolgen und auf Wunsch auf ei
   veraltete Zeile mehr zurück; zwei Tests prüfen jetzt wirklich das späte Abbrechen und die Reihenfolge der Systemmeldung.
 - 65 neue Kern-Tests (387 insgesamt), 61 neue Texte in allen 12 Sprachen.
 
+## Build 42 – wohin sendet ein Programm?
+Wunsch des Nutzers: anzeigen, wohin ein Programm wie Claude gerade sendet.
+- Netzwerkmonitor: links ein Programm wählen (keine Verbindung gewählt) und „Route verfolgen …“, oder Rechtsklick auf das Programm
+  („Wohin sendet das Programm? Ziele verfolgen …“). „Alle Programme“ verfolgt die Ziele aller Programme.
+- Ziele (TraceTargets): je Gegenadresse eins aus den Zeilen des Monitors seit dem Start von SnitchBox, das zuletzt benutzte zuerst,
+  höchstens 20 (ältere werden als ausgelassen gezählt); Name aus DNS/SNI, Zahl der Verbindungen und Datenmenge zusammengezählt; Loopback,
+  Multicast, Broadcast, unbestimmte und verbindungslokale Adressen fallen weg (verbindungslokalen fehlt die Schnittstelle).
+- Fenster: Liste mit Ziel, Adresse, Land, Hops, Zeit und Datenmenge; Tooltip mit allen Hops; Doppelklick öffnet die Hop-Liste dieses
+  Ziels; „Erneut verfolgen“. Die Karte zeigt einen Punkt je Land (orange mit der Zahl der Ziele, grüner Start, kleiner Punkt für
+  Durchgangsländer), die Wege als Stücke zwischen Ländern, gestrichelt zum Land des Ziels, wenn es keinen Ping beantwortet; ein gewähltes
+  Ziel wird kräftig mit Pfeilen gezeichnet, die übrigen blass.
+- Gemessen am Anschluss des Nutzers (FRITZ!Box): Ganze Traces parallel verloren bis zu 10 von 18 Antworten von Hop 1, und selbst Hop 1
+  aller Ziele nacheinander verlor 26 von 45 – der Router beantwortet nach einem Schub von rund sechs nur etwa eine Probe je Sekunde.
+  Daher TraceGroup: Hop 1 wird einmal je Gateway abgefragt (GetBestRoute2: Schnittstelle + nächster Hop; Ziele im eigenen Netz und VPNs
+  mit eigenem Gateway einzeln) und von den übrigen Zielen übernommen (Tracer.TryAdoptFirstHop – nur wenn Hop 1 als Router antwortete und
+  dort nichts endete), danach laufen die Runden von bis zu sechs Zielen gleichzeitig. Ergebnis: keine Antwort von Hop 1 verloren, 6 Ziele
+  in 4,9 s, 15 in 7,3 s; gemeinsame Router des Providers drosseln einzelne Proben, wenn viele Ziele zugleich laufen (sie zeigen „*“).
+- Antwortpuffer je Probe 8 KB statt 64 KB (eine ICMP-Fehlermeldung zitiert höchstens 576/1280 Bytes; jetzt laufen Hunderte zugleich).
+- Prüfung (drei unabhängige Prüfer – Gruppe/Kern, Fensterabläufe, Karte –, jeder Befund von einem Gegenprüfer nachgeprüft; 11 bestätigt,
+  2 widerlegt, alle behoben): Ein erster Router, der nie antwortet, kostete je Ziel 1 s, bevor irgendetwas geschah (jetzt warten nur zwei
+  Ziele je Gateway auf ihn, die übrigen schicken ihre Proben für Hop 1 mit den Runden; Ziele ohne Gateway fragen Hop 1 gleichzeitig ab);
+  VPN-Tunnel und PPP (Standardrouten wie 0.0.0.0/1 ohne nächsten Hop) bekamen keinen gemeinsamen Hop 1 (jetzt ein Schlüssel je
+  Tunnel-Schnittstelle); ein Ziel, das eine andere Adresse des Routers selbst ist (seine WAN-Adresse), hatte nach der Übernahme von Hop 1
+  zwei Hops (eine Probe mit TTL 1 nach den Runden korrigiert das); Broadcast-Adressen der eigenen Netze (192.168.178.255) wurden verfolgt
+  (fallen weg); „Alle Programme“ ergab ungrammatische Texte (eigener Titel, Stand ohne Programmnamen); „Erneut verfolgen“ nahm nie neue
+  Ziele dazu (das Fenster holt sie bei jedem Start); der Schlussstand zählte „nicht erreichbar“, „über 30 Hops“ und Sendefehler als „ohne
+  Antwort“ (getrennt gezählt, „kein Netz“, wenn nichts von außen kam); abgebrochene Traces bekamen eine gestrichelte „vermutete“ Linie;
+  Ländernamen verdeckten Punkte (in der Übersicht nur dort, wo sie nichts verdecken, Länder mit den meisten Zielen zuerst); eine
+  durchgezogene und eine gestrichelte Linie für dasselbe Länderpaar überdeckten sich (eine Linie je Paar, gestrichelt nur, wenn jeder Weg
+  darüber vermutet ist); der Tooltip nahm den letzten Punkt im Umkreis von 13 Pixeln statt des Punkts unter der Maus.
+- Nachprüfung der Korrekturen (zwei weitere Prüfer): IPv4- und IPv6-Ziele über einen Tunnel mit beiden Familien teilten einen Schlüssel,
+  der IPv6-Trace übernahm so den Hop 1 von IPv4 (Schlüssel je Adressfamilie, TryAdoptFirstHop vergleicht die Familien); Split-Tunnel-Routen
+  wie 10.0.0.0/8 galten als eigenes Netz (eine Route ohne nächsten Hop gilt jetzt nur als LAN, wenn das Ziel im Netz einer eigenen Adresse
+  dieser Schnittstelle liegt – Tunnel-Adressen haben meist /32); dasselbe Länderpaar in beide Richtungen ergab noch zwei Linien übereinander
+  (eine Linie je Paar ohne Richtung, kein Pfeil, wenn Wege in beide Richtungen laufen); die Gegenstelle eines /31-Punkt-zu-Punkt-Netzes galt
+  als Broadcast-Adresse.
+- Die Platzhalterprüfung der Kern-Tests nimmt Texte mit bis zu sechs Zahlen. 16 neue Kern-Tests (403 insgesamt), 33 neue Texte in allen
+  12 Sprachen.
+
 ## Offen
 - SNI-Auswertung bei DoH, Verlauf über Neustarts.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

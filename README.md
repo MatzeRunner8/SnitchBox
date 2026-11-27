@@ -25,6 +25,8 @@ or `SnitchBox.exe` (single file, requires the .NET Desktop Runtime 10). Both nee
 - Profiles switch automatically per network (e.g. “Home” on your router, “On the go” everywhere else); a profile chosen by hand lasts until the next network change
 - Denying takes effect immediately: established connections that a rule change newly denies are cut (IPv4 and IPv6)
 - Network Monitor: every connection attempt per program and remote, data volume and current rate per program, data volume per remote (rate in a tooltip), total data rate, create a rule straight from a row
+- “Where does this program send to?”: select a program in the Network Monitor and trace all its destinations at once – a list with
+  country, hops, time and data volume, and all routes together on the world map (the selected destination highlighted)
 - Trace route to any remote (like tracert, but in about 2 seconds): every hop with address, router name and three response times; optionally on a world map with the countries of the routers – the country table (DB-IP, about 4 MB) is downloaded only when you turn the map on; countries are looked up on your PC, no address is sent to any service for that
 - Subscribe to blocklists (.lsrules, hosts files, domain lists) with daily updates; import/export of .lsrules
 - Tray icon; starts at sign-in via Task Scheduler (no UAC prompt)

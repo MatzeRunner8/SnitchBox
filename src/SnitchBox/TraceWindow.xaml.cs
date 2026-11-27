@@ -27,6 +27,28 @@ internal sealed class HopRow(int number) : INotifyPropertyChanged
     }
 }
 
+/// <summary>Eine Zeile der Übersicht „wohin sendet dieses Programm“: ein Ziel mit Land, Hops, Zeit, Datenmenge und Stand.</summary>
+internal sealed class DestRow(TraceTarget target) : INotifyPropertyChanged
+{
+    public TraceTarget Target { get; } = target;
+    public string HostText => Target.Host.Length > 0 ? Target.Host : Target.Address.ToString();
+    public string AddressText => Target.Address.ToString();
+    public string DataText => Target.Bytes > 0 ? Ui.Size(Target.Bytes) : "";
+    public string CountryText { get; private set; } = "";
+    public string HopsText { get; private set; } = "";
+    public string TimeText { get; private set; } = "";
+    public string StateText { get; private set; } = "";
+    public string Tip { get; private set; } = "";
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void Set(string country, string hops, string time, string state, string tip)
+    {
+        if (country == CountryText && hops == HopsText && time == TimeText && state == StateText && tip == Tip) return;
+        (CountryText, HopsText, TimeText, StateText, Tip) = (country, hops, time, state, tip);
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
+    }
+}
+
 /// <summary>Routenverfolgung (wie tracert) zu einer Gegenstelle, auf Wunsch mit Weltkarte. Proben: <see cref="IcmpProber"/>,
 /// Ablauf: <see cref="Tracer"/>, Länder: <see cref="GeoData"/> (nur nach Zustimmung heruntergeladen), Karte: <see cref="MapView"/>.</summary>
 public partial class TraceWindow : Window
@@ -41,32 +63,74 @@ public partial class TraceWindow : Window
     private string _targetText = "";
     private bool _refreshQueued, _closed, _downloading;
     private readonly CancellationTokenSource _life = new();
+    // Übersicht „wohin sendet dieses Programm“ (sonst null): Name des Programms, seine Ziele, ausgelassene ältere Ziele.
+    private readonly string? _program;
+    private readonly bool _allPrograms;
+    // Holt die Ziele frisch aus dem Netzwerkmonitor – bei jedem Start, damit „Erneut verfolgen“ auch neue Ziele nimmt.
+    private readonly Func<(List<TraceTarget> Targets, int Omitted)>? _collect;
+    private List<TraceTarget> _targets = [];
+    private int _omitted;
+    private readonly ObservableCollection<DestRow> _dests = [];
+    private List<(Tracer Tracer, DestRow Row)> _group = [];
+    /// <summary>So viele Ziele laufen gleichzeitig (gemessen: 15 Ziele in rund 7 s, ohne verlorene Antworten von Hop 1).</summary>
+    private const int Parallel = 6;
 
     /// <param name="host">Angezeigter Name der Gegenstelle (oder die Adresse).</param>
     /// <param name="address">Adresse der Verbindung: verfolgt wird genau sie, solange der Name im Feld nicht geändert wird.</param>
-    public TraceWindow(string? host = null, IPAddress? address = null)
+    public TraceWindow(string? host = null, IPAddress? address = null) : this(program: null)
     {
-        InitializeComponent();
         Title = Loc.T("Route verfolgen", "Trace Route") + " – SnitchBox";
-        if (Ui.AppIcon() is { } icon) Icon = icon;
         HopList.ItemsSource = _rows;
         Ui.FitColumn(HopList, 2, 100); // die Spalte „Name“ nimmt den übrigen Platz
-        var (names, showMap) = App.Engine.Read(s => (s.Settings.TraceResolveNames, s.Settings.TraceShowMap));
-        NamesBox.IsChecked = names;
-        // Die Karte nur, wenn sie schon einmal gewünscht war und die Ländertabelle da ist (sonst fragt erst der Klick).
-        MapBox.IsChecked = showMap && GeoData.Current != null;
-        ShowMap(MapBox.IsChecked == true);
         if (address != null)
         {
             var text = string.IsNullOrWhiteSpace(host) ? address.ToString() : host.Trim();
             _preset = (text, address);
             TargetBox.Text = text;
         }
+    }
+
+    /// <summary>Übersicht: die Wege zu allen <paramref name="targets"/> eines Programms (aus dem Netzwerkmonitor) auf einmal, auf der Karte
+    /// zusammen. Doppelklick auf ein Ziel öffnet seine Hops in einem eigenen Fenster.</summary>
+    /// <param name="allPrograms">„Alle Programme“: eigene Texte (kein Programmname in den Sätzen).</param>
+    /// <param name="collect">Liefert die Ziele (die zuletzt benutzten zuerst) und wie viele ältere ausgelassen sind.</param>
+    public TraceWindow(string program, bool allPrograms, Func<(List<TraceTarget> Targets, int Omitted)> collect) : this(program: (string?)program)
+    {
+        _allPrograms = allPrograms;
+        _collect = collect;
+        Title = (allPrograms ? Loc.T("Wohin senden alle Programme?", "Where do all programs send to?")
+            : Loc.F("Wohin sendet {0}?", "Where does {0} send to?", program)) + " – SnitchBox";
+        TargetLabel.Text = Loc.T("Programm", "Program");
+        TargetBox.Text = program;
+        TargetBox.IsReadOnly = true;
+        TargetBox.ToolTip = null;
+        NamesBox.Visibility = Visibility.Collapsed;
+        HopList.View = (GridView)FindResource("DestView");
+        HopList.ItemsSource = _dests;
+        Ui.FitColumn(HopList, 0, 120); // die Spalte „Ziel“ nimmt den übrigen Platz
+        HopList.SelectionChanged += (_, _) => Refresh();
+        HopList.MouseDoubleClick += Dest_DoubleClick;
+        StartButton.Content = Loc.T("Erneut verfolgen", "Trace Again");
+        StartButton.IsDefault = false;
+        UpdateHint(null, 0);
+    }
+
+    private TraceWindow(string? program)
+    {
+        InitializeComponent();
+        _program = program;
+        if (Ui.AppIcon() is { } icon) Icon = icon;
+        var (names, showMap) = App.Engine.Read(s => (s.Settings.TraceResolveNames, s.Settings.TraceShowMap));
+        NamesBox.IsChecked = names;
+        // Die Karte nur, wenn sie schon einmal gewünscht war (in der Übersicht immer) und die Ländertabelle da ist – sonst fragt erst der Klick.
+        MapBox.IsChecked = (showMap || program != null) && GeoData.Current != null;
+        ShowMap(MapBox.IsChecked == true);
         UpdateCredit();
         UpdateHint(null, 0);
         Loaded += (_, _) =>
         {
-            if (address != null) _ = StartAsync();
+            if (_program != null) _ = StartGroupAsync();
+            else if (_preset != null) _ = StartAsync();
             else { TargetBox.Focus(); Status(Loc.T("Adresse oder Namen eingeben und „Verfolgen“ wählen.", "Enter an address or name and choose “Trace”."), false); }
         };
         Closed += (_, _) =>
@@ -122,7 +186,62 @@ public partial class TraceWindow : Window
     private async void Start_Click(object sender, RoutedEventArgs e)
     {
         if (_run != null) { _run.Cancel(); return; }
-        await StartAsync();
+        if (_program != null) await StartGroupAsync();
+        else await StartAsync();
+    }
+
+    /// <summary>Übersicht: alle Ziele verfolgen – Hop 1 nacheinander, der Rest gleichzeitig (<see cref="TraceGroup"/>); Ziele über
+    /// dasselbe Gateway übernehmen Hop 1 voneinander (<see cref="IcmpProber.GatewayKey"/>).</summary>
+    private async Task StartGroupAsync()
+    {
+        if (_run != null) return;
+        _run = new CancellationTokenSource();
+        var cancel = _run.Token;
+        StartButton.Content = Loc.T("Abbrechen", "Cancel");
+        _dests.Clear();
+        Map.ResetView();
+        if (_collect != null)
+        {
+            try { (_targets, _omitted) = _collect(); }
+            catch (Exception e) { Log.Write("Ziele sammeln: " + e.Message); _targets = []; _omitted = 0; }
+        }
+        UpdateHint(null, 0);
+        var prober = new IcmpProber();
+        _group = _targets.Select(t => (new Tracer(prober), new DestRow(t))).ToList();
+        foreach (var (tracer, row) in _group)
+        {
+            _dests.Add(row);
+            tracer.Changed += QueueRefresh;
+        }
+        try
+        {
+            if (_group.Count == 0)
+            {
+                Status(_allPrograms
+                    ? Loc.T("SnitchBox kennt noch keine Gegenstelle, deren Weg sich verfolgen lässt (Verbindungen von vor dem Start von SnitchBox fehlen).",
+                            "SnitchBox does not know any remote yet whose route can be traced (connections made before SnitchBox started are missing).")
+                    : Loc.F("SnitchBox kennt noch keine Gegenstelle von {0}, deren Weg sich verfolgen lässt (Verbindungen von vor dem Start von SnitchBox fehlen).",
+                            "SnitchBox does not know any remote of {0} yet whose route can be traced (connections made before SnitchBox started are missing).", _program!), false);
+                return;
+            }
+            Log.Write($"Ziele verfolgen: {_program}, {_group.Count} Ziele");
+            Refresh();
+            await TraceGroup.RunAsync(_group.Select(g => (g.Tracer, g.Row.Target.Address)).ToList(), Parallel, cancel, IcmpProber.GatewayKey);
+            if (!_closed) Refresh();
+        }
+        finally
+        {
+            _run?.Dispose();
+            _run = null;
+            if (!_closed) StartButton.Content = Loc.T("Erneut verfolgen", "Trace Again");
+        }
+    }
+
+    private void Dest_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject d && ItemsControl.ContainerFromElement(HopList, d) is not ListViewItem) return; // Kopfzeile/leer
+        if (HopList.SelectedItem is not DestRow row) return;
+        new TraceWindow(row.Target.Host.Length > 0 ? row.Target.Host : null, row.Target.Address).ShowNear(this);
     }
 
     private async Task StartAsync()
@@ -161,7 +280,8 @@ public partial class TraceWindow : Window
                 target = pick;
             }
             if (target.IsIPv4MappedToIPv6) target = target.MapToIPv4();
-            if (GeoIp.ScopeOf(target) is AddressScope.Multicast || target.Equals(IPAddress.Any) || target.Equals(IPAddress.IPv6Any) || target.Equals(IPAddress.Broadcast))
+            if (GeoIp.ScopeOf(target) is AddressScope.Multicast || target.Equals(IPAddress.Any) || target.Equals(IPAddress.IPv6Any) || target.Equals(IPAddress.Broadcast)
+                || IcmpProber.SubnetBroadcasts().Contains(target))
             {
                 Status(Loc.T("An diese Adresse lässt sich keine Route verfolgen.", "No route can be traced to this address."), true);
                 return;
@@ -200,6 +320,7 @@ public partial class TraceWindow : Window
 
     private void Refresh()
     {
+        if (_program != null) { RefreshGroup(); return; }
         if (_tracer == null || _target == null) return;
         var snap = _tracer.Snapshot();
         var geo = GeoData.Current;
@@ -265,6 +386,135 @@ public partial class TraceWindow : Window
         UpdateHint(snap, stops.Count);
     }
 
+    /// <summary>Übersicht: Zeilen, Karte (ein Punkt je Land, Wege als Stücke zwischen Ländern; das gewählte Ziel hervorgehoben) und Stand.</summary>
+    private void RefreshGroup()
+    {
+        if (_group.Count == 0) { UpdateHint(null, 0); return; } // keine Ziele: die Meldung von StartGroupAsync bleibt
+        var geo = GeoData.Current;
+        var map = WorldMap.Default;
+        var selected = HopList.SelectedItem as DestRow;
+        var marks = new Dictionary<MapCountry, (bool Start, List<string> Ends, int Transit)>();
+        // Je Länderpaar ein Stück: gestrichelt nur, wenn jeder Weg darüber vermutet ist; das gewählte Ziel behält seinen eigenen Stil.
+        // Schlüssel ohne Richtung (A→B und B→A sind derselbe Großkreis); die Richtung für den Pfeil kommt vom ersten Weg bzw. vom gewählten.
+        var segments = new Dictionary<(MapCountry, MapCountry), Segment>();
+        int running = 0, reached = 0, cancelled = 0, noReply = 0, unreachable = 0, tooLong = 0, local = 0;
+        MapCountry? CountryOf(IPAddress a) => GeoIp.ScopeOf(a) == AddressScope.Public ? map.Find(geo?.CountryOf(a)) : null;
+        foreach (var (tracer, row) in _group)
+        {
+            var snap = tracer.Snapshot();
+            var target = row.Target;
+            var scope = GeoIp.ScopeOf(target.Address);
+            var dest = CountryOf(target.Address);
+            var country = scope != AddressScope.Public ? ScopeText(scope) : dest?.Name ?? geo?.CountryOf(target.Address) ?? "";
+            switch (snap.End)
+            {
+                case TraceEnd.Running: running++; break;
+                case TraceEnd.Reached: reached++; break;
+                case TraceEnd.Cancelled: cancelled++; break;
+                case TraceEnd.HopLimit: tooLong++; break;
+                case TraceEnd.Unreachable: unreachable++; break;
+                default: noReply++; break;
+            }
+            // Kam gar nichts von außen (kein Netz, Senden scheitert, das System meldet „nicht erreichbar“)?
+            if (snap.End is TraceEnd.NoAnswer or TraceEnd.Unreachable && (snap.Hops.Count == 0 || snap.Hops.All(h => h.Address == null))) local++;
+            // Weg auf der Karte: Länder der Hops nacheinander; antwortet das Ziel nicht, führt ein gestricheltes Stück zu seinem Land.
+            var path = new List<MapCountry>();
+            foreach (var hop in snap.Hops)
+                if (hop.Address is { } a && CountryOf(a) is { } c && (path.Count == 0 || path[^1] != c)) path.Add(c);
+            var assumed = false;
+            if (dest != null && snap.End is TraceEnd.NoAnswer or TraceEnd.Unreachable or TraceEnd.HopLimit && (path.Count == 0 || path[^1] != dest))
+            {
+                path.Add(dest);
+                assumed = path.Count > 1;
+            }
+            for (var i = 0; i < path.Count; i++)
+            {
+                var m = marks.TryGetValue(path[i], out var known) ? known : (Start: false, Ends: new List<string>(), Transit: 0);
+                if (i == 0 && path.Count > 1) m.Start = true;
+                if (i == path.Count - 1 && path[i] == dest) m.Ends.Add(row.HostText + (row.HostText == row.AddressText ? "" : $" ({row.AddressText})"));
+                else if (i > 0) m.Transit++;
+                marks[path[i]] = m;
+                if (i == 0) continue;
+                var (from, to) = (path[i - 1], path[i]);
+                var key = string.CompareOrdinal(from.Code + from.Name, to.Code + to.Name) <= 0 ? (from, to) : (to, from);
+                var dashed = assumed && i == path.Count - 1;
+                if (!segments.TryGetValue(key, out var seg)) segments[key] = seg = new Segment { From = from, To = to };
+                else if (seg.From != from) seg.BothWays = true;
+                if (!dashed) seg.Solid = true;
+                if (row == selected) { seg.Highlight = true; seg.SelectedDashed = dashed; seg.From = from; seg.To = to; }
+            }
+            // Zeile
+            var hops = snap.End == TraceEnd.Reached ? snap.Hops.Count.ToString() : snap.End == TraceEnd.Running ? "…" : "–";
+            var time = snap.End == TraceEnd.Reached && snap.Hops.Count > 0 ? Best(snap.Hops[^1]) ?? "" : "";
+            var lines = new List<string> { row.HostText + (row.HostText == row.AddressText ? "" : $" ({row.AddressText})") };
+            if (target.Bytes > 0 || target.Count > 0)
+                lines.Add(Loc.F("{0} Verbindungen, {1}", "{0} connections, {1}", target.Count, Ui.Size(target.Bytes)));
+            foreach (var hop in snap.Hops)
+            {
+                var a = hop.Address;
+                var where = a == null ? "" : GeoIp.ScopeOf(a) == AddressScope.Public ? CountryOf(a)?.Name ?? "" : ScopeText(GeoIp.ScopeOf(a));
+                lines.Add($"{Loc.F("Hop {0}", "Hop {0}", hop.Number)} · {(a?.ToString() ?? "*")}" + (where.Length > 0 ? " · " + where : "") + (Best(hop) is { } ms ? " · " + ms : ""));
+            }
+            lines.Add(Loc.T("Doppelklick: alle Hops in einem eigenen Fenster", "Double-click: all hops in a window of their own"));
+            row.Set(country, hops, time, GroupState(snap), string.Join("\n", lines));
+        }
+        // Ein Punkt je Land: Ziele (orange, Zahl der Ziele), Start (grün), Durchgang (kleiner Punkt).
+        var stops = new List<MapStop>();
+        foreach (var (c, m) in marks)
+        {
+            var tip = new List<string> { c.Name };
+            if (m.Start) tip.Add(Loc.T("Start: erster Router mit öffentlicher Adresse", "Start: first router with a public address"));
+            foreach (var end in m.Ends.Take(15)) tip.Add(Loc.F("Ziel: {0}", "Destination: {0}", end));
+            if (m.Ends.Count > 15) tip.Add(Loc.F("… und {0} weitere", "… and {0} more", m.Ends.Count - 15));
+            if (m.Transit > 0) tip.Add(Loc.F("Durchgang für {0} Wege", "Transit for {0} routes", m.Transit));
+            var kind = m.Ends.Count > 0 ? StopKind.End : m.Start ? StopKind.Start : StopKind.Hop;
+            var label = m.Ends.Count > 0 ? m.Ends.Count.ToString() : m.Start ? "▶" : "";
+            stops.Add(new MapStop(c, label, string.Join("\n", tip), kind));
+        }
+        // Zeichenreihenfolge: Durchgang, Ziele, zuletzt der Start (liegt sonst oft unter einem Ziel im Nachbarland).
+        stops = stops.OrderBy(s => s.Kind switch { StopKind.Hop => 0, StopKind.End => 1, _ => 2 }).ToList();
+        if (MapBox.IsChecked == true)
+            Map.SetRoutes(stops, segments.Values.Select(s => new MapSegment(s.From, s.To, s.Highlight,
+                s.Highlight ? s.SelectedDashed : !s.Solid, s.BothWays)).ToList());
+        if (geo != null && CreditText.Visibility != Visibility.Visible) UpdateCredit();
+        var n = _group.Count;
+        if (running > 0)
+            Status(Loc.F("Verfolge die Wege zu {0} Zielen … {1} fertig", "Tracing the routes to {0} destinations… {1} done", n, n - running), false);
+        else if (cancelled > 0)
+            Status(Loc.T("Abgebrochen.", "Cancelled."), false);
+        else if (reached == n)
+            Status(Loc.F("Alle {0} Ziele erreicht.", "All {0} destinations reached.", n), false);
+        else if (local == n)
+            Status(Loc.T("Keine Antwort – kein Netz, oder ICMP wird gefiltert.", "No reply – no network, or ICMP is being filtered."), true);
+        else
+        {
+            var parts = new List<string> { Loc.F("{0} erreicht", "{0} reached", reached) };
+            if (noReply > 0) parts.Add(Loc.F("{0} ohne Antwort (das Ziel beantwortet keinen Ping, oder ein Router filtert)",
+                "{0} without reply (the destination does not answer pings, or a router filters them)", noReply));
+            if (unreachable > 0) parts.Add(Loc.F("{0} nicht erreichbar", "{0} unreachable", unreachable));
+            if (tooLong > 0) parts.Add(Loc.F("{0} über 30 Hops (Weg länger oder Routing-Schleife)", "{0} over 30 hops (longer route or routing loop)", tooLong));
+            Status(Loc.F("{0} Ziele verfolgt: {1}.", "{0} destinations traced: {1}.", n, string.Join(", ", parts)), false);
+        }
+        UpdateHint(null, stops.Count);
+    }
+
+    /// <summary>Ein Stück Weg zwischen zwei Ländern in der Übersicht (zusammengefasst über alle Ziele).</summary>
+    private sealed class Segment
+    {
+        public required MapCountry From, To;
+        public bool Highlight, Solid, SelectedDashed, BothWays;
+    }
+
+    private static string GroupState(TraceSnapshot snap) => snap.End switch
+    {
+        TraceEnd.Running => Loc.T("läuft …", "running…"),
+        TraceEnd.Reached => Loc.T("erreicht", "reached"),
+        TraceEnd.Unreachable => Loc.T("nicht erreichbar", "unreachable"),
+        TraceEnd.HopLimit => Loc.T("über 30 Hops", "over 30 hops"),
+        TraceEnd.Cancelled => Loc.T("abgebrochen", "cancelled"),
+        _ => Loc.T("keine Antwort", "no reply"),
+    };
+
     /// <summary>Eine Zeit der Spalte „Zeiten“: „…“ = Antwort steht aus; nach dem Ende (abgebrochen) „–“ = nicht mehr abgewartet.</summary>
     private static string Time(ProbeResult? p, TraceEnd end) => p switch
     {
@@ -326,6 +576,18 @@ public partial class TraceWindow : Window
 
     private void UpdateHint(TraceSnapshot? snap, int stops)
     {
+        if (_program != null)
+        {
+            var text = Loc.T("Ziele aus dem Netzwerkmonitor seit dem Start von SnitchBox, das zuletzt benutzte zuerst. Doppelklick auf ein Ziel zeigt alle seine Hops.",
+                             "Destinations from the Network Monitor since SnitchBox started, the most recent first. Double-click a destination to see all its hops.");
+            if (_omitted > 0) text += " " + Loc.F("{0} ältere Ziele sind ausgelassen.", "{0} older destinations are left out.", _omitted);
+            text += " " + (MapBox.IsChecked == true
+                ? Loc.T("Länder nach Registrierung der Adressen; gestrichelt: Ziel antwortet nicht, liegt aber in diesem Land.",
+                        "Countries by address registration; dashed: the destination does not answer but is located in this country.")
+                : Loc.T("Weltkarte einschalten, um Länder und Wege zu sehen.", "Turn on the world map to see countries and routes."));
+            HintText.Text = text;
+            return;
+        }
         if (MapBox.IsChecked != true || snap == null)
             HintText.Text = Loc.T("Proben mit begrenzter Lebensdauer (ICMP, wie tracert); drei je Hop. „*“ = keine Antwort.",
                                   "Probes with a limited time to live (ICMP, like tracert); three per hop. “*” = no reply.");

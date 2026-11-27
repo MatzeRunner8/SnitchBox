@@ -837,12 +837,33 @@ public partial class MainWindow : Window
             App.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
-    /// <summary>Routenverfolgung zur gewählten Gegenstelle (ohne Auswahl: Fenster mit leerem Ziel). Mehrere Fenster gleichzeitig gehen.</summary>
+    /// <summary>Routenverfolgung zur gewählten Gegenstelle; ohne gewählte Verbindung alle Ziele des gewählten Programms („wohin sendet …“).
+    /// Mehrere Fenster gleichzeitig gehen.</summary>
     private void MonitorTrace_Click(object sender, RoutedEventArgs e)
     {
-        var record = (ConnectionList.SelectedItem as ConnectionRow)?.Record;
-        var window = record == null ? new TraceWindow() : new TraceWindow(record.Host, record.Remote.ToAddress());
-        window.ShowNear(this);
+        if ((ConnectionList.SelectedItem as ConnectionRow)?.Record is { } record)
+            new TraceWindow(record.Host, record.Remote.ToAddress()).ShowNear(this);
+        else TraceProgram();
+    }
+
+    private void MonitorTraceProgram_Click(object sender, RoutedEventArgs e) => TraceProgram();
+
+    /// <summary>Alle Ziele des gewählten Programms (bei „Alle Programme“ aller Programme), die zuletzt benutzten zuerst, höchstens 20.</summary>
+    private void TraceProgram()
+    {
+        var program = ProcessList.SelectedItem as ProcessRow;
+        var key = program?.Path;
+        var all = key == null;
+        var name = all ? Loc.T("Alle Programme", "All Programs") : program!.Name;
+        // Die Ziele holt das Fenster bei jedem Start frisch („Erneut verfolgen“ nimmt so auch neue Ziele).
+        (List<TraceTarget>, int) Collect()
+        {
+            var records = App.Engine.History.Snapshot().Where(r => key == null || KeyOf(r).Equals(key, StringComparison.OrdinalIgnoreCase));
+            var broadcasts = IcmpProber.SubnetBroadcasts();
+            var targets = TraceTargets.From(records, 20, out var omitted, broadcasts.Contains);
+            return (targets, omitted);
+        }
+        new TraceWindow(name, all, Collect).ShowNear(this);
     }
 
     private void MonitorAllow_Click(object sender, RoutedEventArgs e) => MonitorRule(true);

@@ -512,6 +512,44 @@ User request: trace the route to a remote and, on request, show it on a map.
   no longer brings back an outdated line; two tests now really cover the late cancel and the order of the system message.
 - 65 new core tests (387 in total), 61 new texts in all 12 languages.
 
+## Build 42 – where does a program send to?
+User request: show where a program such as Claude is currently sending to.
+- Network Monitor: select a program on the left (no connection selected) and choose “Trace Route…”, or right-click the program
+  (“Where does the program send to? Trace destinations…”). “All Programs” traces the destinations of all programs.
+- Destinations (TraceTargets): one per remote address from the monitor rows since SnitchBox started, the most recent first, at most 20
+  (older ones are counted as left out); name from DNS/SNI, number of connections and data volume added up; loopback, multicast, broadcast,
+  unspecified and link-local addresses are left out (link-local lacks the interface).
+- Window: list with destination, address, country, hops, time and data volume; tooltip with all hops; double-click opens the hop list of
+  that destination; “Trace Again”. The map shows one point per country (orange with the number of destinations, green start, small dot
+  for transit countries), the routes as pieces between countries, dashed to the destination’s country when it does not answer pings; a
+  selected destination is drawn bold with arrows, the others pale.
+- Measured on the user’s line (FRITZ!Box): whole traces in parallel lost up to 10 of 18 hop-1 replies, and even probing hop 1 of every
+  destination one after the other lost 26 of 45 – the router answers only about one probe per second after a burst of about six.
+  Hence TraceGroup: hop 1 is probed once per gateway (GetBestRoute2: interface + next hop; destinations in the own subnet and VPNs with
+  their own gateway are probed separately) and taken over by the other destinations (Tracer.TryAdoptFirstHop – only if hop 1 answered as
+  a router and nothing ended there), then the rounds of up to six destinations run at the same time. Result: no hop-1 reply lost,
+  6 destinations in 4.9 s, 15 in 7.3 s; shared provider routers throttle some probes when many destinations run at once (they show “*”).
+- Reply buffer per probe 8 KB instead of 64 KB (an ICMP error quotes at most 576/1280 bytes; hundreds of probes run at once now).
+- Review (three independent reviewers – group/core, window flow, map – each finding re-checked by a skeptic; 11 confirmed, 2 refuted,
+  all fixed): a first router that never answers cost 1 s per destination before anything else happened (now only two destinations per
+  gateway wait for it, the others send their hop-1 probes with the rounds; destinations without a gateway probe hop 1 at the same time);
+  VPN tunnels and PPP (on-link default routes like 0.0.0.0/1 without next hop) got no shared hop 1 (now one key per tunnel interface);
+  a destination that is another address of the router itself (its WAN address) showed 2 hops after taking over hop 1 (a TTL-1 probe after
+  the rounds now corrects it); broadcast addresses of the own networks (192.168.178.255) were traced (left out); “All Programs” produced
+  ungrammatical texts (own title, status texts without the program name); “Trace Again” never picked up new destinations (the window
+  collects them on every start); the final status counted “unreachable”, “over 30 hops” and send errors as “no reply” (separate counts,
+  “no network” when nothing came from outside); cancelled traces got a dashed “assumed” line; map names covered markers (in the overview
+  only where they cover nothing, countries with the most destinations first); a solid and a dashed line for the same country pair covered
+  each other (one line per pair, dashed only if every route over it is assumed); the tooltip took the last marker within 13 px instead of
+  the one under the mouse.
+- Re-check of the fixes (two more reviewers): IPv4 and IPv6 destinations over one dual-stack tunnel shared one key, so the IPv6 trace took
+  over the IPv4 hop 1 (key per address family, and TryAdoptFirstHop compares the families); split-tunnel VPN routes such as 10.0.0.0/8 counted
+  as own network (a route without next hop now counts as LAN only if the destination lies in the subnet of an own address of that
+  interface – tunnel addresses are usually /32); the same pair of countries in both directions still gave two lines on top of each other
+  (one line per pair without direction, no arrow when routes run both ways); a /31 point-to-point peer counted as broadcast address.
+- The placeholder check of the core tests accepts texts with up to six numbers. 16 new core tests (403 in total), 33 new texts in all
+  12 languages.
+
 ## Open
 - SNI evaluation with DoH, history across restarts.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

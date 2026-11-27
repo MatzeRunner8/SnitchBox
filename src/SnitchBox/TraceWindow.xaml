@@ -8,12 +8,69 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <!-- Übersicht „wohin sendet dieses Programm“: eine Zeile je Ziel (Breiten: 600 fest + Ziel ≥ 120 passen in 840). -->
+            <GridView x:Key="DestView">
+                <GridView.ColumnHeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" ToolTip="{Binding}" TextTrimming="CharacterEllipsis"/>
+                    </DataTemplate>
+                </GridView.ColumnHeaderTemplate>
+                <GridViewColumn Header="{l:L de='Ziel', en='Destination'}" Width="200">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding HostText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Header="{l:L de='Adresse', en='Address'}" Width="130">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding AddressText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Header="{l:L de='Land', en='Country'}" Width="140">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding CountryText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Header="{l:L de='Hops', en='Hops'}" Width="58">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding HopsText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Header="{l:L de='Zeit', en='Time'}" Width="62">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding TimeText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Header="{l:L de='Daten', en='Data'}" Width="90">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DataText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Header="{l:L de='Stand', en='Status'}" Width="120">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding StateText}" ToolTip="{Binding Tip}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+            </GridView>
         </ResourceDictionary>
     </Window.Resources>
     <DockPanel Margin="16,12,16,14">
         <!-- Ziel und Schalter -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <TextBlock Text="{l:L de='Ziel', en='Destination'}" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource Dim}"/>
+            <TextBlock x:Name="TargetLabel" Text="{l:L de='Ziel', en='Destination'}" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource Dim}"/>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                 <CheckBox x:Name="NamesBox" VerticalAlignment="Center" Margin="16,0,0,0" Click="NamesBox_Click"
                           Content="{l:L de='Namen auflösen', en='Resolve names'}"

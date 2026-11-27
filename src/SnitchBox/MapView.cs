@@ -11,8 +11,14 @@ namespace SnitchBox;
 
 public enum StopKind { Start, Hop, End }
 
-/// <summary>Eine Station der Route auf der Karte: ein Land mit den Hops, die nacheinander dort liegen.</summary>
+/// <summary>Eine Station der Route auf der Karte: ein Land mit den Hops, die nacheinander dort liegen. Ohne Beschriftung ein kleiner
+/// Punkt (Durchgangsland in der Übersicht mehrerer Ziele).</summary>
 public sealed record MapStop(MapCountry Country, string Label, string Tip, StopKind Kind);
+
+/// <summary>Ein Stück Weg zwischen zwei Ländern in der Übersicht mehrerer Ziele. <paramref name="Highlight"/>: gehört zum gewählten Ziel;
+/// <paramref name="Dashed"/>: vermutet (das Ziel antwortet nicht, es liegt aber in diesem Land).</summary>
+/// <paramref name="NoArrow"/>: Wege laufen in beide Richtungen darüber – kein Pfeil (außer am gewählten Ziel).
+public sealed record MapSegment(MapCountry From, MapCountry To, bool Highlight, bool Dashed, bool NoArrow = false);
 
 /// <summary>Weltkarte mit dem Weg der Routenverfolgung: Länder der Route hervorgehoben, Stationen als nummerierte Punkte, dazwischen
 /// Großkreise mit Pfeil in Wegrichtung. Mausrad zoomt (um den Mauszeiger), Ziehen verschiebt, Doppelklick zoomt hinein; über einer
@@ -25,8 +31,19 @@ public sealed class MapView : FrameworkElement
     private static readonly Dictionary<string, StreamGeometry> CountryShapes = [];
     private static readonly Rect World = WorldBounds();
 
+    private sealed record Line(List<Point> Points, bool Highlight, bool Dashed, bool NoArrow);
+
     private IReadOnlyList<MapStop> _stops = [];
-    private List<List<Point>> _lines = [];
+    private List<Line> _lines = [];
+    // Übersicht mehrerer Ziele (SetRoutes) und ob darin eins gewählt ist.
+    private bool _multi, _focus;
+    private static readonly DashStyle Dash = Frozen(new DashStyle([2.5, 2], 0));
+
+    private static DashStyle Frozen(DashStyle d)
+    {
+        d.Freeze();
+        return d;
+    }
     private double _scale = -1, _cx, _cy;
     private bool _userMoved, _dragging, _panning;
     private Point _dragFrom, _pressAt;
@@ -95,16 +112,26 @@ public sealed class MapView : FrameworkElement
     /// <summary>Neue Stationen zeigen; solange niemand die Ansicht verschoben oder gezoomt hat, passt sie sich der Route an.</summary>
     public void SetStops(IReadOnlyList<MapStop> stops)
     {
-        _stops = stops;
-        _lines = [];
+        var segments = new List<MapSegment>();
         for (var i = 1; i < stops.Count; i++)
-        {
-            var a = stops[i - 1].Country;
-            var b = stops[i].Country;
-            if (a == b) continue;
-            foreach (var part in MapProjection.GreatCircle(a.Lon, a.Lat, b.Lon, b.Lat))
-                _lines.Add(part.Select(p => P(p.Lon, p.Lat)).ToList());
-        }
+            if (stops[i - 1].Country != stops[i].Country) segments.Add(new MapSegment(stops[i - 1].Country, stops[i].Country, true, false));
+        Show(stops, segments, false);
+    }
+
+    /// <summary>Übersicht mehrerer Ziele: je Land ein Punkt (vom Aufrufer zusammengefasst), die Wege als Stücke zwischen Ländern. Ist ein
+    /// Ziel gewählt (Stücke mit Highlight), treten die übrigen Wege zurück und nur seine tragen Pfeile.</summary>
+    public void SetRoutes(IReadOnlyList<MapStop> markers, IReadOnlyList<MapSegment> segments) => Show(markers, segments, true);
+
+    private void Show(IReadOnlyList<MapStop> stops, IReadOnlyList<MapSegment> segments, bool multi)
+    {
+        _stops = stops;
+        _multi = multi;
+        _focus = multi && segments.Any(s => s.Highlight);
+        _lines = [];
+        // Gewählte Wege zuletzt: sie liegen oben.
+        foreach (var s in segments.OrderBy(s => s.Highlight))
+            foreach (var part in MapProjection.GreatCircle(s.From.Lon, s.From.Lat, s.To.Lon, s.To.Lat))
+                _lines.Add(new Line(part.Select(p => P(p.Lon, p.Lat)).ToList(), s.Highlight, s.Dashed, s.NoArrow && !s.Highlight));
         if (_tipFor != null && !stops.Contains(_tipFor)) CloseTip();
         if (!_userMoved) Fit(false);
         InvalidateVisual();
@@ -131,7 +158,7 @@ public sealed class MapView : FrameworkElement
         var box = World;
         if (!world && _stops.Count > 0)
         {
-            var pts = _stops.Select(s => P(s.Country.Lon, s.Country.Lat)).Concat(_lines.SelectMany(l => l)).ToList();
+            var pts = _stops.Select(s => P(s.Country.Lon, s.Country.Lat)).Concat(_lines.SelectMany(l => l.Points)).ToList();
             double x0 = pts.Min(p => p.X), x1 = pts.Max(p => p.X), y0 = pts.Min(p => p.Y), y1 = pts.Max(p => p.Y);
             // Mindestens etwa ein Drittel Europas, damit eine Route im Inland nicht bis zur Unkenntlichkeit vergrößert wird.
             const double min = 0.35;
@@ -214,38 +241,63 @@ public sealed class MapView : FrameworkElement
 
         // Linien und Punkte in Bildschirmpixeln (gleich dick bei jedem Zoom).
         var route = dark ? RouteDark : RouteLight;
-        var halo = new Pen(dark ? HaloDark : HaloLight, 5.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-        var line = new Pen(route, 2.4) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+        Pen MakePen(Brush brush, double width, bool dashed) => new(brush, width)
+        {
+            StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round, DashStyle = dashed ? Dash : DashStyles.Solid,
+        };
+        var faded = route.Clone();
+        faded.Opacity = 0.45;
+        faded.Freeze();
         foreach (var l in _lines)
         {
             var geo = new StreamGeometry();
             using (var g = geo.Open())
             {
-                g.BeginFigure(ToScreen(l[0]), false, false);
-                g.PolyLineTo(l.Skip(1).Select(ToScreen).ToList(), true, true);
+                g.BeginFigure(ToScreen(l.Points[0]), false, false);
+                g.PolyLineTo(l.Points.Skip(1).Select(ToScreen).ToList(), true, true);
             }
             geo.Freeze();
-            dc.DrawGeometry(null, halo, geo);
-            dc.DrawGeometry(null, line, geo);
+            // Übersicht: die Wege der übrigen Ziele dünn und blass, sobald eins gewählt ist.
+            var back = _focus && !l.Highlight;
+            if (!back) dc.DrawGeometry(null, MakePen(dark ? HaloDark : HaloLight, _multi && !l.Highlight ? 4 : 5.5, l.Dashed), geo);
+            dc.DrawGeometry(null, MakePen(back ? faded : route, back ? 1.5 : _multi && !l.Highlight ? 1.9 : 2.4, l.Dashed), geo);
         }
-        foreach (var l in _lines) Arrow(dc, l, route);
+        // Pfeile: auf einem einzelnen Weg überall; in der Übersicht nur am gewählten Ziel (sonst wäre es ein Pfeilwald).
+        foreach (var l in _lines)
+            if (!l.NoArrow && (!_multi || l.Highlight || (!_focus && _lines.Count <= 12))) Arrow(dc, l.Points, route);
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var face = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
         var markers = Markers();
         foreach (var (stop, at) in markers)
         {
             var fill = stop.Kind switch { StopKind.Start => StartFill, StopKind.End => EndFill, _ => route };
+            if (stop.Label.Length == 0)
+            {
+                dc.DrawEllipse(fill, new Pen(dark ? HaloDark : Brushes.White, 1.5), at, 5.5, 5.5);
+                continue;
+            }
             dc.DrawEllipse(fill, new Pen(dark ? HaloDark : Brushes.White, 2), at, 11, 11);
             var text = new FormattedText(stop.Label, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, stop.Label.Length > 2 ? 9.5 : 11.5, Brushes.White, dpi);
             dc.DrawText(text, new Point(at.X - text.Width / 2, at.Y - text.Height / 2));
         }
-        // Namen von Start und Ziel rechts neben dem letzten Punkt im selben Land (dort können mehrere nebeneinander stehen).
-        foreach (var (stop, at) in markers)
+        // Namen von Start und Ziel rechts neben dem letzten Punkt im selben Land (dort können mehrere nebeneinander stehen). In der Übersicht
+        // tragen nur Ziel-Länder einen Namen, die mit den meisten Zielen zuerst, und nur wo er weder einen Punkt noch einen anderen Namen
+        // verdeckt (sonst wäre Europa ein Stapel aus Namen) – die übrigen stehen im Tooltip.
+        var placed = new List<Rect>();
+        var labelled = markers.Where(m => m.Stop.Kind != StopKind.Hop && !(_multi && m.Stop.Kind == StopKind.Start));
+        if (_multi) labelled = labelled.OrderByDescending(m => int.TryParse(m.Stop.Label, out var n) ? n : 0);
+        foreach (var (stop, at) in labelled.ToList())
         {
-            if (stop.Kind == StopKind.Hop) continue;
             var right = markers.Where(m => m.Stop.Country == stop.Country).Max(m => m.At.X);
             var name = new FormattedText(stop.Country.Name, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, 12, dark ? Brushes.White : Brushes.Black, dpi);
             var box = new Rect(right + 15, at.Y - name.Height / 2 - 1, name.Width + 10, name.Height + 2);
+            if (_multi)
+            {
+                static double Distance(Rect r, Point p) => (new Point(Math.Clamp(p.X, r.Left, r.Right), Math.Clamp(p.Y, r.Top, r.Bottom)) - p).Length;
+                if (placed.Any(box.IntersectsWith)) continue;
+                if (markers.Any(m => m.Stop.Country != stop.Country && Distance(box, m.At) <= (m.Stop.Label.Length == 0 ? 6.5 : 12))) continue;
+                placed.Add(box);
+            }
             dc.DrawRoundedRectangle(dark ? HaloDark : HaloLight, null, box, 5, 5);
             dc.DrawText(name, new Point(box.X + 5, box.Y + 1));
         }
@@ -344,9 +396,16 @@ public sealed class MapView : FrameworkElement
             InvalidateVisual();
             return;
         }
-        MapStop? hit = null;
+        // Zuerst der oberste Punkt, auf dessen sichtbarer Fläche die Maus steht; sonst der nächste im Umkreis von 13 Pixeln.
+        MapStop? hit = null, near = null;
+        var best = 13.0;
         foreach (var (stop, at) in Markers())
-            if ((at - pos).Length <= 13) hit = stop; // die zuletzt gezeichnete liegt oben
+        {
+            var d = (at - pos).Length;
+            if (d <= (stop.Label.Length == 0 ? 6.5 : 12)) hit = stop; // die zuletzt gezeichnete liegt oben
+            if (d <= best) { best = d; near = stop; }
+        }
+        hit ??= near;
         if (hit == null) { CloseTip(); return; }
         if (hit != _tipFor)
         {

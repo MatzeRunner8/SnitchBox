@@ -110,13 +110,33 @@ public sealed class Tracer(ITraceProber prober, TraceOptions? options = null)
     private TraceHop[] _hops = [];
     private int _limit, _error;
     private TraceEnd _end = TraceEnd.Running;
+    private IPAddress? _target;
+    private bool _adopted;
 
     /// <summary>Nach jeder Antwort (aus einem beliebigen Thread).</summary>
     public event Action? Changed;
 
     public TraceOptions Options => _o;
 
+    /// <summary>Das Ziel des laufenden oder letzten Laufs.</summary>
+    public IPAddress? Target
+    {
+        get { lock (_gate) return _target; }
+    }
+
     public async Task<TraceSnapshot> RunAsync(IPAddress target, CancellationToken cancel)
+    {
+        await BeginAsync(target, cancel).ConfigureAwait(false);
+        return await ContinueAsync(cancel).ConfigureAwait(false);
+    }
+
+    /// <summary>Erster Teil eines Laufs: neu anfangen und Hop 1 allein und nacheinander abfragen (antwortet er nicht, gehen seine übrigen
+    /// Proben mit den Runden). Für mehrere Ziele auf einmal (<see cref="TraceGroup"/>) kommt dieser Teil aller Ziele vor den Runden.
+    /// Die ICMP-Schnittstelle von Windows lässt sich nicht abbrechen: Auf ausstehende Proben wird bei „Abbrechen“ nicht gewartet
+    /// (WaitAsync), ihre späten Antworten verwirft Probe.</summary>
+    /// <param name="probeFirstHop">false: nur neu anfangen; die Proben für Hop 1 gehen dann mit den Runden (in der Gruppe, wenn der erste
+    /// Router dieses Gateways ohnehin nicht antwortet).</param>
+    public async Task BeginAsync(IPAddress target, CancellationToken cancel, bool probeFirstHop = true)
     {
         lock (_gate)
         {
@@ -124,19 +144,70 @@ public sealed class Tracer(ITraceProber prober, TraceOptions? options = null)
             _limit = _o.MaxHops;
             _error = 0;
             _end = TraceEnd.Running;
+            _target = target;
+            _adopted = false;
         }
-        var pending = new List<Task>();
+        if (!probeFirstHop) return;
         try
         {
-            // Hop 1 allein und nacheinander; antwortet er nicht, gehen seine übrigen Proben mit den Runden.
-            // Die ICMP-Schnittstelle von Windows lässt sich nicht abbrechen: Auf ausstehende Proben wird bei „Abbrechen“ nicht gewartet
-            // (WaitAsync), ihre späten Antworten verwirft Probe.
             for (var round = 0; round < _o.Probes; round++)
             {
                 cancel.ThrowIfCancellationRequested();
                 var first = await Probe(target, 1, round, _o.FirstHopTimeoutMs, cancel).WaitAsync(cancel).ConfigureAwait(false);
                 if (!first.Answered && !first.Final) break;
             }
+        }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested) { MarkCancelled(); }
+    }
+
+    /// <summary>Statt <see cref="BeginAsync"/>: Hop 1 von einem anderen Lauf übernehmen, dessen Ziel über dasselbe Gateway geht – es ist
+    /// derselbe Router, und Heimrouter beantworten nur etwa eine Probe je Sekunde (eine FRITZ!Box nach einem Schub von rund sechs).
+    /// Nur wenn dort Hop 1 als Router geantwortet hat und nichts endete (Ziel = Gateway, nicht erreichbar); sonst false.</summary>
+    public bool TryAdoptFirstHop(Tracer source, IPAddress target)
+    {
+        ProbeResult?[] first;
+        lock (source._gate)
+        {
+            if (source._hops.Length == 0 || source._o.Probes != _o.Probes || source._target?.AddressFamily != target.AddressFamily) return false;
+            first = source._hops[0].Probes.ToArray();
+        }
+        if (!first.Any(p => p is { Answered: true }) || first.Any(p => p is { Final: true })) return false;
+        lock (_gate)
+        {
+            _hops = Enumerable.Range(1, _o.MaxHops).Select(n => new TraceHop(n, _o.Probes)).ToArray();
+            _limit = _o.MaxHops;
+            _error = 0;
+            _end = TraceEnd.Running;
+            _target = target;
+            _adopted = true;
+            for (var r = 0; r < first.Length; r++)
+                if (first[r] is { } p) _hops[0].Set(r, p);
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>Hat Hop 1 mindestens einmal geantwortet (als Router, als Ziel oder mit „nicht erreichbar“)?</summary>
+    public bool FirstHopAnswered
+    {
+        get { lock (_gate) return _hops.Length > 0 && _hops[0].Answered; }
+    }
+
+    /// <summary>Zweiter Teil: die Runden für TTL 2 bis 30 (nach <see cref="BeginAsync"/>), dann das Ergebnis.</summary>
+    public async Task<TraceSnapshot> ContinueAsync(CancellationToken cancel)
+    {
+        IPAddress target;
+        bool running;
+        lock (_gate)
+        {
+            target = _target ?? throw new InvalidOperationException("BeginAsync fehlt");
+            running = _end == TraceEnd.Running;
+        }
+        if (!running) return Snapshot(); // schon abgebrochen
+        var pending = new List<Task>();
+        try
+        {
+            cancel.ThrowIfCancellationRequested();
             var started = Environment.TickCount64;
             for (var round = 0; round < _o.Probes; round++)
             {
@@ -159,15 +230,32 @@ public sealed class Tracer(ITraceProber prober, TraceOptions? options = null)
             }
             await Task.WhenAll(pending).WaitAsync(cancel).ConfigureAwait(false);
             cancel.ThrowIfCancellationRequested();
+            // Hop 1 übernommen, aber das Ziel antwortet schon bei TTL 2: Es kann eine andere Adresse des Gateways selbst sein (seine
+            // WAN-Adresse). Eine eigene Probe mit TTL 1 – jetzt, wo keine weitergeleiteten Proben mehr unterwegs sind – klärt das.
+            bool check;
+            lock (_gate) check = _adopted && _hops.Length > 1 && _limit == 2 && _hops[1].Reached;
+            if (check)
+            {
+                ProbeResult own;
+                try { own = await prober.ProbeAsync(target, 1, _o.FirstHopTimeoutMs, cancel).WaitAsync(cancel).ConfigureAwait(false); }
+                catch (Exception e) when (e is not OperationCanceledException) { own = new ProbeResult(ProbeStatus.Error, null, 0); }
+                if (own is { Status: ProbeStatus.Reply, From: not null })
+                    lock (_gate)
+                    {
+                        _hops[0] = new TraceHop(1, _o.Probes);
+                        _hops[0].Set(0, own);
+                        _limit = 1;
+                    }
+            }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
-            lock (_gate) _end = TraceEnd.Cancelled;
-            Changed?.Invoke();
+            MarkCancelled();
             return Snapshot();
         }
         lock (_gate)
         {
+            if (_end != TraceEnd.Running) return Snapshot(); // (Lock ist wiedereintrittsfähig)
             // Proben späterer Runden, die nie abgeschickt wurden (Ziel war schon früher erreicht), zählen als erledigt.
             var reached = _hops.Take(_limit).Any(h => h.Reached);
             _end = reached ? TraceEnd.Reached
@@ -177,6 +265,16 @@ public sealed class Tracer(ITraceProber prober, TraceOptions? options = null)
         }
         Changed?.Invoke();
         return Snapshot();
+    }
+
+    private void MarkCancelled()
+    {
+        lock (_gate)
+        {
+            if (_end != TraceEnd.Running) return;
+            _end = TraceEnd.Cancelled;
+        }
+        Changed?.Invoke();
     }
 
     private async Task<ProbeResult> Probe(IPAddress target, int ttl, int round, int timeoutMs, CancellationToken cancel)
@@ -246,5 +344,87 @@ public sealed class Tracer(ITraceProber prober, TraceOptions? options = null)
             }
             return new TraceSnapshot(_hops.Take(last).Select(h => h.Copy()).ToList(), _end, _error);
         }
+    }
+}
+
+/// <summary>Mehrere Ziele auf einmal (alle Gegenstellen eines Programms): erst Hop 1 aller Ziele nacheinander, dann die Runden aller Ziele
+/// gleichzeitig. Gemessen an einer FRITZ!Box: Laufen ganze Traces parallel, gehen bis zu zwei Drittel der Antworten von Hop 1 verloren
+/// (er antwortet nicht, solange weitergeleitete Proben unterwegs sind); so geht keine verloren, und sechs Ziele brauchen kaum länger als eins.</summary>
+public static class TraceGroup
+{
+    /// <param name="firstHopKey">Gateway je Ziel (z. B. Schnittstelle + nächster Hop laut Routing-Tabelle), null = unbekannt oder im eigenen
+    /// Netz. Ziele mit demselben Schlüssel übernehmen Hop 1 vom ersten (<see cref="Tracer.TryAdoptFirstHop"/>); Ziele ohne Schlüssel
+    /// fragen ihren Hop 1 gleichzeitig ab (es gibt nichts zu teilen). Antwortet der erste Router eines Gateways zweimal hintereinander
+    /// nicht, warten die übrigen Ziele nicht je eine Sekunde auf ihn: Ihre Proben für Hop 1 gehen mit den Runden.</param>
+    public static async Task RunAsync(IReadOnlyList<(Tracer Tracer, IPAddress Target)> items, int parallel, CancellationToken cancel,
+        Func<IPAddress, string?>? firstHopKey = null)
+    {
+        var shared = new Dictionary<string, Tracer>();
+        var silent = new Dictionary<string, int>(); // Schlüssel → selbst abgefragte Quellen in Folge, deren Hop 1 nicht antwortete
+        var unkeyed = new List<Task>();
+        foreach (var (tracer, target) in items)
+        {
+            string? key = null;
+            try { key = firstHopKey?.Invoke(target); }
+            catch (Exception) { }
+            if (key == null)
+            {
+                unkeyed.Add(tracer.BeginAsync(target, cancel)); // bei Abbruch: gleich als abgebrochen markiert
+                continue;
+            }
+            if (!cancel.IsCancellationRequested && shared.TryGetValue(key, out var source) && tracer.TryAdoptFirstHop(source, target)) continue;
+            if (silent.GetValueOrDefault(key) >= 2)
+            {
+                await tracer.BeginAsync(target, cancel, probeFirstHop: false).ConfigureAwait(false);
+                continue;
+            }
+            await tracer.BeginAsync(target, cancel).ConfigureAwait(false);
+            shared[key] = tracer; // der zuletzt selbst abgefragte gibt weiter
+            silent[key] = tracer.FirstHopAnswered ? 0 : silent.GetValueOrDefault(key) + 1;
+        }
+        await Task.WhenAll(unkeyed).ConfigureAwait(false);
+        using var gate = new SemaphoreSlim(Math.Max(1, parallel));
+        await Task.WhenAll(items.Select(async item =>
+        {
+            try { await gate.WaitAsync(cancel).ConfigureAwait(false); }
+            catch (OperationCanceledException)
+            {
+                await item.Tracer.ContinueAsync(cancel).ConfigureAwait(false); // markiert den Lauf als abgebrochen
+                return;
+            }
+            try { await item.Tracer.ContinueAsync(cancel).ConfigureAwait(false); }
+            finally { gate.Release(); }
+        })).ConfigureAwait(false);
+    }
+}
+
+/// <summary>Ein Ziel der Übersicht „wohin sendet dieses Programm“: eine Gegenstelle mit Namen, Zahl der Verbindungen und Datenmenge.</summary>
+public sealed record TraceTarget(IPAddress Address, string Host, int Count, long Bytes, DateTime LastSeen);
+
+public static class TraceTargets
+{
+    /// <summary>Die Gegenstellen aus Zeilen des Netzwerkmonitors, die zuletzt benutzte zuerst; je Adresse eine (Name: der erste, der keine
+    /// bloße Adresse ist). Nicht verfolgbar und daher ausgelassen: Loopback, Multicast, Broadcast, unbestimmte und verbindungslokale
+    /// Adressen (ihnen fehlt die Schnittstelle). Mehr als <paramref name="max"/>: die ältesten fallen weg (<paramref name="omitted"/>).</summary>
+    /// <param name="exclude">Weitere Adressen, die wegfallen (in SnitchBox: Broadcast-Adressen der eigenen Netze, z. B. 192.168.178.255).</param>
+    public static List<TraceTarget> From(IEnumerable<ConnectionRecord> records, int max, out int omitted, Func<IPAddress, bool>? exclude = null)
+    {
+        var byAddress = new Dictionary<IpKey, (string Host, int Count, long Bytes, DateTime Last)>();
+        foreach (var r in records)
+        {
+            var a = r.Remote.ToAddress();
+            if (GeoIp.ScopeOf(a) is AddressScope.Loopback or AddressScope.Multicast or AddressScope.LinkLocal) continue;
+            if (a.Equals(IPAddress.Any) || a.Equals(IPAddress.IPv6Any) || a.Equals(IPAddress.Broadcast)) continue;
+            if (exclude != null && exclude(a)) continue;
+            var named = r.Host.Length > 0 && !IPAddress.TryParse(r.Host, out _);
+            if (byAddress.TryGetValue(r.Remote, out var e))
+                byAddress[r.Remote] = (e.Host.Length == 0 && named ? r.Host : e.Host, e.Count + r.Count, e.Bytes + r.Down + r.Up, r.LastSeen > e.Last ? r.LastSeen : e.Last);
+            else
+                byAddress[r.Remote] = (named ? r.Host : "", r.Count, r.Down + r.Up, r.LastSeen);
+        }
+        var all = byAddress.OrderByDescending(p => p.Value.Last).ThenByDescending(p => p.Value.Bytes)
+            .Select(p => new TraceTarget(p.Key.ToAddress(), p.Value.Host, p.Value.Count, p.Value.Bytes, p.Value.Last)).ToList();
+        omitted = Math.Max(0, all.Count - max);
+        return all.Take(max).ToList();
     }
 }

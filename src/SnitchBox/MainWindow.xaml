@@ -162,6 +162,11 @@
                     </Border>
                     <ListView x:Name="ProcessList" Grid.Row="1" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="ProcessList_SelectionChanged"
                               VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                        <ListView.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{l:L de='Wohin sendet das Programm? Ziele verfolgen …', en='Where does the program send to? Trace destinations…'}" Click="MonitorTraceProgram_Click"/>
+                            </ContextMenu>
+                        </ListView.ContextMenu>
                         <ListView.GroupStyle>
                             <GroupStyle HeaderTemplate="{StaticResource GroupHeader}"/>
                         </ListView.GroupStyle>
@@ -243,7 +248,7 @@
                     <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0">
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                             <Button Padding="12,5" Margin="0,0,12,0" Content="{l:L de='Route verfolgen …', en='Trace Route…'}" Click="MonitorTrace_Click"
-                                    ToolTip="{l:L de='Den Weg zur gewählten Gegenstelle verfolgen (wie tracert), auf Wunsch auf einer Weltkarte', en='Trace the route to the selected remote (like tracert), optionally on a world map'}"/>
+                                    ToolTip="{l:L de='Den Weg zur gewählten Gegenstelle verfolgen (wie tracert) – ohne gewählte Verbindung alle Ziele des gewählten Programms; auf Wunsch auf einer Weltkarte', en='Trace the route to the selected remote (like tracert) – without a selected connection all destinations of the selected program; optionally on a world map'}"/>
                             <Button Style="{StaticResource AllowButton}" Margin="0,0,6,0" Content="{l:L de='Erlauben …', en='Allow…'}" Click="MonitorAllow_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung erlaubt', en='Create a rule that allows the selected connection'}"/>
                             <Button Style="{StaticResource DenyButton}" Margin="0,0,6,0" Content="{l:L de='Verbieten …', en='Deny…'}" Click="MonitorDeny_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung verbietet', en='Create a rule that denies the selected connection'}"/>
                             <Button Padding="12,5" Content="{l:L de='Verlauf leeren', en='Clear History'}" Click="MonitorClear_Click" Margin="12,0,0,0"/>
