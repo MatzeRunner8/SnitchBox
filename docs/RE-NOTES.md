@@ -604,6 +604,11 @@ User request: keep the Ko-fi button visible at all times. It now sits in the hea
 the language). Only when the window is so narrow that the status on the right (e.g. “Driver not running”) would no longer fit does the
 button step aside; the calculation leaves the button itself out, so nothing flips back and forth. No new texts.
 
+## Build 45 – Ko-fi button after “Settings”
+User feedback with a screenshot (175 %, narrow window): the header had no room, so the button stepped aside. It now sits in the row of
+section buttons after “Settings” – there is room even in the smallest window (900 px, longest language Russian), so it is always visible.
+The fallback logic of build 44 is gone; the header is back to its build 43 state.
+
 ## Open
 - SNI evaluation with DoH.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

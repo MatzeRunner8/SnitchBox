@@ -634,6 +634,11 @@ Wunsch des Nutzers: den Ko-fi-Knopf dauerhaft sichtbar machen. Er steht jetzt in
 Einstellungen neben der Sprache). Nur wenn das Fenster so schmal ist, dass der Zustand rechts (etwa „Treiber läuft nicht“) keinen Platz mehr
 hätte, tritt der Knopf zurück; gerechnet wird ohne den Knopf selbst, damit nichts hin und her springt. Keine neuen Texte.
 
+## Build 45 – Ko-fi-Knopf hinter „Einstellungen“
+Rückmeldung des Nutzers mit Bildschirmfoto (175 %, schmales Fenster): In der Kopfzeile war kein Platz, der Knopf trat zurück. Er steht
+jetzt in der Zeile der Bereichs-Knöpfe hinter „Einstellungen“ – dort ist auch beim kleinsten Fenster (900 px, längste Sprache Russisch)
+Platz, er ist also immer sichtbar. Die Ausweichlogik von Build 44 entfällt; die Kopfzeile ist wieder wie in Build 43.
+
 ## Offen
 - SNI-Auswertung bei DoH.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

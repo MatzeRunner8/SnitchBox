@@ -1579,17 +1579,4 @@ public partial class MainWindow : Window
     private void About_Click(object sender, RoutedEventArgs e) => App.About();
 
     private void Kofi_Click(object sender, RoutedEventArgs e) => DesktopShell.OpenUrl(this, "https://ko-fi.com/C5H12AP4UV");
-
-    private double _kofiWidth = 140;
-
-    /// <summary>Ko-fi-Knopf in der Kopfzeile (hinter „Profil“), solange daneben der Zustand Platz hat – der ist wichtiger (etwa „Treiber
-    /// läuft nicht“). Nur in einem sehr schmalen Fenster tritt der Knopf zurück. Gerechnet ohne den Knopf selbst, damit nichts hin und her springt.</summary>
-    private void Header_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (KofiButton.IsVisible && KofiButton.DesiredSize.Width > 0) _kofiWidth = KofiButton.DesiredSize.Width;
-        var others = HeaderLeft.Children.OfType<UIElement>().Where(c => c != KofiButton).Sum(c => c.DesiredSize.Width);
-        var show = HeaderBar.ActualWidth - others - _kofiWidth >= 16 + 170; // Abstand + Platz für den Zustand
-        var visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        if (KofiButton.Visibility != visibility) KofiButton.Visibility = visibility;
-    }
 }
