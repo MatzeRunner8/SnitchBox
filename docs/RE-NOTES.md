@@ -550,6 +550,55 @@ User request: show where a program such as Claude is currently sending to.
 - The placeholder check of the core tests accepts texts with up to six numbers. 16 new core tests (403 in total), 33 new texts in all
   12 languages.
 
+## Build 43 – history, search and world map in the Network Monitor
+User request: points 1–3 of the list of missing features.
+- **History across restarts** (HistoryFile, private\history.json in the data folder): the rows of the Network Monitor (program, service,
+  remote with all its DNS names, port, state, counts, data volume per day, last transfer; pending prompts too) and the data volume per day
+  and program (DailyTraffic, fed by the same per-program meter as before) are saved every five minutes when something changed (in the
+  background), when quitting and when Windows signs out, and loaded at start before the filter runs; restored rows show how the current
+  rules decide. Settings → “Keep the Network Monitor history”: only until quitting, 7, 30 (default), 90 days or a year; shortening prunes at
+  once, “only until quitting” deletes the file, “Clear History” deletes everything after a confirmation. A day starts at midnight (local
+  time); “30 days” means today and the 29 days before – the same everywhere (rows, program list, chart). With history on, the program list
+  shows the data volume over the kept days (the rate stays the current one), and a row’s data volume is the sum of its kept days; programs
+  of which only data volumes are kept (connection from before the start, filter off, row evicted) stay in the list (“Data volume from the
+  history only”), so “All Programs” matches the chart. A long open connection (network drive, download) stays as long as it transfers, even
+  if it was decided weeks ago; the “Last” column shows the time for today, otherwise the date. The process ID is saved as well: “until
+  quit” rules keep applying to the restored rows of a program that is still running after SnitchBox restarts (it is dropped after a
+  Windows restart).
+- **Protecting the file:** the private\ subfolder is readable only by SYSTEM and administrators (the history shows which program connected
+  where; the settings next to it stay readable for users). It is created only after the data folder has been checked and cleaned up, and it
+  is checked before every write: if it is missing (deleted by hand, say) it is created with these permissions right away, if it lost them it
+  gets them back, and a link or a foreign owner prevents the write. Writes go to a temporary file that is flushed to disk and then replaces the old one (no file full of zeros after a crash). The reader skips
+  invalid entries (null, address, enum values, text lengths), keeps at most 4,000 rows (the newest) and 5,000 programs per day, and sets a
+  broken file aside as .kaputt – but not a file that is just locked (another program holds it open), and SnitchBox then does not write over
+  it in this session. Above 64 MB the oldest days are left out. An error in the history never stops the start; a save that began before
+  “Clear History” writes nothing back afterwards (generation counter).
+- **Data volume per day:** the “Per day” toggle in the header shows bars for the selected program (Windows services: all services
+  together, like the program meter; with a search and “All Programs”, the programs found), up to 60 days, tooltip with date and amounts;
+  the header shows the sum of the period.
+- **Search** below the lists: filters the program list, the connections and the map by program name, path, service, remote, address,
+  port, protocol, country, state and direction; several words must all match, case and accents do not matter (“osterreich” finds
+  “Österreich”). With a search, “All Programs” shows the sums of the programs found.
+- **World map** instead of the connection list (“World Map” toggle, remembered): one point per country with the number of remotes, red when
+  every connection there is denied, lines from your country (Windows region setting, no network query) – lines of connections that are
+  transferring right now are bold, the others pale; tooltip with data volume and the busiest remotes; double-click on a country sets the
+  search “country:XX” (exactly that country, not any text with these letters; the German “land:XX” works too). Remotes in the local network and without a known country are counted below the map. Without the country table the
+  map offers to download it (same prompt as the trace window); the DB-IP credit is shown on the map.
+- Harness for the real main window (monitor with made-up history, map, search, day chart, light and dark).
+- Review with adversarial verifiers (30 confirmed findings, all fixed), among them: history readable by every user, long connections
+  dropped after the period, data of old days in the rows, lost DNS names (host rules did not match after a restart), a locked file set
+  aside, a race between saving and deleting, a crash at start from null in the file, inconsistent day boundaries, the country search by
+  double-click also hitting host names, the map tooltip wrong after a redraw. A second review of the fixes found 7 more defects (all fixed):
+  a private\ folder deleted by hand would have been recreated with “Users: read” (and at start it was created before the data folder was
+  checked), programs with only kept data volume were missing from the list, “until quit” rules did not apply to restored rows, rows still
+  used a rolling cutoff (now midnight like the days), the day chart stayed on the previous program after a search, the map counted
+  addresses instead of rows in the local network, and the trace map tooltip could jump to another hop. Checking those fixes found 6 more
+  small issues (fixed): a file named “private” would have stopped the start (the history folder now never blocks the start), a folder just
+  created by someone else was not checked, traffic of this session from before the period still counted in the program list, an “until
+  quit” rule of a program that has since ended still applied when loading, daylight saving time shifted the boundary for process IDs, and
+  the row boundary was not pinned by a test.
+- 38 new core tests (441 in total), 32 new texts in all 12 languages.
+
 ## Open
-- SNI evaluation with DoH, history across restarts.
+- SNI evaluation with DoH.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

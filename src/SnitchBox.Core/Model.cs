@@ -158,6 +158,14 @@ public sealed class Settings
     /// <summary>Regelliste und Programmliste des Netzwerkmonitors nach Art gruppieren (KI, Browser, Windows …); fehlt der Eintrag in
     /// einer älteren config.json, gilt eingeschaltet.</summary>
     public bool GroupLists { get; set; } = true;
+    /// <summary>Verlauf des Netzwerkmonitors (Verbindungen und Datenmengen je Tag) so viele Tage aufheben – auch über Neustarts; 0 = nur
+    /// seit dem Start, nichts speichern.</summary>
+    public int HistoryDays { get => _historyDays; set => _historyDays = Math.Clamp(value, 0, 3650); }
+    private int _historyDays = 30;
+    /// <summary>Netzwerkmonitor: Weltkarte statt der Verbindungsliste zeigen.</summary>
+    public bool MonitorMap { get; set; }
+    /// <summary>Netzwerkmonitor: oben die Datenmenge je Tag statt der Rate der letzten Minuten.</summary>
+    public bool MonitorDays { get; set; }
     /// <summary>Routenverfolgung: Namen der Router über DNS abfragen (wie tracert).</summary>
     public bool TraceResolveNames { get; set; } = true;
     /// <summary>Routenverfolgung: Weltkarte zeigen (nur auf Wunsch; braucht die Ländertabelle von DB-IP).</summary>

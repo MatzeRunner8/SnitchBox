@@ -68,6 +68,12 @@ public sealed class ConnectionRecord
     /// entschieden hat; ältere zählen nur beim Programm) und die Rate der letzten Sekunde.</summary>
     public long Down { get; internal set; }
     public long Up { get; internal set; }
+    /// <summary>Zuletzt Verkehr gezählt (für den Verlauf: eine lange offene Verbindung entscheidet nur einmal, überträgt aber weiter).</summary>
+    public DateTime LastActive { get; internal set; }
+    /// <summary>Datenmenge je Tag (Ortszeit); <see cref="Down"/>/<see cref="Up"/> sind ihre Summe über die aufgehobenen Tage.</summary>
+    internal Dictionary<DateOnly, (long Down, long Up)> DayVolumes { get; } = [];
+    /// <summary>Zuletzt entschieden oder Verkehr gezählt (für das Kürzen des Verlaufs).</summary>
+    internal DateTime Recent => LastActive > LastSeen ? LastActive : LastSeen;
     public double RateDown { get; internal set; }
     public double RateUp { get; internal set; }
     /// <summary>Zuletzt entschieden oder Verkehr gezählt (Zählerstand von <see cref="ConnectionLog"/>): Zeilen mit laufenden
@@ -144,14 +150,19 @@ public sealed class ConnectionLog
             }
             _active.Clear();
             var clock = ++_clock;
+            var now = DateTime.Now;
+            var today = DateOnly.FromDateTime(now);
             foreach (var (flow, down, up) in volumes)
             {
                 if ((down == 0 && up == 0) || !_flows.TryGetValue(flow, out var entry)) continue;
                 entry.Activity = clock;
                 var r = entry.Record;
                 r.Activity = clock;
+                r.LastActive = now;
                 r.Down += down;
                 r.Up += up;
+                var day = r.DayVolumes.GetValueOrDefault(today);
+                r.DayVolumes[today] = (day.Down + down, day.Up + up);
                 r.RateDown += down / seconds;
                 r.RateUp += up / seconds;
                 _active.Add(r);
@@ -231,6 +242,109 @@ public sealed class ConnectionLog
     public List<ConnectionRecord> Snapshot()
     {
         lock (_gate) return _records.Values.ToList();
+    }
+
+    /// <summary>Für den gespeicherten Verlauf (<see cref="HistoryFile"/>): alle Zeilen; eine mit offenem Warnfenster ohne Entscheidung.</summary>
+    public List<HistoryEntry> Export()
+    {
+        lock (_gate)
+            return _records.Values.Select(r => new HistoryEntry
+            {
+                ProcessPath = r.ProcessPath, Service = r.Service, Host = r.Host, Remote = r.Remote.ToString(), Port = r.Port, Protocol = r.Protocol,
+                Direction = r.Direction, LastSeen = r.LastSeen, Count = r.Count, Allowed = r.Pending ? null : r.Allowed, Reason = r.Pending ? "" : r.Reason,
+                Down = r.Down, Up = r.Up, LastActive = r.LastActive, Pid = r.Template?.Pid ?? 0,
+                Hostnames = r.Template?.Hostnames is { Count: > 0 } names ? names.Take(6).Where(n => n.Length <= 255).ToList() : null,
+                Days = r.DayVolumes.Select(d => new DayVolume
+                {
+                    Day = d.Key.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), Down = d.Value.Down, Up = d.Value.Up,
+                }).ToList(),
+            }).ToList();
+    }
+
+    /// <summary>Gespeicherte Zeilen übernehmen (beim Start, bevor neue dazukommen): nur gültige und solche, die ab <paramref name="since"/>
+    /// noch entschieden oder übertragen haben, die neuesten zuerst bis <see cref="Max"/>; Datenmengen nur der Tage ab
+    /// <paramref name="keepFrom"/>. Ihr Zustand wird danach nach den geltenden Regeln neu bewertet.</summary>
+    public void Restore(IEnumerable<HistoryEntry> entries, DateTime since, DateOnly keepFrom)
+    {
+        static DateTime RecentOf(HistoryEntry e) => e.LastActive > e.LastSeen ? e.LastActive : e.LastSeen;
+        // Prozessnummern gelten nur bis zum Neustart von Windows (danach vergibt es sie neu). In UTC: Sommerzeit verschiebt sonst die Grenze.
+        var boot = DateTime.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64);
+        lock (_gate)
+        {
+            var valid = entries
+                .Where(e => e is { ProcessPath: not null, Service: not null, Host: not null, Remote: not null } && RecentOf(e) >= since
+                            && e.ProcessPath.Length <= HistoryFile.MaxText && e.Service.Length <= 256
+                            && e.Host.Length is > 0 and <= 255 && Enum.IsDefined(e.Protocol) && Enum.IsDefined(e.Direction))
+                .Select(e => (Entry: e, Ok: IpKey.TryParse(e.Remote, out var remote), Remote: remote))
+                .Where(x => x.Ok)
+                .OrderByDescending(x => RecentOf(x.Entry)).Take(Math.Max(0, Max - _records.Count)).Reverse(); // älteste zuerst: die Aktivität steigt mit
+            foreach (var (e, _, remote) in valid)
+            {
+                var key = (e.ProcessPath.ToLowerInvariant(), e.Service.ToLowerInvariant(), e.Host, e.Port, e.Protocol, e.Direction);
+                if (_records.ContainsKey(key)) continue;
+                var names = e.Hostnames?.Where(n => n is { Length: > 0 and <= 255 }).Take(6).ToList();
+                if (names is not { Count: > 0 }) names = IpKey.TryParse(e.Host, out _) ? [] : [e.Host];
+                var reason = e.Reason ?? "";
+                var r = new ConnectionRecord
+                {
+                    ProcessPath = e.ProcessPath, Service = e.Service, Host = e.Host, Remote = remote, Port = e.Port, Protocol = e.Protocol, Direction = e.Direction,
+                    LastSeen = e.LastSeen, LastActive = e.LastActive, Count = Math.Max(0, e.Count), Allowed = e.Allowed,
+                    Reason = reason.Length > 500 ? reason[..500] : reason, Activity = ++_clock,
+                    Template = new Connection
+                    {
+                        ProcessPath = e.ProcessPath, Service = e.Service, Direction = e.Direction, Protocol = e.Protocol, Remote = remote, Port = e.Port,
+                        Hostnames = names, Pid = e.LastSeen.ToUniversalTime() >= boot ? Math.Max(0, e.Pid) : 0,
+                    },
+                };
+                // Datenmengen je Tag (nur aufgehobene Tage); eine Datei ohne Tage zählt ihre Summe am Tag der letzten Entscheidung.
+                var days = e.Days?.Where(d => d != null).Select(d => (Ok: DateOnly.TryParseExact(d.Day, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var day), Day: day, Down: Math.Max(0, d.Down), Up: Math.Max(0, d.Up)))
+                    .Where(d => d.Ok).ToList() ?? [(true, DateOnly.FromDateTime(e.LastSeen), Math.Max(0, e.Down), Math.Max(0, e.Up))];
+                foreach (var (_, day, down, up) in days.Where(d => d.Day >= keepFrom).Take(4000))
+                {
+                    var sum = r.DayVolumes.GetValueOrDefault(day);
+                    r.DayVolumes[day] = (Add(sum.Down, down), Add(sum.Up, up));
+                }
+                r.Down = r.DayVolumes.Values.Aggregate(0L, (s, v) => Add(s, v.Down));
+                r.Up = r.DayVolumes.Values.Aggregate(0L, (s, v) => Add(s, v.Up));
+                _records[key] = r;
+            }
+            Version++;
+            VolumeVersion++;
+        }
+    }
+
+    private static long Add(long a, long b) => b > long.MaxValue - a ? long.MaxValue : a + b;
+
+    /// <summary>Verlauf auf die eingestellten Tage begrenzen: Datenmengen von Tagen vor <paramref name="keepFrom"/> fallen weg, Zeilen, die seit
+    /// <paramref name="before"/> weder entschieden noch übertragen haben, ganz.</summary>
+    public void Prune(DateTime before, DateOnly keepFrom)
+    {
+        lock (_gate)
+        {
+            var changed = false;
+            foreach (var r in _records.Values)
+            {
+                var oldDays = r.DayVolumes.Keys.Where(d => d < keepFrom).ToList();
+                if (oldDays.Count == 0) continue;
+                foreach (var d in oldDays) r.DayVolumes.Remove(d);
+                r.Down = r.DayVolumes.Values.Aggregate(0L, (s, v) => Add(s, v.Down));
+                r.Up = r.DayVolumes.Values.Aggregate(0L, (s, v) => Add(s, v.Up));
+                changed = true;
+            }
+            if (changed) VolumeVersion++;
+            var old = _records.Where(p => p.Value.Recent < before && !p.Value.Pending).ToList();
+            if (old.Count == 0) return;
+            var removed = new HashSet<ConnectionRecord>();
+            foreach (var (key, r) in old)
+            {
+                _records.Remove(key);
+                removed.Add(r);
+            }
+            foreach (var flow in _flows.Where(p => removed.Contains(p.Value.Record)).Select(p => p.Key).ToList()) _flows.Remove(flow);
+            _active.ExceptWith(removed);
+            Version++;
+        }
     }
 
     public void Clear()
@@ -323,6 +437,8 @@ public sealed class FirewallEngine
     public HostCache Hosts { get; } = new();
     public ConnectionLog History { get; } = new();
     public TrafficStats Traffic { get; } = new();
+    /// <summary>Datenmengen je Tag und Programm (für den Verlauf über Neustarts und das Diagramm je Tag).</summary>
+    public DailyTraffic Daily { get; } = new();
     public string BootId { get; }
     /// <summary>Eigener Programmpfad; SnitchBox filtert sich nicht selbst (Blocklisten laden).</summary>
     public string SelfPath { get; init; } = "";
@@ -350,6 +466,19 @@ public sealed class FirewallEngine
     public List<PendingAlert> Alerts
     {
         get { lock (_gate) return _alerts.ToList(); }
+    }
+
+    /// <summary>Zeilen des Netzwerkmonitors nach den geltenden Regeln neu bewerten (nach dem Laden des gespeicherten Verlaufs).</summary>
+    public void ReevaluateHistory()
+    {
+        lock (_gate)
+        {
+            // Erst abgelaufene Regeln weg – etwa „bis zum Beenden“ eines Programms, das endete, während SnitchBox aus war; sonst zeigten
+            // geladene Zeilen sie noch (sonst geschieht das erst beim nächsten Paket).
+            _lastPrune = DateTime.MinValue;
+            Prune(_now());
+            RefreshHistory();
+        }
     }
 
     /// <summary>Ändert Regeln oder Einstellungen unter der Sperre und wendet sie sofort an.</summary>

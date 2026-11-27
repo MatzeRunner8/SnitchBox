@@ -579,6 +579,56 @@ Wunsch des Nutzers: anzeigen, wohin ein Programm wie Claude gerade sendet.
 - Die Platzhalterprüfung der Kern-Tests nimmt Texte mit bis zu sechs Zahlen. 16 neue Kern-Tests (403 insgesamt), 33 neue Texte in allen
   12 Sprachen.
 
+## Build 43 – Verlauf, Suche und Weltkarte im Netzwerkmonitor
+Wunsch des Nutzers: Punkte 1–3 der Liste fehlender Funktionen.
+- **Verlauf über Neustarts** (HistoryFile, private\history.json im Datenordner): Die Zeilen des Netzwerkmonitors (Programm, Dienst,
+  Gegenstelle samt aller DNS-Namen, Port, Zustand, Anzahl, Datenmenge je Tag, zuletzt übertragen; auch noch offene Rückfragen) und die
+  Datenmenge je Tag und Programm (DailyTraffic, gespeist aus derselben Zählung je Programm wie bisher) werden alle fünf Minuten gesichert,
+  wenn sich etwas geändert hat (im Hintergrund), außerdem beim Beenden und beim Abmelden von Windows; geladen wird beim Start, bevor der
+  Filter läuft; geladene Zeilen zeigen, wie die geltenden Regeln entscheiden. Einstellungen → „Verlauf des Netzwerkmonitors aufheben“: nur
+  bis zum Beenden, 7, 30 (Standard), 90 Tage oder ein Jahr; Kürzen wirkt sofort, „nur bis zum Beenden“ löscht die Datei, „Verlauf leeren“
+  löscht nach einer Rückfrage alles. Ein Tag zählt ab Mitternacht (Ortszeit); „30 Tage“ heißt heute und die 29 Tage davor – überall gleich
+  (Zeilen, Programmliste, Diagramm). Mit Verlauf zeigt die Programmliste die Datenmenge über die aufgehobenen Tage (die Rate bleibt die
+  aktuelle), die Datenmenge einer Zeile ist die Summe ihrer aufgehobenen Tage; Programme, von denen nur noch Datenmengen aufgehoben sind
+  (Verbindung von vor dem Start, Filter aus, Zeile verdrängt), bleiben in der Liste („Nur Datenmenge aus dem Verlauf“) – so stimmt „Alle
+  Programme“ mit dem Diagramm überein. Eine lange offene Verbindung (Netzlaufwerk, Download) bleibt, solange sie überträgt, auch wenn sie vor
+  Wochen entschieden wurde; die Spalte „Zuletzt“ zeigt heute die Uhrzeit, sonst das Datum. Die Prozessnummer wird mitgespeichert: Regeln „bis
+  zum Beenden“ gelten nach einem Neustart von SnitchBox weiter für die geladenen Zeilen des noch laufenden Programms (nach einem Neustart von
+  Windows wird sie verworfen).
+- **Schutz der Datei:** Der Unterordner private\ ist nur für SYSTEM und Administratoren lesbar (der Verlauf zeigt, welches Programm wohin
+  verbunden hat; die Einstellungen daneben bleiben für Benutzer lesbar). Angelegt wird er erst, nachdem der Datenordner geprüft und
+  aufgeräumt ist, und vor jedem Schreiben wird er geprüft: fehlt er (etwa von Hand gelöscht), entsteht er gleich mit diesen Rechten, hat er
+  sie verloren, bekommt er sie zurück, eine Verknüpfung oder ein fremder Eigentümer verhindert das Schreiben. Geschrieben wird in eine Zwischendatei, die auf die Platte gebracht und dann ersetzt wird (nach einem Absturz keine Datei voller
+  Nullen). Der Leser überspringt ungültige Einträge (null, Adresse, Aufzählungswerte, Textlängen), nimmt höchstens 4000 Zeilen (die neuesten)
+  und 5000 Programme je Tag und legt eine kaputte Datei als .kaputt beiseite – eine gerade gesperrte (ein anderes Programm hält sie offen)
+  dagegen nicht, und SnitchBox schreibt in dieser Sitzung nicht darüber. Über 64 MB werden die ältesten Tage weggelassen. Ein Fehler im
+  Verlauf hält den Start nie auf; ein Sichern, das vor „Verlauf leeren“ begann, schreibt danach nichts mehr zurück (Generationszähler).
+- **Datenmenge je Tag:** Der Umschalter „Je Tag“ im Kopf zeigt Balken für das gewählte Programm (Windows-Dienste: alle Dienste zusammen, wie
+  die Zählung je Programm; bei einer Suche und „Alle Programme“ die gefundenen Programme), höchstens 60 Tage, Tooltip mit Datum und Mengen;
+  der Kopf zeigt die Summe des Zeitraums.
+- **Suche** unter den Listen: filtert Programmliste, Verbindungen und Karte nach Programmname, Pfad, Dienst, Gegenstelle, Adresse, Port,
+  Protokoll, Land, Zustand und Richtung; mehrere Wörter müssen alle passen, Groß-/Kleinschreibung und Akzente zählen nicht („osterreich“
+  findet „Österreich“). Mit Suche zeigt „Alle Programme“ die Summen der gefundenen Programme.
+- **Weltkarte** statt der Verbindungsliste (Umschalter „Weltkarte“, gemerkt): je Land ein Punkt mit der Zahl der Gegenstellen, rot, wenn
+  alle Verbindungen dorthin verboten sind, Linien von deinem Land aus (Regionseinstellung von Windows, keine Netzabfrage) – Linien gerade
+  übertragender Verbindungen kräftig, die übrigen blass; Tooltip mit Datenmenge und den größten Gegenstellen; Doppelklick auf ein Land
+  setzt die Suche „land:XX“ (genau dieses Land, nicht jeder Text mit diesen Buchstaben; „country:XX“ geht auch). Gegenstellen im eigenen Netz und ohne bekanntes Land werden unter der Karte gezählt. Ohne Ländertabelle bietet die
+  Karte das Herunterladen an (dieselbe Rückfrage wie im Trace-Fenster); die Quellenangabe von DB-IP steht auf der Karte.
+- Testprogramm für das echte Hauptfenster (Monitor mit erfundenem Verlauf, Karte, Suche, Tagesdiagramm, hell und dunkel).
+- Prüfung mit Gegenprüfern (30 bestätigte Befunde, alle behoben): u. a. Verlauf lesbar für jeden Benutzer, lange Verbindungen nach der Frist
+  gelöscht, Datenmengen alter Tage in den Zeilen, verlorene DNS-Namen (Regeln für Hosts griffen nach dem Neustart nicht), gesperrte Datei
+  beiseitegelegt, Wettlauf zwischen Sichern und Löschen, Absturz beim Start durch null in der Datei, Tagesgrenzen uneinheitlich, Länder-Suche
+  per Doppelklick traf auch Hostnamen, Tooltip der Karte nach dem Neuzeichnen falsch. Eine zweite Prüfung der Fixes fand 7 weitere Fehler
+  (alle behoben): ein von Hand gelöschter Ordner private\ wäre mit „Benutzer lesen“ neu entstanden (und beim Start vor der Prüfung des
+  Datenordners angelegt worden), Programme nur mit aufgehobener Datenmenge fehlten in der Liste, Regeln „bis zum Beenden“ griffen für geladene
+  Zeilen nicht, Zeilen nutzten noch eine rollende Grenze (jetzt Mitternacht wie die Tage), das Tagesdiagramm blieb nach der Suche beim vorigen
+  Programm, die Karte zählte im eigenen Netz Adressen statt Zeilen, der Tooltip der Trace-Karte konnte zu einem anderen Hop springen. Die
+  Gegenprüfung dieser Fixes fand noch 6 Kleinigkeiten (behoben): eine Datei namens „private“ hätte den Start verhindert (der Verlaufsordner
+  hält den Start jetzt nie auf), ein gerade von jemand anderem angelegter Ordner wurde nicht geprüft, Verkehr dieser Sitzung von vor dem
+  Zeitraum zählte noch in der Programmliste, eine Regel „bis zum Beenden“ eines inzwischen beendeten Programms galt beim Laden noch,
+  Sommerzeit verschob die Grenze für Prozessnummern, und die Grenze der Zeilen war nicht durch einen Test gesichert.
+- 38 neue Kern-Tests (441 insgesamt), 32 neue Texte in allen 12 Sprachen.
+
 ## Offen
-- SNI-Auswertung bei DoH, Verlauf über Neustarts.
+- SNI-Auswertung bei DoH.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

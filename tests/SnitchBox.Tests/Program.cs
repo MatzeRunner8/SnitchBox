@@ -1538,6 +1538,9 @@ Check(Loc.Normalize("pt-BR") == "pt" && Loc.Normalize("zh-Hans") == "zh" && Loc.
 // ---- Routenverfolgung, Länder-Datenbank, Weltkarte (Build 40)
 GeoTraceTests.Run(Check);
 
+// ---- Verlauf über Neustarts (Build 43)
+HistoryTests.Run(Check);
+
 try { Directory.Delete(Paths.Override!, true); } catch { }
 Console.WriteLine(failed == 0 ? $"Alle {count} Prüfungen bestanden." : $"{failed} von {count} Prüfungen fehlgeschlagen.");
 return failed == 0 ? 0 : 1;

@@ -58,6 +58,10 @@ internal static class FolderSecurity
             root.SetAccessControl(secure);
             CleanTree(root, notes);
             root.SetAccessControl(secure); // reicht die Rechte an alles darunter weiter
+            // Unterordner für den Verlauf des Netzwerkmonitors: erst jetzt (Ordner geprüft und aufgeräumt), nur SYSTEM und Administratoren lesen.
+            // Scheitert das, startet SnitchBox trotzdem (der Verlauf ist eine Zugabe) – vor jedem Schreiben wird erneut geprüft.
+            try { EnsurePrivateDir(Path.Combine(dir, PrivateName)); }
+            catch (Exception e) { notes.Add("Ordner für den Verlauf: " + e.Message); }
         }
         catch (Exception e)
         {
@@ -65,6 +69,41 @@ internal static class FolderSecurity
         }
         Log.Enabled = true;
         foreach (var n in notes) Log.Write(n);
+    }
+
+    /// <summary>Name der Unterordner, die nur SYSTEM und Administratoren lesen dürfen (Verlauf: welches Programm wohin verbunden hat).</summary>
+    public const string PrivateName = "private";
+
+    /// <summary>Vor jedem Schreiben des Verlaufs (und beim Start): Fehlt der Ordner, wird er gleich mit den strengen Rechten angelegt – sonst
+    /// erbte er „Benutzer lesen“ vom Datenordner (etwa wenn ein Administrator ihn bei laufendem SnitchBox löscht). Hat er die Rechte
+    /// verloren, bekommt er sie zurück; eine Verknüpfung oder ein fremder Eigentümer: nichts schreiben.</summary>
+    public static void EnsurePrivateDir(string dir)
+    {
+        var info = new DirectoryInfo(dir);
+        if (!info.Exists)
+        {
+            if (File.Exists(dir)) throw new IOException($"{dir}: an Stelle des Ordners liegt eine Datei");
+            Directory.CreateDirectory(Path.GetDirectoryName(dir)!); // Datenordner (im Demo-Modus „demo“) mit seinen Rechten
+            PrivateDescriptor().CreateDirectory(dir); // tut nichts, falls ihn gerade jemand anders angelegt hat – deshalb unten prüfen
+            info.Refresh();
+        }
+        if (info.Attributes.HasFlag(FileAttributes.ReparsePoint) || !IsTrustedOwner(info))
+            throw new IOException($"{dir}: Verknüpfung oder fremder Eigentümer");
+        var acl = info.GetAccessControl();
+        var strict = acl.AreAccessRulesProtected && acl.GetAccessRules(true, true, typeof(SecurityIdentifier)).Cast<FileSystemAccessRule>()
+            .All(r => r.AccessControlType == AccessControlType.Deny || r.IdentityReference.Equals(SystemSid) || r.IdentityReference.Equals(Admins));
+        if (!strict) info.SetAccessControl(PrivateDescriptor());
+    }
+
+    private static DirectorySecurity PrivateDescriptor()
+    {
+        var sec = new DirectorySecurity();
+        sec.SetOwner(Admins);
+        sec.SetAccessRuleProtection(true, false);
+        const InheritanceFlags all = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+        sec.AddAccessRule(new FileSystemAccessRule(SystemSid, FileSystemRights.FullControl, all, PropagationFlags.None, AccessControlType.Allow));
+        sec.AddAccessRule(new FileSystemAccessRule(Admins, FileSystemRights.FullControl, all, PropagationFlags.None, AccessControlType.Allow));
+        return sec;
     }
 
     private static DirectorySecurity SecureDescriptor()
@@ -99,7 +138,9 @@ internal static class FolderSecurity
                         RemoveForeign(item, asideDir, notes);
                         continue;
                     }
-                    ResetToInherited(item);
+                    // Ein Ordner „private“ bekommt die strengeren Rechte (ohne Benutzer); sein Inhalt erbt sie.
+                    if (item is DirectoryInfo { Name: PrivateName } priv) priv.SetAccessControl(PrivateDescriptor());
+                    else ResetToInherited(item);
                     if (item is DirectoryInfo d) pending.Push(d);
                 }
                 catch (Exception e)

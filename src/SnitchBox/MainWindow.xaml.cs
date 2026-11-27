@@ -152,6 +152,9 @@ internal static class Ui
     };
 
     /// <summary>Datenmenge mit aktueller Rate in Klammern, z. B. „↓ 12,3 MB (1,2 MB/s)“.</summary>
+    /// <summary>Zeitpunkt kurz: heute nur die Uhrzeit, sonst das Datum (der Verlauf reicht über Tage).</summary>
+    public static string When(DateTime t) => t.Date == DateTime.Today ? t.ToString("HH:mm:ss") : t.ToString("d", DailyChart.CultureFor());
+
     public static string Volume(string arrow, long bytes, double rate) =>
         $"{arrow} {Size(bytes)}" + (rate >= 1 ? $" ({Rate(rate)})" : "");
 
@@ -253,7 +256,8 @@ internal sealed class ConnectionRow(ConnectionRecord record) : INotifyPropertyCh
     public string PortText => $"{r.Port} {(r.Protocol == Proto.Tcp ? "TCP" : "UDP")}";
     public string DirectionText => r.Direction == Direction.Outgoing ? Loc.T("→ ausgehend", "→ outgoing") : Loc.T("← eingehend", "← incoming");
     public int Count => r.Count;
-    public string Last => r.LastSeen.ToString("HH:mm:ss");
+    public string Last => Ui.When(r.LastSeen);
+    public string LastTip => r.LastSeen.ToString("F", DailyChart.CultureFor());
     public string Reason => r.Reason;
 }
 
@@ -277,7 +281,11 @@ public partial class MainWindow : Window
     private readonly List<double> _down = [], _up = [];
     private bool _loading, _reloadQueued;
     private readonly ObservableCollection<ProcessRow> _processRows = [];
-    private long _historyVersion = -1, _trafficVersion = -1, _volumeVersion = -1, _lastRx = -1, _lastTx;
+    private long _historyVersion = -1, _trafficVersion = -1, _volumeVersion = -1, _lastRx = -1, _lastTx, _dailyVersion = -1;
+    // Suche im Netzwerkmonitor (Wörter, alle müssen passen) und Land je Gegenadresse (Name oder leer; gilt für eine Ländertabelle).
+    private string[] _searchTerms = [], _searchWords = [], _searchCountries = [];
+    private readonly Dictionary<IpKey, string> _countryNames = [];
+    private CountryDb? _countryNamesFrom;
     private string? _selectedProcess;
     // Die Abfrage der Aufgabenplanung startet ein Hilfsprogramm; deshalb nur einmal je Fenster.
     private bool? _autostart;
@@ -306,6 +314,18 @@ public partial class MainWindow : Window
         Ui.FitColumn(RulesList, 3, 220);
         Ui.FitColumn(ConnectionList, 2, 160);
         Ui.FitColumn(BlocklistList, 4, 200);
+        // Netzwerkmonitor: Karte oder Liste, Rate oder Tage (gemerkt); Doppelklick auf ein Land sucht danach in der Liste.
+        var (showMap, showDays) = App.Engine.Read(s => (s.Settings.MonitorMap, s.Settings.MonitorDays));
+        MapToggle.IsChecked = showMap;
+        DaysToggle.IsChecked = showDays;
+        MonitorMap.StopDoubleClicked += stop =>
+        {
+            if (stop.Kind == StopKind.Start || stop.Country.Code.Length != 2) return; // eigenes Land ohne Gegenstellen
+            MonitorSearchBox.Text = Loc.T("land:", "country:") + stop.Country.Code;
+            MapToggle.IsChecked = false;
+            MapToggle_Click(MapToggle, new RoutedEventArgs());
+        };
+        ApplyMonitorView();
         App.Engine.RulesChanged += OnRulesChanged;
         if (App.NetworkWatcher != null) App.NetworkWatcher.Checked += OnNetworksChecked;
         Closed += (_, _) =>
@@ -315,7 +335,7 @@ public partial class MainWindow : Window
             CommitNetworkChoice(); // eine gerade erst getroffene Auswahl gilt auch, wenn das Fenster gleich zugeht
             _timer.Stop();
         };
-        _timer.Tick += (_, _) => Tick();
+        _timer.Tick += (_, _) => { SampleTraffic(); Tick(); };
         _timer.Start();
         ReloadAll();
     }
@@ -617,11 +637,13 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- Netzwerkmonitor
 
+    /// <summary>Netzwerkmonitor auffrischen (jede Sekunde nach der Messung, sonst nach Suche, Löschen, Download); misst selbst nicht –
+    /// sonst zählte jede Taste der Suche als eigene Sekunde in der Rate.</summary>
     private void Tick()
     {
-        SampleTraffic();
         if (Tabs.SelectedIndex != 1) return;
-        DrawChart();
+        if (DaysToggle.IsChecked == true) { if (App.Engine.Daily.Version != _dailyVersion) UpdateDayChart(); }
+        else DrawChart();
         long history = App.Engine.History.Version, traffic = App.Engine.Traffic.Version, volume = App.Engine.History.VolumeVersion;
         if (history == _historyVersion && traffic == _trafficVersion && volume == _volumeVersion) return;
         var connectionsChanged = history != _historyVersion;
@@ -632,7 +654,10 @@ public partial class MainWindow : Window
         ReloadMonitor(connectionsChanged);
         // Neu aufgebaute Zeilen zeigen die Datenmengen ohnehin; bestehende nur auffrischen.
         if (volumesChanged && !connectionsChanged && ConnectionList.ItemsSource is IEnumerable<ConnectionRow> shown)
+        {
             foreach (var row in shown) row.RefreshVolume();
+            if (MapToggle.IsChecked == true) UpdateMonitorMap(shown.Select(r => r.Record)); // aktive Verbindungen live
+        }
     }
 
     private void SampleTraffic()
@@ -714,18 +739,38 @@ public partial class MainWindow : Window
     /// neu aufgebaut wird nur, wenn ein Programm dazukommt. So bleiben Auswahl und Rollposition erhalten.</summary>
     private void ReloadMonitor(bool connectionsChanged)
     {
-        var records = App.Engine.History.Snapshot();
+        var allRecords = App.Engine.History.Snapshot();
+        // Anzeigename je Programmzeile, einmal je Takt (liest Dateiinformationen).
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string NameOf(string key) => names.TryGetValue(key, out var n) ? n : names[key] = DisplayName(key);
+        var records = _searchTerms.Length == 0 ? allRecords : allRecords.Where(r => MatchesSearch(r, NameOf(KeyOf(r)))).ToList();
         var traffic = App.Engine.Traffic.Snapshot().ToDictionary(t => t.ProcessPath, StringComparer.OrdinalIgnoreCase);
+        // Mit Verlauf: Datenmengen je Programm über die aufgehobenen Tage (die Rate bleibt die aktuelle).
+        var historyDays = App.Engine.Read(s => s.Settings.HistoryDays);
+        var totals = historyDays > 0 ? App.Engine.Daily.Totals(App.HistoryKeepFrom(historyDays)) : null;
+        MonitorHint.Text = historyDays > 0
+            ? Loc.F("Verlauf der letzten {0} Tage, auch über Neustarts. ↓ empfangen, ↑ gesendet; in Klammern die aktuelle Rate.",
+                    "History of the last {0} days, also across restarts. ↓ received, ↑ sent; current rate in parentheses.", historyDays)
+            : Loc.T("Verbindungen und Datenmengen seit dem Start von SnitchBox. ↓ empfangen, ↑ gesendet; in Klammern die aktuelle Rate.",
+                    "Connections and data volumes since SnitchBox started. ↓ received, ↑ sent; current rate in parentheses.");
         // Je Programm eine Zeile, bei svchost.exe je Windows-Dienst (Schlüssel „Pfad|Dienst“).
         var groups = records.GroupBy(KeyOf, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
         // Auch Programme zeigen, die nur Daten übertragen (Verbindungen von vor dem Start).
         // Gruppiert (Einstellung): erst nach Gruppe (KI, Browser … Windows, Andere), darin wie bisher nach Name, Unbekanntes zuletzt.
         var grouped = App.Engine.Read(s => s.Settings.GroupLists);
-        var paths = groups.Keys.Union(traffic.Keys, StringComparer.OrdinalIgnoreCase)
+        // Mit Verlauf auch Programme, von denen nur Datenmengen aufgehoben sind (keine Zeile mehr, in dieser Sitzung noch kein Verkehr) –
+        // sonst fehlten sie in der Liste und in „Alle Programme“, das Diagramm zählte sie aber.
+        // Verkehr dieser Sitzung nur vor dem Zeitraum (SnitchBox lief tagelang) zählt nicht mehr – außer er läuft gerade.
+        IEnumerable<string> volumeKeys = totals == null ? traffic.Keys
+            : totals.Keys.Union(traffic.Values.Where(t => t.RateDown > 0 || t.RateUp > 0).Select(t => t.ProcessPath), StringComparer.OrdinalIgnoreCase);
+        // Bei einer Suche: Programme mit passenden Verbindungen, dazu solche ohne Verbindung, deren Name oder Pfad passt.
+        IEnumerable<string> trafficOnly = _searchTerms.Length == 0 ? volumeKeys
+            : _searchCountries.Length > 0 ? Array.Empty<string>() : volumeKeys.Where(k => MatchesText(NameOf(k) + " " + k));
+        var paths = groups.Keys.Union(trafficOnly, StringComparer.OrdinalIgnoreCase)
             .Select(p =>
             {
                 var group = grouped ? GroupOf(p) : ProcessGroup.AllPrograms; // einmal je Zeile
-                return (Path: p, Name: DisplayName(p), Order: (int)group, Group: grouped ? ProcessGroups.Title(group) : "");
+                return (Path: p, Name: NameOf(p), Order: (int)group, Group: grouped ? ProcessGroups.Title(group) : "");
             })
             .OrderBy(p => p.Order).ThenBy(p => p.Path.Length == 0)
             .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
@@ -744,9 +789,12 @@ public partial class MainWindow : Window
             _processRows.Add(new ProcessRow { Path = null, Name = Loc.T("Alle Programme", "All Programs") });
             foreach (var p in paths) _processRows.Add(new ProcessRow { Path = p.Path, Name = p.Name, Group = p.Group });
             ApplyGrouping(ProcessList, grouped);
+            var before = _selectedProcess;
             ProcessList.SelectedItem = _processRows.FirstOrDefault(r => string.Equals(r.Path, _selectedProcess, StringComparison.OrdinalIgnoreCase)) ?? _processRows[0];
             _selectedProcess = (ProcessList.SelectedItem as ProcessRow)?.Path;
             _loading = false;
+            // Die Auswahl fiel weg (etwa durch die Suche) oder „Alle Programme“ umfasst andere Programme: Tagesdiagramm nachziehen.
+            if (DaysToggle.IsChecked == true && (_selectedProcess == null || !string.Equals(before, _selectedProcess, StringComparison.OrdinalIgnoreCase))) UpdateDayChart();
             connectionsChanged = true;
             if (scroller != null && offset > 0)
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => scroller.ScrollToVerticalOffset(offset));
@@ -755,8 +803,13 @@ public partial class MainWindow : Window
         static Brush State(IEnumerable<ConnectionRecord> rs) => rs.Any(r => r.Pending) ? Ui.Ask : rs.Any(r => r.Allowed == false) ? Ui.Deny : Ui.None;
         var all = _processRows[0];
         all.Summary = Loc.F("{0} Programme · {1} Gegenstellen", "{0} programs · {1} remotes", paths.Count, records.Count);
-        all.DownText = Ui.Volume("↓", traffic.Values.Sum(t => t.Down), traffic.Values.Sum(t => t.RateDown));
-        all.UpText = Ui.Volume("↑", traffic.Values.Sum(t => t.Up), traffic.Values.Sum(t => t.RateUp));
+        // Summen über die gezeigten Programme (Programmzählung; Windows-Dienste stecken in svchost.exe) – mit Suche nur die gefundenen.
+        var shown = paths.Select(p => p.Path.Split('|')[0]).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool Counted(string path) => shown.Contains(path);
+        all.DownText = Ui.Volume("↓", totals?.Where(p => Counted(p.Key)).Sum(p => p.Value.Down) ?? traffic.Values.Where(t => Counted(t.ProcessPath)).Sum(t => t.Down),
+            traffic.Values.Where(t => Counted(t.ProcessPath)).Sum(t => t.RateDown));
+        all.UpText = Ui.Volume("↑", totals?.Where(p => Counted(p.Key)).Sum(p => p.Value.Up) ?? traffic.Values.Where(t => Counted(t.ProcessPath)).Sum(t => t.Up),
+            traffic.Values.Where(t => Counted(t.ProcessPath)).Sum(t => t.RateUp));
         all.StateBrush = State(records);
         var serviceHosts = groups.Keys.Where(k => k.Contains('|')).Select(k => k[..k.IndexOf('|')]).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var row in _processRows.Skip(1))
@@ -773,34 +826,259 @@ public partial class MainWindow : Window
             }
             else
             {
-                row.DownText = Ui.Volume("↓", t.Down, t.RateDown);
-                row.UpText = Ui.Volume("↑", t.Up, t.RateUp);
+                // Mit Verlauf nur die aufgehobenen Tage (wie „Alle Programme“ und das Diagramm), sonst seit dem Start.
+                var sum = totals == null ? (t.Down, t.Up) : totals.GetValueOrDefault(row.Path!);
+                row.DownText = Ui.Volume("↓", sum.Down, t.RateDown);
+                row.UpText = Ui.Volume("↑", sum.Up, t.RateUp);
             }
             if (g != null)
             {
-                row.Summary = Loc.F("{0} Gegenstellen · zuletzt {1:HH:mm:ss}", "{0} remotes · last {1:HH:mm:ss}", g.Count, g.Max(r => r.LastSeen));
+                row.Summary = Loc.F("{0} Gegenstellen · zuletzt {1}", "{0} remotes · last {1}", g.Count, Ui.When(g.Max(r => r.LastSeen)));
                 row.StateBrush = State(g);
             }
             else
             {
                 row.Summary = serviceHosts.Contains(row.Path!)
                     ? Loc.T("Datenmenge aller Windows-Dienste zusammen", "Data volume of all Windows services combined")
-                    : Loc.T("Verbindung bestand schon vor dem Start", "Connection existed before start");
+                    : totals != null && !traffic.ContainsKey(row.Path!)
+                        ? Loc.T("Nur Datenmenge aus dem Verlauf", "Data volume from the history only")
+                        : Loc.T("Verbindung bestand schon vor dem Start", "Connection existed before start");
                 row.StateBrush = Ui.None;
             }
         }
         if (connectionsChanged) ShowConnections(records);
     }
 
+    /// <param name="records">Schon nach der Suche gefilterte Zeilen; null = jetzt holen und filtern.</param>
     private void ShowConnections(List<ConnectionRecord>? records = null)
     {
-        records ??= App.Engine.History.Snapshot();
+        records ??= _searchTerms.Length == 0 ? App.Engine.History.Snapshot()
+            : App.Engine.History.Snapshot().Where(r => MatchesSearch(r, DisplayName(KeyOf(r)))).ToList();
         var selected = (ConnectionList.SelectedItem as ConnectionRow)?.Record;
         var rows = records
             .Where(r => _selectedProcess == null || KeyOf(r).Equals(_selectedProcess, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(r => r.LastSeen).Select(r => new ConnectionRow(r)).ToList();
         ConnectionList.ItemsSource = rows;
         if (selected != null) ConnectionList.SelectedItem = rows.FirstOrDefault(r => r.Record == selected);
+        if (MapToggle.IsChecked == true) UpdateMonitorMap(rows.Select(r => r.Record));
+    }
+
+    // ---------------------------------------------------------------- Suche, Karte und Tage im Netzwerkmonitor
+
+    private void MonitorSearch_Changed(object sender, TextChangedEventArgs e)
+    {
+        MonitorSearchHint.Visibility = MonitorSearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var terms = MonitorSearchBox.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (terms.SequenceEqual(_searchTerms)) return;
+        _searchTerms = terms;
+        // „land:DE“ / „country:DE“ (setzt ein Doppelklick auf der Karte): genau dieses Land, nicht jeder Text, der den Namen enthält.
+        static string? CountryCode(string t)
+        {
+            foreach (var prefix in new[] { "land:", "country:" })
+                if (t.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && t.Length == prefix.Length + 2) return t[prefix.Length..].ToUpperInvariant();
+            return null;
+        }
+        _searchCountries = terms.Select(CountryCode).OfType<string>().ToArray();
+        _searchWords = terms.Where(t => CountryCode(t) == null).ToArray();
+        _historyVersion = -1; // Programmliste und Verbindungen beim nächsten Takt neu – hier gleich
+        Tick();
+    }
+
+    private static bool Contains(string text, string term) =>
+        System.Globalization.CultureInfo.CurrentCulture.CompareInfo.IndexOf(text, term,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+
+    private bool MatchesText(string text) => _searchWords.All(t => Contains(text, t));
+
+    /// <summary>Passt eine Zeile zur Suche? Durchsucht werden Programmname, Pfad, Dienst, Gegenstelle, Adresse, Port, Protokoll, Land,
+    /// Zustand und Richtung; Groß-/Kleinschreibung und Akzente zählen nicht („osterreich“ findet „Österreich“).</summary>
+    private bool MatchesSearch(ConnectionRecord r, string name)
+    {
+        var state = r.Allowed switch
+        {
+            true => Loc.T("Erlaubt", "Allowed"), false => Loc.T("Verboten", "Denied"),
+            _ => r.Pending ? Loc.T("Fragt …", "Asking…") : Loc.T("Ohne Regel", "No rule"),
+        };
+        var text = string.Join(" ", name, r.ProcessPath, r.Service, r.Host, r.Remote.ToString(), r.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            r.Protocol == Proto.Tcp ? "TCP" : "UDP", CountryName(r.Remote), state,
+            r.Direction == Direction.Outgoing ? Loc.T("→ ausgehend", "→ outgoing") : Loc.T("← eingehend", "← incoming"));
+        if (_searchCountries.Length > 0)
+        {
+            var code = GeoData.Current?.CountryOf(r.Remote.ToAddress());
+            if (code == null || !_searchCountries.Contains(code)) return false;
+        }
+        return MatchesText(text);
+    }
+
+    /// <summary>Land einer Gegenadresse in der Sprache von SnitchBox (leer ohne Ländertabelle, bei privaten Adressen oder unbekannt).</summary>
+    private string CountryName(IpKey remote)
+    {
+        var geo = GeoData.Current;
+        if (geo == null) return "";
+        if (geo != _countryNamesFrom || _countryNames.Count > 20_000)
+        {
+            _countryNames.Clear();
+            _countryNamesFrom = geo;
+        }
+        if (_countryNames.TryGetValue(remote, out var known)) return known;
+        var code = geo.CountryOf(remote.ToAddress());
+        return _countryNames[remote] = code == null ? "" : WorldMap.Default.Find(code)?.Name ?? code;
+    }
+
+    /// <summary>Karte statt Liste, Tage statt Rate – wie die Umschalter stehen.</summary>
+    private void ApplyMonitorView()
+    {
+        var map = MapToggle.IsChecked == true;
+        MonitorMapFrame.Visibility = map ? Visibility.Visible : Visibility.Collapsed;
+        ConnectionList.Visibility = map ? Visibility.Collapsed : Visibility.Visible;
+        var days = DaysToggle.IsChecked == true;
+        DayChart.Visibility = days ? Visibility.Visible : Visibility.Collapsed;
+        ChartArea.Visibility = days ? Visibility.Collapsed : Visibility.Visible;
+        if (!days) ChartTitle.Text = Loc.T("Datenverkehr gesamt", "Total traffic");
+    }
+
+    private void MapToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var on = MapToggle.IsChecked == true;
+        App.Engine.Mutate(s => s.Settings.MonitorMap = on);
+        ApplyMonitorView();
+        if (on && ConnectionList.ItemsSource is IEnumerable<ConnectionRow> rows) UpdateMonitorMap(rows.Select(r => r.Record));
+    }
+
+    private void DaysToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var on = DaysToggle.IsChecked == true;
+        App.Engine.Mutate(s => s.Settings.MonitorDays = on);
+        ApplyMonitorView();
+        if (on) UpdateDayChart();
+        else DrawChart();
+    }
+
+    /// <summary>Balken je Tag für das gewählte Programm (ein Windows-Dienst: alle Dienste zusammen, wie die Programmzählung), höchstens
+    /// 60 Tage; ohne Verlauf eine Woche (nur heute hat Daten).</summary>
+    private void UpdateDayChart()
+    {
+        _dailyVersion = App.Engine.Daily.Version;
+        var days = App.Engine.Read(s => s.Settings.HistoryDays);
+        var count = days <= 0 ? 7 : Math.Min(days, 60); // = HistoryKeepFrom: heute und die Tage davor
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var key = _selectedProcess;
+        var path = key?.Split('|')[0];
+        // „Alle Programme“ bei einer Suche: nur die gefundenen (wie die Summe in der Liste).
+        var found = path == null && _searchTerms.Length > 0;
+        IReadOnlyCollection<string>? paths = path != null ? [path]
+            : found ? _processRows.Skip(1).Select(r => r.Path!.Split('|')[0]).ToHashSet(StringComparer.OrdinalIgnoreCase) : null;
+        var series = App.Engine.Daily.Series(paths, today.AddDays(-(count - 1)), today);
+        DayChart.Series = series;
+        ChartTitle.Text = path != null ? Loc.F("Datenmenge je Tag, {0}, {1} Tage", "Data volume per day, {0}, {1} days", DisplayName(path), count)
+            : found ? Loc.F("Datenmenge je Tag, gefundene Programme, {0} Tage", "Data volume per day, programs found, {0} days", count)
+            : Loc.F("Datenmenge je Tag, alle Programme, {0} Tage", "Data volume per day, all programs, {0} days", count);
+        DownText.Text = "↓ " + Ui.Size(series.Sum(d => d.Down));
+        UpText.Text = "↑ " + Ui.Size(series.Sum(d => d.Up));
+    }
+
+    /// <summary>Land laut Windows-Region (Einstellungen → Zeit und Sprache) – ohne Netzabfrage; Ausgangspunkt der Linien auf der Karte.</summary>
+    private static MapCountry? HomeCountry()
+    {
+        try { return WorldMap.Default.Find(System.Globalization.RegionInfo.CurrentRegion.TwoLetterISORegionName); }
+        catch (Exception) { return null; }
+    }
+
+    private sealed class CountryAgg
+    {
+        public long Down, Up;
+        public int Allowed, Denied, Open;
+        public bool Active;
+        public readonly List<ConnectionRecord> Records = [];
+    }
+
+    /// <summary>Weltkarte des Netzwerkmonitors: je Land ein Punkt mit der Zahl der Gegenstellen (rot, wenn alle Verbindungen dorthin
+    /// verboten sind), Linien von deinem Land aus; gerade übertragende kräftig, die übrigen blass.</summary>
+    private void UpdateMonitorMap(IEnumerable<ConnectionRecord> rows)
+    {
+        var geo = GeoData.Current;
+        MonitorMapEmpty.Visibility = geo == null ? Visibility.Visible : Visibility.Collapsed;
+        if (geo == null)
+        {
+            MonitorMap.SetRoutes([], []);
+            MonitorMapInfo.Text = Loc.T("Keine Ländertabelle", "No country table");
+            return;
+        }
+        var map = WorldMap.Default;
+        var home = HomeCountry();
+        var byCountry = new Dictionary<MapCountry, CountryAgg>();
+        // Gezählt werden überall Zeilen („Gegenstellen“ wie in der Programmliste), auch im eigenen Netz und ohne Land.
+        int local = 0, unknown = 0;
+        foreach (var r in rows)
+        {
+            var address = r.Remote.ToAddress();
+            if (GeoIp.ScopeOf(address) != AddressScope.Public) { local++; continue; }
+            if (map.Find(geo.CountryOf(address)) is not { } country) { unknown++; continue; }
+            if (!byCountry.TryGetValue(country, out var agg)) byCountry[country] = agg = new CountryAgg();
+            agg.Down += r.Down;
+            agg.Up += r.Up;
+            agg.Active |= r.RateDown > 0 || r.RateUp > 0;
+            if (r.Allowed == true) agg.Allowed++;
+            else if (r.Allowed == false) agg.Denied++;
+            else agg.Open++;
+            agg.Records.Add(r);
+        }
+        var stops = new List<MapStop>();
+        var segments = new List<MapSegment>();
+        foreach (var (country, agg) in byCountry)
+        {
+            var tip = new List<string> { country.Name, Loc.F("{0} Gegenstellen · ↓ {1} ↑ {2}", "{0} remotes · ↓ {1} ↑ {2}", agg.Records.Count, Ui.Size(agg.Down), Ui.Size(agg.Up)) };
+            if (country == home) tip.Add(Loc.T("Dein Land laut Windows-Region", "Your country according to the Windows region"));
+            if (agg.Active) tip.Add(Loc.T("Gerade aktiv", "Active right now"));
+            if (agg.Denied > 0) tip.Add(Loc.F("{0} Verbindungen verboten", "{0} connections denied", agg.Denied));
+            foreach (var r in agg.Records.OrderByDescending(r => r.Down + r.Up).ThenByDescending(r => r.LastSeen).Take(8))
+                tip.Add($"{r.Host} · {DisplayName(KeyOf(r))}" + (r.Down + r.Up > 0 ? $" · {Ui.Size(r.Down + r.Up)}" : ""));
+            if (agg.Records.Count > 8) tip.Add(Loc.F("… und {0} weitere", "… and {0} more", agg.Records.Count - 8));
+            tip.Add(Loc.T("Doppelklick: in der Liste zeigen", "Double-click: show in the list"));
+            var kind = agg.Denied > 0 && agg.Allowed == 0 && agg.Open == 0 ? StopKind.Blocked : StopKind.End;
+            stops.Add(new MapStop(country, agg.Records.Count.ToString(), string.Join("\n", tip), kind));
+            if (home != null && country != home) segments.Add(new MapSegment(home, country, agg.Active, kind == StopKind.Blocked));
+        }
+        if (home != null && !byCountry.ContainsKey(home) && byCountry.Count > 0)
+            stops.Add(new MapStop(home, "▶", home.Name + "\n" + Loc.T("Dein Land laut Windows-Region", "Your country according to the Windows region"), StopKind.Start));
+        stops = stops.OrderBy(s => s.Kind switch { StopKind.Start => 2, _ => 1 }).ToList();
+        MonitorMap.SetRoutes(stops, segments, fadeOthers: true);
+        var info = Loc.F("{0} Gegenstellen in {1} Ländern", "{0} remotes in {1} countries", byCountry.Values.Sum(a => a.Records.Count), byCountry.Count);
+        if (byCountry.Values.Count(a => a.Active) is var active and > 0) info += " · " + Loc.F("{0} Länder gerade aktiv", "{0} countries active right now", active);
+        if (local > 0) info += " · " + Loc.F("{0} im eigenen Netz", "{0} in the local network", local);
+        if (unknown > 0) info += " · " + Loc.F("{0} ohne Land", "{0} without country", unknown);
+        MonitorMapInfo.Text = info;
+    }
+
+    private void MonitorMapZoomIn_Click(object sender, RoutedEventArgs e) => MonitorMap.ZoomBy(1.5);
+    private void MonitorMapZoomOut_Click(object sender, RoutedEventArgs e) => MonitorMap.ZoomBy(1 / 1.5);
+    private void MonitorMapFit_Click(object sender, RoutedEventArgs e) => MonitorMap.FitRoute();
+    private void MonitorMapWorld_Click(object sender, RoutedEventArgs e) => MonitorMap.FitWorld();
+    private void MonitorDbIp_Click(object sender, RoutedEventArgs e) => DesktopShell.OpenUrl(this, GeoData.AttributionUrl);
+
+    private bool _geoDownloading;
+
+    private async void MonitorMapDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (_geoDownloading) return;
+        if (MessageBox.Show(this,
+                Loc.T("Für die Karte braucht SnitchBox eine Ländertabelle: „IP to Country Lite“ von DB-IP (rund 4 MB, Lizenz CC BY 4.0).\n\n" +
+                      "Sie wird einmal von download.db-ip.com geladen und auf diesem PC gespeichert. Dabei werden keine Adressen übertragen – " +
+                      "welches Land zu einem Router gehört, ermittelt SnitchBox hier.\n\nJetzt herunterladen?",
+                      "For the map, SnitchBox needs a country table: “IP to Country Lite” by DB-IP (about 4 MB, license CC BY 4.0).\n\n" +
+                      "It is downloaded once from download.db-ip.com and stored on this PC. No addresses are sent – SnitchBox determines " +
+                      "the country of each router right here.\n\nDownload now?"),
+                App.Title, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        _geoDownloading = true;
+        try
+        {
+            var error = await GeoData.DownloadAsync(CancellationToken.None);
+            if (error != null) MessageBox.Show(this, error, App.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            _historyVersion = -1; // Länder in Suche und Karte
+            Tick();
+            if (MapToggle.IsChecked == true && ConnectionList.ItemsSource is IEnumerable<ConnectionRow> rows) UpdateMonitorMap(rows.Select(r => r.Record));
+        }
+        finally { _geoDownloading = false; }
     }
 
     private void ProcessList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -808,6 +1086,7 @@ public partial class MainWindow : Window
         if (_loading) return;
         _selectedProcess = (ProcessList.SelectedItem as ProcessRow)?.Path;
         ShowConnections();
+        if (DaysToggle.IsChecked == true) UpdateDayChart();
     }
 
     private void MonitorRule(bool allow)
@@ -871,8 +1150,16 @@ public partial class MainWindow : Window
 
     private void MonitorClear_Click(object sender, RoutedEventArgs e)
     {
+        var days = App.Engine.Read(s => s.Settings.HistoryDays);
+        if (days > 0 && MessageBox.Show(this,
+                Loc.F("Den Verlauf des Netzwerkmonitors löschen – alle Verbindungen und Datenmengen der letzten {0} Tage? Das lässt sich nicht rückgängig machen.",
+                      "Delete the Network Monitor history – all connections and data volumes of the last {0} days? This cannot be undone.", days),
+                App.Title, MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) != MessageBoxResult.OK) return;
         App.Engine.History.Clear();
         App.Engine.Traffic.Clear();
+        App.Engine.Daily.Clear();
+        App.DeleteHistory(); // auch der gespeicherte Verlauf
+        _dailyVersion = -1;
         Tick();
     }
 
@@ -940,6 +1227,18 @@ public partial class MainWindow : Window
         IncomingBox.IsChecked = s.MonitorIncoming;
         AutoUpdateBox.IsChecked = s.BlocklistAutoUpdate;
         GroupListsBox.IsChecked = s.GroupLists;
+        // Verlauf aufheben: aus, 7, 30, 90 Tage, ein Jahr (ein anderer Wert aus der Datei erscheint als eigener Eintrag).
+        _loading = true;
+        var historyDays = App.Engine.Read(st => st.Settings.HistoryDays);
+        HistoryDaysBox.Items.Clear();
+        foreach (var d in new[] { 0, 7, 30, 90, 365 }.Union([Math.Max(0, historyDays)]).Order())
+            HistoryDaysBox.Items.Add(new ComboBoxItem
+            {
+                Tag = d,
+                Content = d == 0 ? Loc.T("Nur bis zum Beenden", "Only until SnitchBox quits") : d == 365 ? Loc.T("1 Jahr", "1 year") : Loc.F("{0} Tage", "{0} days", d),
+            });
+        HistoryDaysBox.SelectedItem = HistoryDaysBox.Items.Cast<ComboBoxItem>().First(i => (int)i.Tag == Math.Max(0, historyDays));
+        _loading = false;
         _autostart ??= !App.DemoMode && Autostart.Enabled;
         AutostartBox.IsChecked = _autostart;
         AutostartBox.IsEnabled = !App.DemoMode;
@@ -1032,6 +1331,17 @@ public partial class MainWindow : Window
     {
         var on = AutoUpdateBox.IsChecked == true;
         App.Engine.Mutate(s => s.Settings.BlocklistAutoUpdate = on);
+    }
+
+    private void HistoryDays_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || HistoryDaysBox.SelectedItem is not ComboBoxItem { Tag: int days }) return;
+        if (App.Engine.Read(s => s.Settings.HistoryDays) == days) return;
+        App.Engine.Mutate(s => s.Settings.HistoryDays = days);
+        if (days == 0) App.DeleteHistory(); // nichts mehr aufheben
+        else App.SaveHistory(background: true, force: true); // auf die neue Dauer kürzen und sichern
+        _historyVersion = -1;
+        _dailyVersion = -1;
     }
 
     private void GroupLists_Click(object sender, RoutedEventArgs e)

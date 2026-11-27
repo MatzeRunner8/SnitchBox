@@ -46,7 +46,7 @@ public sealed class App : Application
     private Tray? _tray;
     private MainWindow? _main;
     private AlertWindow? _alert;
-    private DispatcherTimer? _housekeeping;
+    private DispatcherTimer? _housekeeping, _historyTimer;
     private Demo? _demo;
 
     internal static FirewallEngine Engine { get; private set; } = null!;
@@ -132,6 +132,7 @@ public sealed class App : Application
         // Vor dem ersten Lesen oder Schreiben: der Datenordner darf nur für Administratoren beschreibbar sein. Das gilt
         // auch im Demo-Modus (die .exe läuft immer mit Administratorrechten); dessen Daten liegen getrennt im Unterordner „demo“.
         FolderSecurity.HardenDataDir(Paths.DefaultDataDir);
+        HistoryFile.PrepareDirectory = FolderSecurity.EnsurePrivateDir; // Verlauf: Ordner nie mit „Benutzer lesen“ anlegen
         if (DemoMode) Paths.Override = Path.Combine(Paths.DefaultDataDir, "demo");
 
         Log.Write("— " + Title + " — " + Environment.ProcessPath + (DemoMode ? " (Demo)" : ""));
@@ -178,6 +179,8 @@ public sealed class App : Application
         Service = new FilterService();
         _demo = DemoMode ? new Demo() : null;
         Engine = new FirewallEngine(store, DemoMode ? _demo! : Service, BootId.Current()) { SelfPath = Environment.ProcessPath ?? "" };
+        // Verlauf des Netzwerkmonitors von früher – vor dem ersten neuen Eintrag.
+        LoadHistory();
         if (DemoMode) _demo!.Start(Engine);
         else
         {
@@ -196,6 +199,11 @@ public sealed class App : Application
         _housekeeping = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
         _housekeeping.Tick += (_, _) => UpdateBlocklists();
         _housekeeping.Start();
+        // Alle fünf Minuten den Verlauf sichern (nur wenn sich etwas geändert hat); dazu beim Beenden und beim Abmelden.
+        _historyTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
+        _historyTimer.Tick += (_, _) => SaveHistory(background: true);
+        _historyTimer.Start();
+        SessionEnding += (_, _) => SaveHistory(background: false);
         Dispatcher.BeginInvoke(UpdateBlocklists, DispatcherPriority.ApplicationIdle);
 
         var waiter = new Thread(() =>
@@ -376,12 +384,117 @@ public sealed class App : Application
     private void Quit()
     {
         _housekeeping?.Stop();
+        _historyTimer?.Stop();
+        SaveHistory(background: false);
         _demo?.Stop();
         Service.Dispose();
         NetworkWatcher?.Dispose();
         _tray?.Dispose();
         Log.Write("Beendet");
         Shutdown();
+    }
+
+    private static (long, long, long) _savedHistory = (-1, -1, -1);
+    private static readonly object HistoryGate = new();
+    private static int _historySaving;
+    // Steigt mit jedem Löschen: ein Sichern, das vorher begann, schreibt dann nichts mehr zurück.
+    private static long _historyGeneration;
+    // Die Datei war beim Start gesperrt (ein anderes Programm hielt sie offen): in dieser Sitzung nicht überschreiben.
+    private static bool _historyLocked;
+
+    /// <summary>Erster Tag, dessen Datenmengen zum Verlauf gehören (heute und die Tage davor, zusammen <paramref name="days"/>).</summary>
+    internal static DateOnly HistoryKeepFrom(int days) => HistoryFile.KeepFrom(days, DateTime.Now);
+
+    /// <summary>Gespeicherten Verlauf laden (<see cref="Settings.HistoryDays"/> > 0), auf die eingestellten Tage gekürzt; die Zeilen
+    /// zeigen danach, wie die geltenden Regeln entscheiden. Ein Fehler im Verlauf hält den Start nie auf.</summary>
+    private static void LoadHistory()
+    {
+        var days = Engine.Read(s => s.Settings.HistoryDays);
+        if (days <= 0) return;
+        var path = HistoryFile.DefaultPath;
+        try
+        {
+            var data = HistoryFile.Load(path, out var locked);
+            if (locked) { _historyLocked = true; return; }
+            if (data == null) return;
+            // Zeilen und Datenmengen mit derselben Grenze (ab Mitternacht des ersten aufgehobenen Tages).
+            var now = DateTime.Now;
+            var keepFrom = HistoryFile.KeepFrom(days, now);
+            Engine.History.Restore(data.Connections, HistoryFile.RowCutoff(days, now), keepFrom);
+            Engine.Daily.Restore(data.Days, keepFrom);
+            Engine.ReevaluateHistory();
+            lock (HistoryGate) _savedHistory = (Engine.History.Version, Engine.History.VolumeVersion, Engine.Daily.Version);
+            Log.Write($"Verlauf geladen: {Engine.History.Snapshot().Count} Zeilen");
+        }
+        catch (Exception e)
+        {
+            Engine.History.Clear();
+            Engine.Daily.Clear();
+            HistoryFile.SetAside(path, e.Message);
+        }
+    }
+
+    /// <summary>Verlauf sichern, wenn er sich seit dem letzten Mal geändert hat (vorher auf die eingestellten Tage kürzen; ist die Datei zu
+    /// groß, fallen die ältesten Tage weg). <paramref name="background"/>: im Thread-Pool schreiben (Zeitgeber), sonst sofort.</summary>
+    internal static void SaveHistory(bool background, bool force = false)
+    {
+        var days = Engine.Read(s => s.Settings.HistoryDays);
+        if (days <= 0 || _historyLocked) return;
+        var now = DateTime.Now;
+        var keepFrom = HistoryFile.KeepFrom(days, now);
+        Engine.History.Prune(HistoryFile.RowCutoff(days, now), keepFrom);
+        Engine.Daily.Prune(keepFrom);
+        var version = (Engine.History.Version, Engine.History.VolumeVersion, Engine.Daily.Version);
+        long generation;
+        lock (HistoryGate)
+        {
+            if (!force && version == _savedHistory) return;
+            generation = _historyGeneration;
+        }
+        var data = new HistoryData { Connections = Engine.History.Export(), Days = Engine.Daily.Export() };
+        void Write()
+        {
+            lock (HistoryGate)
+            {
+                // Inzwischen gelöscht oder ausgeschaltet: nichts zurückschreiben.
+                if (generation != _historyGeneration || Engine.Read(s => s.Settings.HistoryDays) <= 0) return;
+                try
+                {
+                    var keep = days;
+                    while (!HistoryFile.Save(HistoryFile.DefaultPath, data))
+                    {
+                        if (keep <= 1) { Log.Write("Verlauf zu groß, nicht gesichert"); return; }
+                        keep /= 2; // die ältere Hälfte der Tage weglassen
+                        var from = HistoryKeepFrom(keep).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                        data.Days = data.Days.Where(d => string.CompareOrdinal(d.Day, from) >= 0).ToList();
+                        foreach (var c in data.Connections) c.Days = c.Days?.Where(d => string.CompareOrdinal(d.Day, from) >= 0).ToList();
+                        Log.Write($"Verlauf zu groß, Tage vor {from} nicht gesichert");
+                    }
+                    _savedHistory = version;
+                }
+                catch (Exception e) { Log.Write("Verlauf speichern: " + e.Message); }
+            }
+        }
+        if (!background) { Write(); return; }
+        // Höchstens ein Schreibvorgang zugleich; der nächste Takt holt Versäumtes nach.
+        if (Interlocked.Exchange(ref _historySaving, 1) == 1) return;
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try { Write(); }
+            finally { Volatile.Write(ref _historySaving, 0); }
+        });
+    }
+
+    /// <summary>„Verlauf leeren“ oder Verlauf ausgeschaltet: die gespeicherten Dateien entfernen (auch eine beiseitegelegte Kopie).</summary>
+    internal static void DeleteHistory()
+    {
+        lock (HistoryGate)
+        {
+            _historyGeneration++;
+            HistoryFile.Delete(HistoryFile.DefaultPath);
+            _savedHistory = (-1, -1, -1);
+            _historyLocked = false;
+        }
     }
 
     internal static string ErrorText(Exception e)
@@ -807,7 +920,9 @@ internal sealed class Demo : IProcessLookup
     private void FeedTraffic(FirewallEngine engine)
     {
         var allowed = engine.History.Snapshot().Where(r => r.Allowed == true).Select(r => r.ProcessPath).Distinct().ToList();
-        engine.Traffic.Commit(allowed.Select(path => (path, (long)_random.Next(2_000, 900_000), (long)_random.Next(500, 60_000))), 1);
+        var interval = allowed.Select(path => (path, (long)_random.Next(2_000, 900_000), (long)_random.Next(500, 60_000))).ToList();
+        engine.Traffic.Commit(interval, 1);
+        engine.Daily.Add(DateOnly.FromDateTime(DateTime.Now), interval);
         // Auch je Gegenstelle (die Engine ordnet nur Verbindungen zu, die sie selbst entschieden hat; verbotene bekommen nichts).
         // Je Beispiel nur die jüngste Verbindung – sonst stiege die Menge mit jeder neuen Verbindung immer weiter.
         engine.History.AddVolumes(Enumerable.Range(0, Samples.Length).Where(i => _latest[i] != 0).Select(i => (

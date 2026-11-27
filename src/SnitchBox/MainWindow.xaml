@@ -153,11 +153,15 @@
                                 <Polyline x:Name="DownLine" Stroke="#2E8BE6" StrokeThickness="1.6" StrokeLineJoin="Round"/>
                                 <Polyline x:Name="UpLine" Stroke="#E08A2E" StrokeThickness="1.6" StrokeLineJoin="Round"/>
                             </Grid>
+                            <l:DailyChart x:Name="DayChart" Margin="0,20,0,0" Visibility="Collapsed"/>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                                <TextBlock Text="{l:L de='Datenverkehr gesamt', en='Total traffic'}" Style="{StaticResource Dim}" Margin="0,0,18,0"/>
+                                <TextBlock x:Name="ChartTitle" Text="{l:L de='Datenverkehr gesamt', en='Total traffic'}" Style="{StaticResource Dim}" Margin="0,0,18,0"/>
                                 <TextBlock x:Name="DownText" Foreground="#2E8BE6" Margin="0,0,14,0"/>
                                 <TextBlock x:Name="UpText" Foreground="#E08A2E"/>
                             </StackPanel>
+                            <ToggleButton x:Name="DaysToggle" HorizontalAlignment="Right" VerticalAlignment="Top" Padding="10,1" Margin="0,-3,0,0" Click="DaysToggle_Click"
+                                          Content="{l:L de='Je Tag', en='Per day'}"
+                                          ToolTip="{l:L de='Datenmenge je Tag (Verlauf) statt der Rate der letzten zwei Minuten – für das gewählte Programm', en='Data volume per day (history) instead of the rate of the last two minutes – for the selected program'}"/>
                         </Grid>
                     </Border>
                     <ListView x:Name="ProcessList" Grid.Row="1" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="ProcessList_SelectionChanged"
@@ -234,18 +238,59 @@
                                 <GridViewColumn Header="{l:L de='Port', en='Port'}" Width="82" DisplayMemberBinding="{Binding PortText}"/>
                                 <GridViewColumn Header="{l:L de='Richtung', en='Direction'}" Width="116" DisplayMemberBinding="{Binding DirectionText}"/>
                                 <GridViewColumn Header="{l:L de='Anzahl', en='Count'}" Width="77" DisplayMemberBinding="{Binding Count}"/>
-                                <GridViewColumn Header="{l:L de='Daten', en='Data'}" Width="148">
+                                <GridViewColumn Header="{l:L de='Daten', en='Data'}" Width="136">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding VolumeText}" ToolTip="{Binding VolumeTip}" TextTrimming="CharacterEllipsis"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="{l:L de='Zuletzt', en='Last'}" Width="80" DisplayMemberBinding="{Binding Last}"/>
+                                <GridViewColumn Header="{l:L de='Zuletzt', en='Last'}" Width="92">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Last}" ToolTip="{Binding LastTip}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
                             </GridView>
                         </ListView.View>
                     </ListView>
-                    <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0">
+                    <!-- Weltkarte statt der Verbindungsliste (Umschalter unten): Gegenstellen je Land, live. -->
+                    <Border x:Name="MonitorMapFrame" Grid.Row="1" Grid.Column="2" CornerRadius="8" BorderBrush="#40808080" BorderThickness="1" Padding="1" Visibility="Collapsed">
+                        <Grid ClipToBounds="True">
+                            <l:MapView x:Name="MonitorMap"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8">
+                                <Button Width="32" Padding="0,3" Content="+" FontWeight="SemiBold" Click="MonitorMapZoomIn_Click" ToolTip="{l:L de='Vergrößern (Mausrad)', en='Zoom in (mouse wheel)'}"/>
+                                <Button Width="32" Padding="0,3" Margin="4,0,0,0" Content="−" FontWeight="SemiBold" Click="MonitorMapZoomOut_Click" ToolTip="{l:L de='Verkleinern', en='Zoom out'}"/>
+                                <Button Padding="10,3" Margin="8,0,0,0" Content="{l:L de='Ziele', en='Destinations'}" Click="MonitorMapFit_Click" ToolTip="{l:L de='Ausschnitt auf alle Ziele', en='Zoom to all destinations'}"/>
+                                <Button Padding="10,3" Margin="4,0,0,0" Content="{l:L de='Welt', en='World'}" Click="MonitorMapWorld_Click" ToolTip="{l:L de='Ganze Welt zeigen', en='Show the whole world'}"/>
+                            </StackPanel>
+                            <Grid VerticalAlignment="Bottom" Margin="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource Card}" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="#D0303030">
+                                    <TextBlock x:Name="MonitorMapInfo" Foreground="White" FontSize="12" TextWrapping="Wrap"/>
+                                </Border>
+                                <!-- Wie die Zeile links auf dunklem Grund: über hellen und orangefarbenen Ländern sonst kaum lesbar. -->
+                                <Border Grid.Column="1" Style="{StaticResource Card}" Padding="8,3" Margin="12,0,0,0" VerticalAlignment="Bottom" Background="#D0303030">
+                                    <TextBlock FontSize="12">
+                                        <Hyperlink Click="MonitorDbIp_Click" Foreground="#FFE8E8E8"><Run Text="IP Geolocation by DB-IP"/></Hyperlink>
+                                    </TextBlock>
+                                </Border>
+                            </Grid>
+                            <Border x:Name="MonitorMapEmpty" Style="{StaticResource Card}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Padding="18,14"
+                                    Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock TextWrapping="Wrap" Text="{l:L de='Für die Karte braucht SnitchBox die Ländertabelle von DB-IP (rund 4 MB, Lizenz CC BY 4.0). Die Zuordnung geschieht danach auf diesem PC.', en='For the map, SnitchBox needs the country table by DB-IP (about 4 MB, license CC BY 4.0). Countries are then looked up on this PC.'}"/>
+                                    <Button HorizontalAlignment="Left" Margin="0,10,0,0" Padding="14,5" Click="MonitorMapDownload_Click" Content="{l:L de='Ländertabelle laden …', en='Download Country Table…'}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0" LastChildFill="False">
+                        <TextBlock x:Name="MonitorHint" DockPanel.Dock="Bottom" Margin="0,8,0,0" Style="{StaticResource Dim}" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                             <Button Padding="12,5" Margin="0,0,12,0" Content="{l:L de='Route verfolgen …', en='Trace Route…'}" Click="MonitorTrace_Click"
                                     ToolTip="{l:L de='Den Weg zur gewählten Gegenstelle verfolgen (wie tracert) – ohne gewählte Verbindung alle Ziele des gewählten Programms; auf Wunsch auf einer Weltkarte', en='Trace the route to the selected remote (like tracert) – without a selected connection all destinations of the selected program; optionally on a world map'}"/>
@@ -253,8 +298,16 @@
                             <Button Style="{StaticResource DenyButton}" Margin="0,0,6,0" Content="{l:L de='Verbieten …', en='Deny…'}" Click="MonitorDeny_Click" ToolTip="{l:L de='Regel anlegen, die die gewählte Verbindung verbietet', en='Create a rule that denies the selected connection'}"/>
                             <Button Padding="12,5" Content="{l:L de='Verlauf leeren', en='Clear History'}" Click="MonitorClear_Click" Margin="12,0,0,0"/>
                         </StackPanel>
-                        <TextBlock Style="{StaticResource Dim}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Text="{l:L de='Verbindungen und Datenmengen seit dem Start von SnitchBox. ↓ empfangen, ↑ gesendet; in Klammern die aktuelle Rate.', en='Connections and data volumes since SnitchBox started. ↓ received, ↑ sent; current rate in parentheses.'}"/>
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" Margin="0,0,14,0">
+                            <Grid MinWidth="150" MaxWidth="270" Width="270" VerticalAlignment="Center">
+                                <TextBox x:Name="MonitorSearchBox" TextChanged="MonitorSearch_Changed" VerticalContentAlignment="Center"
+                                         ToolTip="{l:L de='Durchsucht Programme, Gegenstellen, Adressen, Ports, Länder und Zustand; mehrere Wörter müssen alle passen.', en='Searches programs, remotes, addresses, ports, countries and state; several words must all match.'}"/>
+                                <TextBlock x:Name="MonitorSearchHint" IsHitTestVisible="False" Margin="12,0,0,0" VerticalAlignment="Center" Opacity="0.5"
+                                           Text="{l:L de='Suchen: Programm, Land, Port …', en='Search: program, country, port…'}"/>
+                            </Grid>
+                            <ToggleButton x:Name="MapToggle" Margin="8,0,0,0" Padding="12,5" Click="MapToggle_Click" Content="{l:L de='Weltkarte', en='World Map'}"
+                                          ToolTip="{l:L de='Die Gegenstellen auf einer Weltkarte statt in der Liste – live, je Land', en='The remotes on a world map instead of the list – live, per country'}"/>
+                        </StackPanel>
                     </DockPanel>
                 </Grid>
             </TabItem>
@@ -303,6 +356,12 @@
                         <CheckBox x:Name="AutoUpdateBox" Click="AutoUpdate_Click" Margin="0,6,0,0" Content="{l:L de='Blocklisten täglich aktualisieren', en='Update blocklists daily'}"/>
                         <CheckBox x:Name="GroupListsBox" Click="GroupLists_Click" Margin="0,6,0,0" Content="{l:L de='Programme nach Art gruppieren (KI, Browser, Windows …)', en='Group programs by type (AI, browsers, Windows …)'}"
                                   ToolTip="{l:L de='Regelliste und Netzwerkmonitor zeigen die Programme in Gruppen mit Überschrift; ausgeblendet wird nichts.', en='The rule list and the Network Monitor show the programs in groups with headings; nothing is hidden.'}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Text="{l:L de='Verlauf des Netzwerkmonitors aufheben', en='Keep the Network Monitor history'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="HistoryDaysBox" MinWidth="220" SelectionChanged="HistoryDays_Changed"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="{l:L de='Verbindungen und Datenmengen je Tag bleiben auch über einen Neustart erhalten (im Datenordner von SnitchBox, nur für Administratoren lesbar). „Verlauf leeren“ im Netzwerkmonitor löscht alles.', en='Connections and data volumes per day are kept across restarts (in the SnitchBox data folder, readable only by administrators). “Clear History” in the Network Monitor deletes everything.'}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <TextBlock Text="{l:L de='Sprache', en='Language'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <ComboBox x:Name="LanguageBox" MinWidth="220" SelectionChanged="LanguageBox_SelectionChanged"/>

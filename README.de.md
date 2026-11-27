@@ -25,6 +25,8 @@ oder `SnitchBox.exe` (eine Datei, braucht die .NET Desktop Runtime 10). Beide br
 - Profile wechseln automatisch je Netzwerk (etwa „Zuhause“ am eigenen Router, „Unterwegs“ überall sonst); ein von Hand gewähltes Profil gilt bis zum nächsten Netzwerkwechsel
 - Verbieten wirkt sofort: bestehende Verbindungen, die eine Regeländerung neu verbietet, werden getrennt (IPv4 und IPv6)
 - Netzwerkmonitor: jeder Verbindungsaufbau je Programm und Gegenstelle, Datenmengen und aktuelle Rate je Programm, Datenmengen je Gegenstelle (Rate im Tooltip), Gesamtdatenrate, Regel direkt aus einer Zeile
+- Verlauf des Netzwerkmonitors über Neustarts (voreingestellt 30 Tage, einstellbar oder aus), Datenmenge je Tag als Balkendiagramm, ein
+  Suchfeld (Programm, Gegenstelle, Adresse, Port, Land, Zustand) und eine Live-Weltkarte aller Gegenstellen je Land
 - „Wohin sendet dieses Programm?“: ein Programm im Netzwerkmonitor wählen und alle seine Ziele auf einmal verfolgen – eine Liste mit
   Land, Hops, Zeit und Datenmenge und alle Wege zusammen auf der Weltkarte (das gewählte Ziel hervorgehoben)
 - Route verfolgen zu jeder Gegenstelle (wie tracert, aber in etwa 2 Sekunden): jeder Hop mit Adresse, Routername und drei Antwortzeiten; auf Wunsch auf einer Weltkarte mit den Ländern der Router – die Ländertabelle (DB-IP, rund 4 MB) wird erst geladen, wenn du die Karte einschaltest; die Länder ermittelt SnitchBox auf dem PC, dafür geht keine Adresse an einen Dienst

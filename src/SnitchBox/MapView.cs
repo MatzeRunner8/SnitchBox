@@ -9,7 +9,8 @@ using SnitchBox.Core;
 
 namespace SnitchBox;
 
-public enum StopKind { Start, Hop, End }
+/// <summary>Art eines Punkts: Start (grün), Durchgang (blau), Ziel (orange), gesperrt (rot: alle Verbindungen dorthin verboten).</summary>
+public enum StopKind { Start, Hop, End, Blocked }
 
 /// <summary>Eine Station der Route auf der Karte: ein Land mit den Hops, die nacheinander dort liegen. Ohne Beschriftung ein kleiner
 /// Punkt (Durchgangsland in der Übersicht mehrerer Ziele).</summary>
@@ -49,6 +50,9 @@ public sealed class MapView : FrameworkElement
     private Point _dragFrom, _pressAt;
     private readonly ToolTip _tip = new() { Placement = PlacementMode.Relative };
     private MapStop? _tipFor;
+
+    /// <summary>Doppelklick auf einen Punkt (sonst zoomt ein Doppelklick hinein).</summary>
+    public event Action<MapStop>? StopDoubleClicked;
 
     public MapView()
     {
@@ -120,19 +124,34 @@ public sealed class MapView : FrameworkElement
 
     /// <summary>Übersicht mehrerer Ziele: je Land ein Punkt (vom Aufrufer zusammengefasst), die Wege als Stücke zwischen Ländern. Ist ein
     /// Ziel gewählt (Stücke mit Highlight), treten die übrigen Wege zurück und nur seine tragen Pfeile.</summary>
-    public void SetRoutes(IReadOnlyList<MapStop> markers, IReadOnlyList<MapSegment> segments) => Show(markers, segments, true);
+    /// <param name="fadeOthers">Wege ohne Highlight immer blass (Netzwerkmonitor: nur gerade übertragende kräftig – sonst wechselte die
+    /// ganze Karte jede Sekunde den Stil, sobald kurz nichts fließt).</param>
+    public void SetRoutes(IReadOnlyList<MapStop> markers, IReadOnlyList<MapSegment> segments, bool fadeOthers = false) => Show(markers, segments, true, fadeOthers);
 
-    private void Show(IReadOnlyList<MapStop> stops, IReadOnlyList<MapSegment> segments, bool multi)
+    private void Show(IReadOnlyList<MapStop> stops, IReadOnlyList<MapSegment> segments, bool multi, bool fadeOthers = false)
     {
         _stops = stops;
         _multi = multi;
-        _focus = multi && segments.Any(s => s.Highlight);
+        _focus = multi && (fadeOthers || segments.Any(s => s.Highlight));
         _lines = [];
         // Gewählte Wege zuletzt: sie liegen oben.
         foreach (var s in segments.OrderBy(s => s.Highlight))
             foreach (var part in MapProjection.GreatCircle(s.From.Lon, s.From.Lat, s.To.Lon, s.To.Lat))
                 _lines.Add(new Line(part.Select(p => P(p.Lon, p.Lat)).ToList(), s.Highlight, s.Dashed, s.NoArrow && !s.Highlight));
-        if (_tipFor != null && !stops.Contains(_tipFor)) CloseTip();
+        // Der Tooltip bleibt offen, solange das Land noch da ist; sein Text folgt den neuen Zahlen (die Karte des Monitors wird jede Sekunde neu
+        // gebaut – ein Vergleich der ganzen Station schlösse ihn sonst jedes Mal).
+        if (_tipFor != null)
+        {
+            // Nur in der Übersicht (je Land ein Punkt) genügt das Land; auf einem Weg kann ein Land mehrmals vorkommen.
+            var same = stops.FirstOrDefault(s => s.Country == _tipFor.Country && s.Label == _tipFor.Label)
+                       ?? (multi ? stops.FirstOrDefault(s => s.Country == _tipFor.Country) : null);
+            if (same == null) CloseTip();
+            else
+            {
+                _tipFor = same;
+                _tip.Content = same.Tip;
+            }
+        }
         if (!_userMoved) Fit(false);
         InvalidateVisual();
     }
@@ -223,7 +242,7 @@ public sealed class MapView : FrameworkElement
     private static readonly SolidColorBrush OceanLight = Brush(0xFFD9E7F4), LandLight = Brush(0xFFF6F3EC), BorderLight = Brush(0xFFB3AEA3),
         OceanDark = Brush(0xFF101A26), LandDark = Brush(0xFF2B3038), BorderDark = Brush(0xFF4D5560),
         RouteLight = Brush(0xFF1F7AE0), RouteDark = Brush(0xFF4DA3FF), VisitedLight = Brush(0xFFFFE3BF), VisitedDark = Brush(0xFF4A3A22),
-        VisitedBorder = Brush(0xFFE08A2E), StartFill = Brush(0xFF2EA043), EndFill = Brush(0xFFE08A2E), HaloLight = Brush(0xC0FFFFFF), HaloDark = Brush(0xC0101A26);
+        VisitedBorder = Brush(0xFFE08A2E), StartFill = Brush(0xFF2EA043), EndFill = Brush(0xFFE08A2E), BlockedFill = Brush(0xFFE0383E), HaloLight = Brush(0xC0FFFFFF), HaloDark = Brush(0xC0101A26);
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -270,7 +289,7 @@ public sealed class MapView : FrameworkElement
         var markers = Markers();
         foreach (var (stop, at) in markers)
         {
-            var fill = stop.Kind switch { StopKind.Start => StartFill, StopKind.End => EndFill, _ => route };
+            var fill = stop.Kind switch { StopKind.Start => StartFill, StopKind.End => EndFill, StopKind.Blocked => BlockedFill, _ => route };
             if (stop.Label.Length == 0)
             {
                 dc.DrawEllipse(fill, new Pen(dark ? HaloDark : Brushes.White, 1.5), at, 5.5, 5.5);
@@ -358,6 +377,13 @@ public sealed class MapView : FrameworkElement
         Focus();
         if (e.ClickCount == 2)
         {
+            if (StopDoubleClicked != null && StopAt(e.GetPosition(this)) is { } stop)
+            {
+                CloseTip();
+                StopDoubleClicked(stop);
+                e.Handled = true;
+                return;
+            }
             ZoomAt(e.GetPosition(this), 2);
             e.Handled = true;
             return;
@@ -396,16 +422,7 @@ public sealed class MapView : FrameworkElement
             InvalidateVisual();
             return;
         }
-        // Zuerst der oberste Punkt, auf dessen sichtbarer Fläche die Maus steht; sonst der nächste im Umkreis von 13 Pixeln.
-        MapStop? hit = null, near = null;
-        var best = 13.0;
-        foreach (var (stop, at) in Markers())
-        {
-            var d = (at - pos).Length;
-            if (d <= (stop.Label.Length == 0 ? 6.5 : 12)) hit = stop; // die zuletzt gezeichnete liegt oben
-            if (d <= best) { best = d; near = stop; }
-        }
-        hit ??= near;
+        var hit = StopAt(pos);
         if (hit == null) { CloseTip(); return; }
         if (hit != _tipFor)
         {
@@ -416,6 +433,20 @@ public sealed class MapView : FrameworkElement
         _tip.HorizontalOffset = pos.X + 16;
         _tip.VerticalOffset = pos.Y + 18;
         _tip.IsOpen = true;
+    }
+
+    /// <summary>Zuerst der oberste Punkt, auf dessen sichtbarer Fläche die Maus steht; sonst der nächste im Umkreis von 13 Pixeln.</summary>
+    private MapStop? StopAt(Point pos)
+    {
+        MapStop? hit = null, near = null;
+        var best = 13.0;
+        foreach (var (stop, at) in Markers())
+        {
+            var d = (at - pos).Length;
+            if (d <= (stop.Label.Length == 0 ? 6.5 : 12)) hit = stop; // die zuletzt gezeichnete liegt oben
+            if (d <= best) { best = d; near = stop; }
+        }
+        return hit ?? near;
     }
 
     protected override void OnMouseLeave(MouseEventArgs e) => CloseTip();

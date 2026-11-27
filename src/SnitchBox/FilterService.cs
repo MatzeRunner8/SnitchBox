@@ -724,6 +724,7 @@ internal sealed unsafe class FilterService : IProcessLookup, IDisposable
                     perPath[path] = (sum.Down + b.Down, sum.Up + b.Up);
                 }
                 _engine?.Traffic.Commit(perPath.Select(p => (p.Key, p.Value.Down, p.Value.Up)), seconds);
+                _engine?.Daily.Add(DateOnly.FromDateTime(DateTime.Now), perPath.Select(p => (p.Key, p.Value.Down, p.Value.Up)));
                 // Vormerkungen zum Trennen aufräumen (sonst blieben getrennte Verbindungen für immer stehen); bei abgeschaltetem
                 // Filter alle verwerfen – dann wird nichts getrennt.
                 if (_killPending > 0)
