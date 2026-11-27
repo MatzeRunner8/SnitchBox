@@ -1,0 +1,8 @@
+<Project>
+  <!-- Gemeinsame Einstellungen aller Projekte (SnitchBox, SnitchBox.Core, Tests). -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <!-- Keine lokalen Pfade (Benutzername, Ordner) in den veröffentlichten Dateien: Quell- und PDB-Pfade abbilden. -->
+    <PathMap>$(MSBuildThisFileDirectory)=X:\SnitchBox\</PathMap>
+  </PropertyGroup>
+</Project>
