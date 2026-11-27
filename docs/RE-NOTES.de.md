@@ -629,6 +629,11 @@ Wunsch des Nutzers: Punkte 1–3 der Liste fehlender Funktionen.
   Sommerzeit verschob die Grenze für Prozessnummern, und die Grenze der Zeilen war nicht durch einen Test gesichert.
 - 38 neue Kern-Tests (441 insgesamt), 32 neue Texte in allen 12 Sprachen.
 
+## Build 44 – Ko-fi-Knopf in der Kopfzeile
+Wunsch des Nutzers: den Ko-fi-Knopf dauerhaft sichtbar machen. Er steht jetzt in der Kopfzeile hinter „Profil“ (vorher in den
+Einstellungen neben der Sprache). Nur wenn das Fenster so schmal ist, dass der Zustand rechts (etwa „Treiber läuft nicht“) keinen Platz mehr
+hätte, tritt der Knopf zurück; gerechnet wird ohne den Knopf selbst, damit nichts hin und her springt. Keine neuen Texte.
+
 ## Offen
 - SNI-Auswertung bei DoH.
 - Bewusst nicht umgesetzt (Entscheidung des Nutzers): Schutz ohne laufendes SnitchBox (dauerhafte WFP-Filter beim Hochfahren).

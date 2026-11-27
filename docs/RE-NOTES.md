@@ -599,6 +599,11 @@ User request: points 1–3 of the list of missing features.
   the row boundary was not pinned by a test.
 - 38 new core tests (441 in total), 32 new texts in all 12 languages.
 
+## Build 44 – Ko-fi button in the header
+User request: keep the Ko-fi button visible at all times. It now sits in the header after “Profile” (before, it was in the settings next to
+the language). Only when the window is so narrow that the status on the right (e.g. “Driver not running”) would no longer fit does the
+button step aside; the calculation leaves the button itself out, so nothing flips back and forth. No new texts.
+
 ## Open
 - SNI evaluation with DoH.
 - Deliberately not implemented (user’s decision): protection while SnitchBox is not running (persistent WFP filters at boot time).

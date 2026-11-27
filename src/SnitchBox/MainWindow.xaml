@@ -13,8 +13,8 @@
     <DockPanel Margin="14,10,14,14">
         <!-- Kopfzeile: Filter, Betriebsart, Profil, Zustand -->
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-        <DockPanel LastChildFill="True">
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+        <DockPanel x:Name="HeaderBar" LastChildFill="True" SizeChanged="Header_SizeChanged">
+            <StackPanel x:Name="HeaderLeft" Orientation="Horizontal" DockPanel.Dock="Left" SizeChanged="Header_SizeChanged">
                 <CheckBox x:Name="FilterSwitch" Content="{l:L de='Netzwerkfilter', en='Network Filter'}" VerticalAlignment="Center" Click="FilterSwitch_Click"/>
                 <TextBlock Text="{l:L de='Modus', en='Mode'}" VerticalAlignment="Center" Margin="22,0,8,0" Style="{StaticResource Dim}"/>
                 <ComboBox x:Name="ModeBox" Width="270" VerticalAlignment="Center" SelectionChanged="ModeBox_SelectionChanged">
@@ -30,6 +30,13 @@
                 </ComboBox>
                 <TextBlock Text="{l:L de='Profil', en='Profile'}" VerticalAlignment="Center" Margin="22,0,8,0" Style="{StaticResource Dim}"/>
                 <ComboBox x:Name="ProfileBox" Width="170" VerticalAlignment="Center" SelectionChanged="ProfileBox_SelectionChanged"/>
+                <!-- Ko-fi, immer sichtbar: Das Bild ist eingebettet (nichts wird aus dem Netz geladen); erst der Klick öffnet die Seite,
+                     im Browser mit den Rechten des Benutzers (DesktopShell). -->
+                <Button x:Name="KofiButton" Style="{StaticResource ImageButton}" Click="Kofi_Click" Margin="18,0,0,0" VerticalAlignment="Center"
+                        AutomationProperties.Name="Buy me a coffee (Ko-fi)"
+                        ToolTip="{l:L de='SnitchBox ist kostenlos. Wenn es dir gefällt, kannst du mir über Ko-fi einen Kaffee spendieren – der Knopf öffnet die Seite im Browser.', en='SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.'}">
+                    <Image Source="kofi.png" Height="28" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Button>
             </StackPanel>
             <Border x:Name="StatusPill" Style="{StaticResource Badge}" HorizontalAlignment="Right" Padding="12,4,12,5" CornerRadius="13" Margin="16,0,0,0">
                 <TextBlock x:Name="StatusText" Style="{StaticResource BadgeText}" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
@@ -365,12 +372,6 @@
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <TextBlock Text="{l:L de='Sprache', en='Language'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <ComboBox x:Name="LanguageBox" MinWidth="220" SelectionChanged="LanguageBox_SelectionChanged"/>
-                            <!-- Ko-fi: Das Bild ist eingebettet; erst der Klick öffnet die Seite, im Browser mit den Rechten des Benutzers (DesktopShell). -->
-                            <Button Style="{StaticResource ImageButton}" Click="Kofi_Click" Margin="18,0,0,0" VerticalAlignment="Center"
-                                    AutomationProperties.Name="Buy me a coffee (Ko-fi)"
-                                    ToolTip="{l:L de='SnitchBox ist kostenlos. Wenn es dir gefällt, kannst du mir über Ko-fi einen Kaffee spendieren – der Knopf öffnet die Seite im Browser.', en='SnitchBox is free. If you like it, you can buy me a coffee on Ko-fi – the button opens the page in your browser.'}">
-                                <Image Source="kofi.png" Height="30" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                            </Button>
                         </StackPanel>
 
                         <TextBlock Style="{StaticResource Section}" Text="{l:L de='Profile', en='Profiles'}"/>
