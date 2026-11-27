@@ -678,8 +678,8 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && L(WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\resources\cowork-svc.exe") == "Claude · cowork-svc.exe"
           && R(WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\resources\cowork-svc.exe") == AppRole.Helper,
         "Claude (Store) samt Hilfsprogrammen erkannt, auch als Muster");
-    Check(L(@"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe") == "Claude Code"
-          && L(@"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe") == "Claude Code"
+    Check(L(@"C:\Users\Max\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe") == "Claude Code"
+          && L(@"C:\Users\Max\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\*\*\claude.exe") == "Claude Code"
           && R(@"C:\Users\x\.local\bin\claude.exe") == AppRole.CommandLine
           && L(@"C:\Users\x\AppData\Local\AnthropicClaude\Update.exe") == "Claude · Updater (Update.exe)",
         "Claude Code (Kommandozeile) und der Updater der älteren Claude-Fassung erkannt");
@@ -728,11 +728,11 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     Check(RuleSet.Build(appRules, "boot").Evaluate(appConn, now).Action == null, "die Erkennung ändert nicht, welche Regel greift");
 
     KnownApps.Configure(@"C:\Program Files", @"C:\Program Files (x86)", @"C:\ProgramData", [@"R:\Temp", @"C:\Windows\Temp", @"C:\"], @"C:\Windows");
-    const string Code = @"C:\Users\Justman\AppData\Local\Programs\Microsoft VS Code\";
+    const string Code = @"C:\Users\Max\AppData\Local\Programs\Microsoft VS Code\";
     Check(L(Code + "Code.exe") == "Visual Studio Code"
           && L(Code + @"e646868227\tools\inno_updater.exe") == "Visual Studio Code · Updater (inno_updater.exe)"
           && L(Code + @"bin\copilot-shim\copilot.exe") == "Visual Studio Code · copilot.exe"
-          && L(@"C:\Users\Justman\.vscode\extensions\rust-lang.rust-analyzer-0.3.3105-win32-x64\server\rust-analyzer.exe") == "Visual Studio Code · rust-analyzer.exe"
+          && L(@"C:\Users\Max\.vscode\extensions\rust-lang.rust-analyzer-0.3.3105-win32-x64\server\rust-analyzer.exe") == "Visual Studio Code · rust-analyzer.exe"
           && R(@"R:\Temp\vscode-stable-user-x64\CodeSetup-stable-1.106.0.exe") == AppRole.Updater
           && L(@"C:\Program Files\Microsoft VS Code\Code.exe") == "Visual Studio Code"
           && L(@"C:\Users\x\AppData\Local\Programs\Microsoft VS Code Insiders\Code - Insiders.exe") == "Visual Studio Code Insiders",
@@ -774,7 +774,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
           && L(WA + @"Microsoft.OutlookForWindows_*_x64__8wekyb3d8bbwe\olkBg.exe") == "Microsoft Outlook · olkBg.exe"
           && L(WA + @"MSTeams_*_x64__8wekyb3d8bbwe\ms-teams.exe") == "Microsoft Teams",
         "Office-Programme (Klick-und-Los und MSI), neues Outlook und Teams erkannt");
-    const string OD = @"C:\Users\Justman\AppData\Local\Microsoft\OneDrive\";
+    const string OD = @"C:\Users\Max\AppData\Local\Microsoft\OneDrive\";
     Check(L(OD + "OneDrive.exe") == "Microsoft OneDrive" && L(OD + "OneDriveStandaloneUpdater.exe") == "Microsoft OneDrive · Updater (OneDriveStandaloneUpdater.exe)"
           && R(OD + @"26.198.1011.0006\OneDriveSetup.exe") == AppRole.Updater
           && L(OD + @"26.198.1011.0006\FileCoAuth.exe") == "Microsoft OneDrive · FileCoAuth.exe"
@@ -861,16 +861,16 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     var roundTrip = new[]
     {
         WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\Claude.exe", WA + @"Claude_6.6395.0.0_x64__pzs8sxrjxfjjc\app\resources\cowork-svc.exe",
-        @"C:\Users\Justman\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe",
+        @"C:\Users\Max\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\claude-code\2.1.326\d31a4581af92\claude.exe",
         @"C:\Users\x\AppData\Local\AnthropicClaude\app-1.0.3218\claude.exe", WA + @"OpenAI.Codex_26.1111.9265.0_x64__2p2nqsd0c76g0\app\ChatGPT.exe",
         @"C:\Program Files\Google\Chrome\Application\157.0.8103.79\elevation_service.exe", @"C:\Program Files\Google\Chrome\Application\157.0.8103.79\Installer\setup.exe",
         @"C:\Program Files (x86)\Google\GoogleUpdater\159.0.8140.0\updater.exe", @"C:\Program Files (x86)\BraveSoftware\Update\1.3.361.151\BraveUpdateCore.exe",
         @"C:\Program Files (x86)\Microsoft\EdgeWebView\Application\157.0.4341.46\msedgewebview2.exe",
-        @"C:\Users\Justman\AppData\Local\Programs\Microsoft VS Code\e646868227\tools\inno_updater.exe",
+        @"C:\Users\Max\AppData\Local\Programs\Microsoft VS Code\e646868227\tools\inno_updater.exe",
         @"R:\Temp\vscode-stable-user-x64\CodeSetup-stable-1.106.0.exe", @"R:\Temp\vscode-insider-user-x64\CodeSetup-insider-1.107.0.exe",
         @"R:\Temp\obkz3fue.blc\resources\app\ServiceHub\Services\Microsoft.VisualStudio.Setup.Service\BackgroundDownload.exe",
         @"C:\Program Files\NordVPN\8.15.2.0\NordVPNApp.exe", @"C:\Program Files\Common Files\microsoft shared\ClickToRun\Updates\16.0.19328.20000\OfficeClickToRun.exe",
-        @"C:\Users\Justman\AppData\Local\Microsoft\OneDrive\26.198.1011.0006\OneDriveSetup.exe",
+        @"C:\Users\Max\AppData\Local\Microsoft\OneDrive\26.198.1011.0006\OneDriveSetup.exe",
         @"C:\Users\x\AppData\Local\Discord\app-1.0.9213\Discord.exe", @"C:\Users\x\AppData\Local\Discord\app-1.0.9213\modules\discord_hook-1\discord_hook\DiscordHookHelper64.exe",
         @"C:\Users\x\AppData\Local\DiscordPTB\app-1.0.1200\DiscordPTB.exe", @"C:\Users\x\AppData\Local\DiscordCanary\app-1.0.700\DiscordCanary.exe",
         @"C:\Users\x\AppData\Local\GitHubDesktop\app-3.5.2\GitHubDesktop.exe", WA + @"SpotifyAB.SpotifyMusic_1.275.582.0_x86__zpdnekdrzrea0\Spotify.exe",
@@ -884,7 +884,7 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
     AlertRules.TempRoots = [];
 
     // An Orten, die jeder Benutzer beschreiben kann, bleibt der Dateiname sichtbar; Herstellerprüfung über die Signatur.
-    const string DiscordUpdate = @"C:\Users\Justman\AppData\Local\Discord\Update.exe";
+    const string DiscordUpdate = @"C:\Users\Max\AppData\Local\Discord\Update.exe";
     Check(KnownApps.Of(DiscordUpdate)!.Writable && !KnownApps.Of(@"C:\Program Files\Google\Chrome\Application\chrome.exe")!.Writable
           && !KnownApps.Of(WA + @"Claude_*_x64__pzs8sxrjxfjjc\app\claude.exe")!.Writable && KnownApps.Of(@"C:\Tools\GitHubCLI\bin\gh.exe")!.Writable
           && L(@"C:\NVIDIA\DisplayDriver\610.88\evil.exe") == "NVIDIA · Updater (evil.exe)"
@@ -901,16 +901,16 @@ Check(dnsRule.Remote == RemoteKind.DnsServers && LsRules.Parse(LsRules.Export("x
         "alternativer Datenstrom („…:evil.exe“) ist keine bekannte App");
     Check(R(@"D:\SteamLibrary\steamapps\common\Steamworks Shared\_CommonRedist\x.exe") == AppRole.Helper, "Steamworks Shared ist kein Spiel");
 
-    const string DC = @"C:\Users\Justman\AppData\Local\Discord\";
+    const string DC = @"C:\Users\Max\AppData\Local\Discord\";
     Check(L(DC + "Update.exe") == "Discord · Updater (Update.exe)" && R(DC + "Update.exe") == AppRole.Updater
           && L(DC + @"app-1.0.9213\Discord.exe") == "Discord" && L(DC + @"app-*\Discord.exe") == "Discord"
           && L(DC + @"app-1.0.9213\modules\discord_hook-1\discord_hook\DiscordHookHelper64.exe") == "Discord · DiscordHookHelper64.exe"
           && L(@"C:\Users\x\AppData\Local\DiscordPTB\app-1.0.1200\DiscordPTB.exe") == "Discord PTB"
           && L(@"C:\Users\x\AppData\Local\DiscordCanary\Update.exe") == "Discord Canary · Updater (Update.exe)",
         "Discord (auch PTB und Canary): App im Versionsordner, Squirrel-Updater, Module");
-    Check(L(@"C:\Users\Justman\AppData\Roaming\Spotify\Spotify.exe") == "Spotify"
-          && L(@"C:\Users\Justman\AppData\Roaming\Spotify\SpotifyMigrator.exe") == "Spotify · SpotifyMigrator.exe"
-          && R(@"C:\Users\Justman\AppData\Local\Spotify\Update\SpotifyUpdate.exe") == AppRole.Updater
+    Check(L(@"C:\Users\Max\AppData\Roaming\Spotify\Spotify.exe") == "Spotify"
+          && L(@"C:\Users\Max\AppData\Roaming\Spotify\SpotifyMigrator.exe") == "Spotify · SpotifyMigrator.exe"
+          && R(@"C:\Users\Max\AppData\Local\Spotify\Update\SpotifyUpdate.exe") == AppRole.Updater
           && L(WA + @"SpotifyAB.SpotifyMusic_1.275.582.0_x86__zpdnekdrzrea0\Spotify.exe") == "Spotify"
           && L(WA + @"SpotifyAB.SpotifyMusic_*_x86__zpdnekdrzrea0\SpotifyStartupTask.exe") == "Spotify · SpotifyStartupTask.exe",
         "Spotify: klassisch (Roaming), Update-Ordner, Store-App");
